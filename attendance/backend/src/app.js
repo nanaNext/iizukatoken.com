@@ -112,6 +112,7 @@ app.get('/api/chatbot/categories', async (req, res) => {
   try {
     await chatbotRepo.init();
     await chatbotRepo.ensureSeedCategories();
+    await chatbotRepo.ensureSeedFaqs();
     const rows = await chatbotRepo.getCategories();
     res.status(200).json(rows);
   } catch (err) {

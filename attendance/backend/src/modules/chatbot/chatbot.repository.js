@@ -56,6 +56,32 @@ async function ensureSeedCategories() {
   }
 }
 
+async function ensureSeedFaqs() {
+  const [cntRows] = await db.query('SELECT COUNT(1) AS c FROM chatbot_faq');
+  const c = cntRows?.[0]?.c || 0;
+  if (c > 0) return;
+  const [cats] = await db.query('SELECT id, code FROM chatbot_categories');
+  const byCode = {};
+  for (const cat of cats) byCode[cat.code] = cat.id;
+  const items = [
+    { code: 'attendance', q: '出退勤の打刻方法は？', a: 'アプリの勤怠ページで出勤/退勤ボタンを押してください。' },
+    { code: 'attendance', q: '休暇申請の手順は？', a: '勤怠メニューの休暇申請から申請し、上長承認を待ってください。' },
+    { code: 'expense_settlement', q: '交通費の申請方法は？', a: '経費計算メニューで「交通費」を選択し領収書を添付してください。' },
+    { code: 'human_resources', q: '住所変更の届け出は？', a: '人事メニューの「個人情報更新」から申請してください。' },
+    { code: 'employment_conditions', q: '就労時間の上限は？', a: '就労条件に基づき、法定労働時間内での勤務をお願いします。' },
+    { code: 'payroll_insurance_taxes', q: '源泉徴収票を確認できますか？', a: '給与・保険・税金メニューでダウンロード可能です。' },
+    { code: 'year_end_tax_adjustment', q: '年末調整の提出期限は？', a: '毎年11月末までに必要書類をアップロードしてください。' }
+  ];
+  for (const it of items) {
+    const catId = byCode[it.code];
+    if (!catId) continue;
+    await db.query(
+      'INSERT INTO chatbot_faq (category_id, question, answer, popularity, status) VALUES (?,?,?,?,?)',
+      [catId, it.q, it.a, 10, 'active']
+    );
+  }
+}
+
 async function getCategories() {
   const [rows] = await db.query('SELECT id, code, name_ja, name_en FROM chatbot_categories ORDER BY id ASC');
   return rows;
@@ -110,6 +136,7 @@ async function adminDeleteFaq(id) {
 module.exports = {
   init,
   ensureSeedCategories,
+  ensureSeedFaqs,
   getCategories,
   listQuestions,
   getAnswerById,

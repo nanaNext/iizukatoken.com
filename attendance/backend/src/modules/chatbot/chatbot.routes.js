@@ -12,6 +12,7 @@ router.get('/categories', async (req, res) => {
   try {
     await repo.init();
     await repo.ensureSeedCategories();
+    await repo.ensureSeedFaqs();
     const rows = await repo.getCategories();
     res.status(200).json(rows);
   } catch (err) {
