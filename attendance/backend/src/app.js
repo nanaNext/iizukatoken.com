@@ -223,6 +223,9 @@ app.get('/ui-check', (req, res) => {
   const file = path.join(__dirname, 'static', 'html', 'login.html');
   res.status(200).json({ exists: fs.existsSync(file), file });
 });
+app.get('/static/css/base.css', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'css', 'base.css')); });
+app.get('/static/js/pages/login.page.js', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'js', 'pages', 'login.page.js')); });
+app.get('/static/js/api/auth.api.js', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'js', 'api', 'auth.api.js')); });
 app.get('/ui/attendance', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'attendance.html')); });
 app.get('/ui/admin', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'admin.html')); });
 app.get('/ui/overtime', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'overtime.html')); });
