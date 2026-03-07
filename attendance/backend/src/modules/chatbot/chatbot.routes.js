@@ -54,6 +54,15 @@ router.post('/search', async (req, res) => {
   }
 });
 
+router.get('/debug/faqs', async (req, res) => {
+  try {
+    const [rows] = await require('../../core/database/mysql').query('SELECT id, category_id, question, popularity, status FROM chatbot_faq ORDER BY id ASC LIMIT 50');
+    res.status(200).json(rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.post('/question', async (req, res) => {
   try {
     const categoryId = req.body?.categoryId ? parseInt(String(req.body.categoryId), 10) : null;
