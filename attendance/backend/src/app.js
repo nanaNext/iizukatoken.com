@@ -213,6 +213,7 @@ app.use('/uploads/payslips', (req, res) => {
 // Serve other static uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store'); } }));
 app.use('/static', express.static(path.join(__dirname, 'static'), { setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store'); } }));
+app.use('/ui', express.static(path.join(__dirname, 'static', 'html'), { setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store'); } }));
 app.get('/ui/login', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'login.html')); });
 app.get('/login', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'login.html')); });
 app.get('/ui/attendance', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'attendance.html')); });
