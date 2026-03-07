@@ -14,6 +14,7 @@ const db = require('../core/database/mysql');
 const payslipRoutes = require('../modules/payslip/payslip.routes');
 const { authenticate, authorize } = require('../core/middleware/authMiddleware');
 const employeeRoutes = require('../modules/employee/employee.routes');
+const chatbotRoutes = require('../modules/chatbot/chatbot.routes');
 
 module.exports = function(app) {
   console.log('Mounting API routes...');
@@ -42,6 +43,7 @@ module.exports = function(app) {
   app.use('/api/salary', salaryRoutes);
   app.use('/api/payslips', payslipRoutes);
   app.use('/api/employee', employeeRoutes);
+  app.use('/api/chatbot', chatbotRoutes);
   app.get('/api/debug/routes', (req, res) => {
     try {
       const stack = (app._router?.stack || []);
