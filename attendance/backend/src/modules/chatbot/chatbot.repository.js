@@ -82,6 +82,25 @@ async function ensureSeedFaqs() {
   }
 }
 
+async function seedFaqsForce() {
+  const [cats] = await db.query('SELECT id, code FROM chatbot_categories');
+  const byCode = {};
+  for (const cat of cats) byCode[cat.code] = cat.id;
+  const items = [
+    { code: 'attendance', q: '出退勤の打刻方法は？', a: 'アプリの勤怠ページで出勤/退勤ボタンを押してください。' },
+    { code: 'attendance', q: '休暇申請の手順は？', a: '勤怠メニューの休暇申請から申請し、上長承認を待ってください。' },
+    { code: 'expense_settlement', q: '交通費の申請方法は？', a: '経費計算メニューで「交通費」を選択し領収書を添付してください。' }
+  ];
+  for (const it of items) {
+    const catId = byCode[it.code];
+    if (!catId) continue;
+    const [existsRows] = await db.query('SELECT COUNT(1) AS c FROM chatbot_faq WHERE category_id = ? AND question = ?', [catId, it.q]);
+    const exists = existsRows?.[0]?.c || 0;
+    if (exists === 0) {
+      await db.query('INSERT INTO chatbot_faq (category_id, question, answer, popularity, status) VALUES (?,?,?,?,?)', [catId, it.q, it.a, 10, 'active']);
+    }
+  }
+}
 async function getCategories() {
   const [rows] = await db.query('SELECT id, code, name_ja, name_en FROM chatbot_categories ORDER BY id ASC');
   return rows;
@@ -137,6 +156,7 @@ module.exports = {
   init,
   ensureSeedCategories,
   ensureSeedFaqs,
+  seedFaqsForce,
   getCategories,
   listQuestions,
   getAnswerById,

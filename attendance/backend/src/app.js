@@ -170,6 +170,16 @@ app.get('/api/chatbot/debug/faqs', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+app.post('/api/chatbot/dev/seed', async (req, res) => {
+  try {
+    await chatbotRepo.init();
+    await chatbotRepo.ensureSeedCategories();
+    await chatbotRepo.seedFaqsForce();
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 app.get('/ping', (req, res) => {
   res.status(200).json({ ok: true });
 });
