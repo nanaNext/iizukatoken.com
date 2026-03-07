@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Đăng nhập</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .container { max-width: 420px; margin: 32px auto; padding: 16px; }
+    .card { border: 1px solid #eee; border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+    .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    label { font-size: 14px; color: #333; }
+    input { padding: 10px 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; width: 100%; }
+    .row-inline { display: flex; gap: 8px; align-items: center; }
+    button { padding: 10px 12px; border-radius: 6px; border: none; background: #1976d2; color: #fff; font-weight: 600; width: 100%; }
+    button.secondary { background: #666; }
+    #error { display:none; color:#b00020; margin-bottom:8px; }
+    #success { color:#2e7d32; margin-top:8px; }
+    @media (max-width: 480px) {
+      .container { margin: 16px; }
+    }
+  </style>
+  <link rel="preload" href="/static/js/pages/login.page.js" as="script">
+  <script type="module" src="/static/js/pages/login.page.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1 style="text-align:center;margin-bottom:12px;">Đăng nhập hệ thống</h1>
+    <div class="card">
+      <div id="error"></div>
+      <form id="loginForm">
+        <div class="form-row">
+          <label for="email">Email</label>
+          <input id="email" type="email" placeholder="you@example.com" autocomplete="username" required>
+        </div>
+        <div class="form-row">
+          <label for="password">Mật khẩu</label>
+          <div class="row-inline">
+            <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" required>
+            <button type="button" id="togglePassword" class="secondary" style="width:auto;">Hiện</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <button type="submit">Đăng nhập</button>
+        </div>
+        <div id="success"></div>
+      </form>
+    </div>
+    <p style="text-align:center;margin-top:12px;">
+      Xem tài liệu API tại <a href="/api-docs">/api-docs</a>
+    </p>
+  </div>
+</body>
+</html>
