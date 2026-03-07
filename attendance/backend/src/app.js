@@ -218,6 +218,7 @@ app.get('/ui/attendance', (req, res) => { res.sendFile(path.join(__dirname, 'sta
 app.get('/ui/admin', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'admin.html')); });
 app.get('/ui/overtime', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'overtime.html')); });
 app.get('/ui/salary', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'salary.html')); });
+app.get('/ui/chatbot', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'chatbot.html')); });
 app.get('/api/metrics', (req, res) => {
   try {
     const m = require('./core/metrics').snapshot();
