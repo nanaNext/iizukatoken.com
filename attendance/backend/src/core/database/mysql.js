@@ -1,9 +1,5 @@
 const mysql = require('mysql2/promise');
-try {
-  if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_PASS) {
-    require('dotenv').config();
-  }
-} catch {}
+require('../../config/loadEnv');
 // Khởi tạo pool kết nối MySQL dùng mysql2 (promise)
 
 const pool = mysql.createPool({
