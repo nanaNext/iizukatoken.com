@@ -217,6 +217,11 @@ app.use('/ui', express.static(path.join(__dirname, 'static', 'html'), { setHeade
 app.use('/', express.static(path.join(__dirname, 'static', 'html'), { setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store'); } }));
 app.get('/ui/login', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'login.html')); });
 app.get('/login', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'login.html')); });
+app.get('/ui-check', (req, res) => {
+  const fs = require('fs');
+  const file = path.join(__dirname, 'static', 'html', 'login.html');
+  res.status(200).json({ exists: fs.existsSync(file), file });
+});
 app.get('/ui/attendance', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'attendance.html')); });
 app.get('/ui/admin', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'admin.html')); });
 app.get('/ui/overtime', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'overtime.html')); });
