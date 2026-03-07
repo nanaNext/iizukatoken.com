@@ -119,6 +119,49 @@ app.get('/api/chatbot/categories', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+app.get('/api/chatbot/questions', async (req, res) => {
+  try {
+    const categoryId = parseInt(String(req.query.categoryId || ''), 10);
+    if (!categoryId) return res.status(400).json({ message: 'Missing categoryId' });
+    const rows = await chatbotRepo.listQuestions(categoryId);
+    res.status(200).json(rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+app.get('/api/chatbot/answer/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ message: 'Missing id' });
+    const row = await chatbotRepo.getAnswerById(id);
+    if (!row) return res.status(404).json({ message: 'Not found' });
+    res.status(200).json(row);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+app.post('/api/chatbot/search', async (req, res) => {
+  try {
+    const text = String((req.body?.text ?? req.query?.text) || '').trim();
+    if (!text) return res.status(400).json({ message: 'Missing text' });
+    const rows = await chatbotRepo.search(text);
+    res.status(200).json(rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+app.post('/api/chatbot/question', async (req, res) => {
+  try {
+    const categoryId = req.body?.categoryId ? parseInt(String(req.body.categoryId), 10) : null;
+    const question = String((req.body?.question ?? req.query?.question) || '').trim();
+    if (!question) return res.status(400).json({ message: 'Missing question' });
+    const userId = req.user?.id || null;
+    const r = await chatbotRepo.submitQuestion(userId, categoryId, question);
+    res.status(201).json(r);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 app.get('/ping', (req, res) => {
   res.status(200).json({ ok: true });
 });
