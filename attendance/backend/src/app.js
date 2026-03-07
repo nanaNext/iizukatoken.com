@@ -107,6 +107,17 @@ const routes = require('./routes');
 routes(app);
 const chatbotRoutes = require('./modules/chatbot/chatbot.routes');
 app.use('/api/chatbot', chatbotRoutes);
+const chatbotRepo = require('./modules/chatbot/chatbot.repository');
+app.get('/api/chatbot/categories', async (req, res) => {
+  try {
+    await chatbotRepo.init();
+    await chatbotRepo.ensureSeedCategories();
+    const rows = await chatbotRepo.getCategories();
+    res.status(200).json(rows);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 app.get('/ping', (req, res) => {
   res.status(200).json({ ok: true });
 });
