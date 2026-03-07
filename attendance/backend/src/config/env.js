@@ -1,5 +1,6 @@
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+if (process.env.NODE_ENV !== 'production') {
+  try { require('dotenv').config(); } catch {}
+}
 
 module.exports = {
   port: process.env.PORT,

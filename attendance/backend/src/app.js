@@ -1,5 +1,8 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const crypto = require('crypto');
+if (process.env.NODE_ENV !== 'production') {
+  try { require('dotenv').config(); } catch {}
+}
 const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -8,12 +11,13 @@ const cookieParser = require('cookie-parser');
 const security = require('./core/middleware/security');
 
 const app = express();
+app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS || '1', 10));
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors());
 security(app);
 app.use((req, res, next) => {
-  req.id = (Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2)).slice(0, 16);
+  req.id = crypto.randomUUID();
   res.setHeader('X-Request-ID', req.id);
   next();
 });
@@ -35,18 +39,26 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-  const csp = [
+  const cspItems = [
     process.env.CSP_DEFAULT_SRC || "default-src 'self'",
     process.env.CSP_IMG_SRC || "img-src 'self' data:",
     process.env.CSP_STYLE_SRC || "style-src 'self' 'unsafe-inline'",
     process.env.CSP_SCRIPT_SRC || "script-src 'self'",
     process.env.CSP_OBJECT_SRC || "object-src 'none'",
-    process.env.CSP_FRAME_ANCESTORS || "frame-ancestors 'none'"
-  ].join('; ');
-  res.setHeader('Content-Security-Policy', csp);
+    process.env.CSP_FRAME_ANCESTORS || "frame-ancestors 'none'",
+    process.env.CSP_CONNECT_SRC || "connect-src 'self'",
+    process.env.CSP_BASE_URI || "base-uri 'self'",
+    process.env.CSP_FORM_ACTION || "form-action 'self'",
+    process.env.CSP_FRAME_SRC || "frame-src 'self'"
+  ];
+  const csp = cspItems.join('; ');
+  const cspHeader = String(process.env.CSP_REPORT_ONLY || '').toLowerCase() === 'true'
+    ? 'Content-Security-Policy-Report-Only'
+    : 'Content-Security-Policy';
+  res.setHeader(cspHeader, csp);
   const isHttps = req.secure || (req.headers['x-forwarded-proto'] || '').includes('https');
   const enableHsts = String(process.env.ENABLE_HSTS || '').toLowerCase() === 'true';
-  if (isHttps || enableHsts) {
+  if (isHttps && enableHsts) {
     res.setHeader('Strict-Transport-Security', process.env.HSTS_VALUE || 'max-age=31536000; includeSubDomains');
   }
   next();
@@ -75,7 +87,22 @@ const options = {
 
 const swaggerSpec = swaggerJsdoc(options);
 if (process.env.NODE_ENV !== 'production') {
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  const devCsp = [
+    "default-src 'self'",
+    "img-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' blob:",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "connect-src 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-src 'self'"
+  ].join('; ');
+  const devCspHeader = String(process.env.CSP_REPORT_ONLY || '').toLowerCase() === 'true'
+    ? 'Content-Security-Policy-Report-Only'
+    : 'Content-Security-Policy';
+  app.use('/api-docs', (req, res, next) => { res.setHeader(devCspHeader, devCsp); next(); }, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 }
 
 const routes = require('./routes');
@@ -108,7 +135,7 @@ app.use('/uploads/payslips', (req, res) => {
   res.status(403).json({ message: 'Use secureUrl endpoints to download payslips' });
 });
 // Serve other static uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store'); } }));
 app.get('/api/metrics', (req, res) => {
   try {
     const m = require('./core/metrics').snapshot();
