@@ -8,6 +8,18 @@ const bcrypt = require('bcrypt');
 const { bcryptRounds } = require('../../config/env');
 const refreshRepo = require('../auth/refresh.repository');
 
+router.get('/me',
+  authenticate,
+  authorize('employee','manager','admin'),
+  controller.meSelf
+);
+
+router.patch('/me',
+  authenticate,
+  authorize('employee','manager','admin'),
+  controller.updateMe
+);
+
 router.put('/change-password',
   authenticate,
   authorize('employee','manager','admin'),

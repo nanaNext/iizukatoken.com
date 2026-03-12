@@ -6,6 +6,7 @@ const { jwtSecretCurrent, bcryptRounds, accessTokenExpires, refreshTokenExpiresD
 const refreshRepo = require('./refresh.repository');
 const crypto = require('crypto');
 const userRepo = require('../users/user.repository');
+const auditRepo = require('../audit/audit.repository');
 // Controller xác thực: đăng ký và đăng nhập
 
 // Đăng ký tài khoản mới
@@ -51,6 +52,10 @@ exports.login = async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+    if (String(user.employment_status || 'active') !== 'active') {
+      try { await auditRepo.writeLog({ userId: user.id, action: 'login_block_inactive', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: null, afterData: JSON.stringify({ employment_status: user.employment_status }) }); } catch {}
+      return res.status(403).json({ message: 'Account inactive' });
+    }
     if (user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
       return res.status(423).json({ message: 'Account locked. Try later.' });
     }
@@ -76,9 +81,11 @@ exports.login = async (req, res) => {
     const rt = crypto.randomBytes(48).toString('base64url');
     const expires = new Date(Date.now() + refreshTokenExpiresDays * 24 * 60 * 60 * 1000);
     await refreshRepo.createToken({ userId: user.id, token: rt, expiresAt: expires.toISOString().slice(0,19).replace('T',' '), userAgent: req.headers['user-agent'], ip: req.ip });
+    const xfProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+    const isHttps = xfProto.includes('https') || (req.protocol === 'https');
     res.cookie('refreshToken', rt, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       sameSite: 'lax',
       maxAge: refreshTokenExpiresDays * 24 * 60 * 60 * 1000,
       path: '/api/auth'
@@ -86,7 +93,7 @@ exports.login = async (req, res) => {
     const csrf = crypto.randomBytes(24).toString('hex');
     res.cookie('csrfToken', csrf, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       sameSite: 'lax',
       maxAge: refreshTokenExpiresDays * 24 * 60 * 60 * 1000,
       path: '/'
@@ -99,6 +106,18 @@ exports.login = async (req, res) => {
       accessToken: token,
       refreshToken: rt
     });
+    try {
+      await auditRepo.writeLog({
+        userId: user.id,
+        action: 'login_success',
+        path: req.path,
+        method: req.method,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        beforeData: null,
+        afterData: JSON.stringify({ role })
+      });
+    } catch {}
     try { require('../../core/metrics').inc('login_success', 1); } catch {}
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -207,11 +226,19 @@ exports.refresh = async (req, res) => {
       return res.status(400).json({ message: 'Missing refreshToken' });
     }
     if (cookieRt) {
-      const csrfHeader = req.headers['x-csrf-token'];
-      const csrfCookie = req.cookies?.csrfToken;
-      if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
-        return res.status(403).json({ message: 'CSRF validation failed' });
-      }
+      try {
+        const origin = String(req.headers.origin || '');
+        const host = String(req.headers.host || '').toLowerCase();
+        const u = new URL(origin || `http://${host}`);
+        const sameHost = !!(host && u.host.toLowerCase() === host);
+        if (!sameHost) {
+          const csrfHeader = req.headers['x-csrf-token'];
+          const csrfCookie = req.cookies?.csrfToken;
+          if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
+            return res.status(403).json({ message: 'CSRF validation failed' });
+          }
+        }
+      } catch {}
     }
     const row = await refreshRepo.findToken(refreshToken);
     if (!row) {
@@ -243,14 +270,6 @@ exports.refresh = async (req, res) => {
       maxAge: refreshTokenExpiresDays * 24 * 60 * 60 * 1000,
       path: '/api/auth'
     });
-    const csrf = crypto.randomBytes(24).toString('hex');
-    res.cookie('csrfToken', csrf, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: refreshTokenExpiresDays * 24 * 60 * 60 * 1000,
-      path: '/'
-    });
     res.status(200).json({ accessToken: token, refreshToken: newRt });
     try { require('../../core/metrics').inc('token_refresh', 1); } catch {}
   } catch (err) {
@@ -266,11 +285,19 @@ exports.logout = async (req, res) => {
     const refreshToken = bodyRt || cookieRt;
     if (!refreshToken) return res.status(400).json({ message: 'Missing refreshToken' });
     if (cookieRt) {
-      const csrfHeader = req.headers['x-csrf-token'];
-      const csrfCookie = req.cookies?.csrfToken;
-      if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
-        return res.status(403).json({ message: 'CSRF validation failed' });
-      }
+      try {
+        const origin = String(req.headers.origin || '');
+        const host = String(req.headers.host || '').toLowerCase();
+        const u = new URL(origin || `http://${host}`);
+        const sameHost = !!(host && u.host.toLowerCase() === host);
+        if (!sameHost) {
+          const csrfHeader = req.headers['x-csrf-token'];
+          const csrfCookie = req.cookies?.csrfToken;
+          if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
+            return res.status(403).json({ message: 'CSRF validation failed' });
+          }
+        }
+      } catch {}
     }
     await refreshRepo.revokeToken(refreshToken);
     res.clearCookie('refreshToken', { path: '/api/auth' });

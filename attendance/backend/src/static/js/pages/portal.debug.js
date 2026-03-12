@@ -12,6 +12,6 @@ window.addEventListener('error', (e) => {
 window.addEventListener('DOMContentLoaded', () => {
   try {
     const st = document.querySelector('#status');
-    if (st) st.textContent = 'Ready';
+    if (st) st.textContent = '';
   } catch {}
 });

@@ -15,6 +15,16 @@ const salaryService = require('../salary/salary.service');
 router.use(authenticate);
 // Users
 router.get('/users', authorize('admin'), userCtrl.list);
+router.get('/users/:id', authorize('admin'), async (req, res) => {
+  try {
+    const id = req.params.id;
+    const row = await userRepo.getUserById(id);
+    if (!row) return res.status(404).json({ message: 'User not found' });
+    res.status(200).json(row);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 router.post('/users', async (req, res, next) => {
   try {
     await auditRepo.writeLog({ userId: req.user.id, action: 'admin_user_create', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: null, afterData: JSON.stringify(req.body || {}) });
@@ -39,6 +49,55 @@ router.delete('/users/:id', async (req, res, next) => {
   } catch {}
   next();
 }, authorize('admin'), userCtrl.remove);
+// Employees alias
+router.get('/employees', authorize('admin'), userCtrl.list);
+router.get('/employees/:id', authorize('admin'), async (req, res) => {
+  try {
+    const id = req.params.id;
+    const row = await userRepo.getUserById(id);
+    if (!row) return res.status(404).json({ message: 'User not found' });
+    res.status(200).json(row);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+router.post('/employees', async (req, res, next) => {
+  try {
+    await auditRepo.writeLog({ userId: req.user.id, action: 'admin_employee_create', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: null, afterData: JSON.stringify(req.body || {}) });
+  } catch {}
+  next();
+}, authorize('admin'), userCtrl.create);
+router.put('/employees/:id', async (req, res, next) => {
+  try {
+    const before = await userRepo.getUserById(req.params.id);
+    await auditRepo.writeLog({ userId: req.user.id, action: 'admin_employee_update', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify(before || {}), afterData: JSON.stringify(req.body || {}) });
+  } catch {}
+  next();
+}, authorize('admin'), userCtrl.update);
+router.patch('/employees/:id', async (req, res, next) => {
+  try {
+    const before = await userRepo.getUserById(req.params.id);
+    await auditRepo.writeLog({ userId: req.user.id, action: 'admin_employee_update', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify(before || {}), afterData: JSON.stringify(req.body || {}) });
+  } catch {}
+  next();
+}, authorize('admin'), userCtrl.update);
+router.delete('/employees/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const before = await userRepo.getUserById(id);
+    if (!before) return res.status(404).json({ message: 'User not found' });
+    const superEmail = process.env.SUPER_ADMIN_EMAIL;
+    if (before?.email === superEmail) {
+      return res.status(403).json({ message: 'Cannot deactivate SUPER_ADMIN user' });
+    }
+    await userRepo.updateUser(id, { employmentStatus: 'inactive' });
+    try { await require('../auth/refresh.repository').deleteUserTokens(id); } catch {}
+    try { await auditRepo.writeLog({ userId: req.user.id, action: 'admin_employee_deactivate', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify(before || {}), afterData: JSON.stringify({ employment_status: 'inactive' }) }); } catch {}
+    res.status(200).json({ id, status: 'inactive' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 router.patch('/users/:id/role', async (req, res, next) => {
   try {
     const before = await userRepo.getUserById(req.params.id);
@@ -68,6 +127,32 @@ router.patch('/users/:id/password', async (req, res, next) => {
   } catch {}
   next();
 }, authorize('admin'), userCtrl.setPassword);
+// Lock/Unlock tài khoản đăng nhập
+router.patch('/users/:id/lock', authorize('admin'), async (req, res) => {
+  try {
+    const id = req.params.id;
+    const minutes = parseInt((req.body?.minutes ?? 60), 10);
+    const user = await userRepo.getUserById(id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    await authRepo.lockUser(user.email, minutes);
+    try { await auditRepo.writeLog({ userId: req.user.id, action: 'admin_user_lock', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify({ id: user.id, email: user.email }), afterData: JSON.stringify({ minutes }) }); } catch {}
+    res.status(200).json({ id, locked: true, minutes });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+router.patch('/users/:id/unlock', authorize('admin'), async (req, res) => {
+  try {
+    const id = req.params.id;
+    const user = await userRepo.getUserById(id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    await authRepo.resetLock(user.email);
+    try { await auditRepo.writeLog({ userId: req.user.id, action: 'admin_user_unlock', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify({ id: user.id, email: user.email }), afterData: JSON.stringify({ unlocked: true }) }); } catch {}
+    res.status(200).json({ id, unlocked: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 // Departments
 router.use('/departments', authorize('admin'), deptRoutes);
 // Settings
@@ -111,6 +196,85 @@ router.get('/export/timesheet.csv', authorize('admin'), async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=\"timesheet.csv\"');
     res.status(200).send(csv);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+// Admin Home stats
+router.get('/home/stats', authorize('admin'), async (req, res) => {
+  try {
+    const db = require('../../core/database/mysql');
+    const [[{ c_checkin } = { c_checkin: 0 }]] = await db.query(`
+      SELECT COUNT(DISTINCT userId) AS c_checkin
+      FROM attendance
+      WHERE DATE(checkIn) = CURDATE()
+    `);
+    const [[{ c_pending } = { c_pending: 0 }]] = await db.query(`
+      SELECT COUNT(*) AS c_pending
+      FROM leave_requests
+      WHERE status = 'pending'
+    `);
+    const [[{ c_leave } = { c_leave: 0 }]] = await db.query(`
+      SELECT COUNT(*) AS c_leave
+      FROM leave_requests
+      WHERE status = 'approved'
+        AND CURDATE() BETWEEN startDate AND endDate
+    `);
+    const [[{ c_late } = { c_late: 0 }]] = await db.query(`
+      SELECT COUNT(*) AS c_late
+      FROM attendance a
+      LEFT JOIN user_shift_assignments s
+        ON s.userId = a.userId
+       AND s.start_date <= DATE(a.checkIn)
+       AND (s.end_date IS NULL OR s.end_date >= DATE(a.checkIn))
+      LEFT JOIN shift_definitions d
+        ON d.id = s.shiftId
+      WHERE DATE(a.checkIn) = CURDATE()
+        AND TIME(a.checkIn) > COALESCE(d.start_time, '09:00')
+    `);
+    res.status(200).json({
+      todayCheckin: Number(c_checkin || 0),
+      lateCount: Number(c_late || 0),
+      leaveCount: Number(c_leave || 0),
+      pendingCount: Number(c_pending || 0)
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+// Attendance admin: view timesheet and edit records
+router.get('/attendance/timesheet', authorize('admin'), async (req, res) => {
+  try {
+    const { userId, from, to } = req.query || {};
+    if (!userId || !from || !to) {
+      return res.status(400).json({ message: 'Missing userId/from/to' });
+    }
+    const r = await attendanceService.timesheet(userId, from, to);
+    res.status(200).json(r);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+router.get('/attendance/day', authorize('admin'), async (req, res) => {
+  try {
+    const { userId, date } = req.query || {};
+    if (!userId || !date) {
+      return res.status(400).json({ message: 'Missing userId/date' });
+    }
+    const rows = await attendanceRepo.listByUserBetween(userId, date, date);
+    res.status(200).json({ date, segments: rows });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+router.patch('/attendance/:id', authorize('admin'), async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { checkIn, checkOut } = req.body || {};
+    if (!id) return res.status(400).json({ message: 'Missing id' });
+    await attendanceRepo.updateTimes(id, checkIn || null, checkOut || null);
+    try { await auditRepo.writeLog({ userId: req.user.id, action: 'admin_attendance_update', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify({ id }), afterData: JSON.stringify({ checkIn, checkOut }) }); } catch {}
+    res.status(200).json({ id });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

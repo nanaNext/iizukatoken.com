@@ -1,7 +1,27 @@
 const db = require('../../core/database/mysql');
 
 module.exports = {
+  async ensureTable() {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        userId BIGINT UNSIGNED NULL,
+        action VARCHAR(64) NOT NULL,
+        path VARCHAR(255),
+        method VARCHAR(16),
+        ip VARCHAR(64),
+        userAgent VARCHAR(255),
+        beforeData TEXT,
+        afterData TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user (userId),
+        INDEX idx_action (action),
+        INDEX idx_created (created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  },
   async writeLog(data) {
+    await this.ensureTable();
     const sql = `
       INSERT INTO audit_logs (userId, action, path, method, ip, userAgent, beforeData, afterData)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -18,6 +38,7 @@ module.exports = {
     ]);
   },
   async listLogs({ userId, action, from, to, page = 1, pageSize = 50 }) {
+    await this.ensureTable();
     const where = [];
     const params = [];
     if (userId) { where.push('userId = ?'); params.push(userId); }

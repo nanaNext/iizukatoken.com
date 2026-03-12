@@ -3,6 +3,15 @@ const db = require('../../core/database/mysql');
 module.exports = {
   async ensureFlagsSchema() {
     try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS settings (
+          id INT PRIMARY KEY,
+          workStart CHAR(5) NULL,
+          workEnd CHAR(5) NULL,
+          breakMinutes INT NULL,
+          rounding VARCHAR(16) NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
       const [cols] = await db.query(`
         SELECT column_name 
         FROM information_schema.columns 
@@ -30,12 +39,14 @@ module.exports = {
     } catch {}
   },
   async getSettings() {
+    await this.ensureFlagsSchema();
     const sql = `SELECT * FROM settings LIMIT 1`;
     const [rows] = await db.query(sql);
     return rows[0];
   },
 
   async updateSettings(data) {
+    await this.ensureFlagsSchema();
     const sql = `
       UPDATE settings 
       SET workStart = ?, workEnd = ?, breakMinutes = ?, rounding = ?

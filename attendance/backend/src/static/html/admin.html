@@ -1,60 +1,137 @@
 <!doctype html>
 <html lang="ja">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>管理ポータル</title>
+  <style id="spinnerStyle">
+    .page-spinner{position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;z-index:3000}
+    .page-spinner[hidden]{display:none}
+    .dot-spinner{position:relative;width:64px;height:64px}
+    .dot-spinner div{position:absolute;top:50%;left:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#666;opacity:.2;animation:dotfade 1s linear infinite}
+    @keyframes dotfade{0%{opacity:1}100%{opacity:.2}}
+    .dot-spinner div:nth-child(1){transform:rotate(0deg) translate(24px);animation-delay:-0.92s}
+    .dot-spinner div:nth-child(2){transform:rotate(30deg) translate(24px);animation-delay:-0.84s}
+    .dot-spinner div:nth-child(3){transform:rotate(60deg) translate(24px);animation-delay:-0.76s}
+    .dot-spinner div:nth-child(4){transform:rotate(90deg) translate(24px);animation-delay:-0.68s}
+    .dot-spinner div:nth-child(5){transform:rotate(120deg) translate(24px);animation-delay:-0.60s}
+    .dot-spinner div:nth-child(6){transform:rotate(150deg) translate(24px);animation-delay:-0.52s}
+    .dot-spinner div:nth-child(7){transform:rotate(180deg) translate(24px);animation-delay:-0.44s}
+    .dot-spinner div:nth-child(8){transform:rotate(210deg) translate(24px);animation-delay:-0.36s}
+    .dot-spinner div:nth-child(9){transform:rotate(240deg) translate(24px);animation-delay:-0.28s}
+    .dot-spinner div:nth-child(10){transform:rotate(270deg) translate(24px);animation-delay:-0.20s}
+    .dot-spinner div:nth-child(11){transform:rotate(300deg) translate(24px);animation-delay:-0.12s}
+    .dot-spinner div:nth-child(12){transform:rotate(330deg) translate(24px);animation-delay:-0.04s}
+  </style>
   <link rel="stylesheet" href="/static/css/base.css">
   <link rel="stylesheet" href="/static/css/portal.css">
   <script type="module" src="/static/js/pages/admin.page.js"></script>
   <link rel="icon" href="data:,">
 </head>
-<body>
+
+<body class="admin">
+  <div id="pageSpinner" class="page-spinner"><div class="lds-spinner" aria-hidden="true"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div></div>
   <header class="topbar">
-    <div class="brand">
-      <span class="logo">飯塚塗研</span>
-      <span class="sub">管理ポータル</span>
-    </div>
-    <div class="search">
-      <input type="search" placeholder="Search..." aria-label="Search">
-    </div>
-    <div class="user">
-      <span id="userName"></span>
+    <button id="mobileMenuBtn" class="mobile-btn" aria-label="menu" aria-expanded="false" aria-controls="mobileDrawer">☰</button>
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="/static/images/izuk%20(1).png" alt="logo" class="icon">
+        <span class="logo">飯塚塗研</span>
+        <span class="sub">管理ポータル</span>
+      </div>
+      <div class="search">
+        <input type="search" placeholder="Search..." aria-label="Search">
+      </div>
+      <div class="user">
+        <div class="user-menu">
+          <button class="user-btn" aria-haspopup="true" aria-expanded="false">
+            <img src="/static/images/logoten.png" alt="user" class="user-icon">
+            <span id="userName"></span>
+            <span class="caret">▾</span>
+          </button>
+          <div class="dropdown" id="userDropdown" hidden>
+            <a href="/ui/portal" class="item">ホーム</a>
+            <a href="/ui/dashboard" class="item">現在の登録情報</a>
+            <a href="/ui/admin?tab=settings" class="item">各種設定</a>
+            <button class="item" id="btnLogout" type="button">ログアウト</button>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
+  <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+  <div id="mobileDrawer" class="mobile-drawer" hidden>
+    <div class="drawer-header">
+      <button id="mobileClose" class="mobile-close" aria-label="close">✕</button>
+    </div>
+    <a href="/ui/portal" class="drawer-item">ホーム</a>
+    <a href="/ui/leave" class="drawer-item">申請</a>
+    <a href="/ui/contact" class="drawer-item">お問い合わせ先</a>
+  </div>
+  <div class="subbar">
+    <nav class="subnav">
+      <a href="/ui/portal">ホーム</a>
+      <a href="/ui/leave">申請</a>
+      <a href="/ui/contact">お問い合わせ先</a>
+    </nav>
+  </div>
   <main class="content">
     <div id="status" style="margin-bottom:12px;color:#3a6ea5;font-weight:600;">Loading…</div>
     <div id="error" style="display:none;color:#b00020;font-weight:600;"></div>
-    <nav class="tabs" style="display:flex;gap:8px;margin-bottom:12px;">
-      <a href="/ui/admin?tab=users" id="tab-users" class="btn">ユーザー管理</a>
-      <a href="/ui/admin?tab=departments" id="tab-departments" class="btn">部門管理</a>
-      <a href="/ui/admin?tab=settings" id="tab-settings" class="btn">システム設定</a>
-      <a href="/ui/admin?tab=audit" id="tab-audit" class="btn">監査ログ</a>
-      <a href="/ui/admin?tab=refresh" id="tab-refresh" class="btn">トークン管理</a>
-    </nav>
+    
     <section id="adminContent" class="card"></section>
     <section class="tiles">
-      <a class="tile" href="/ui/attendance">
+      <a class="tile" href="/ui/employees">
+        <div class="icon">👤</div>
+        <div class="title">社員管理</div>
+      </a>
+      <a class="tile" href="/ui/admin?tab=users">
+        <div class="icon">👥</div>
+        <div class="title">ユーザー管理</div>
+      </a>
+      <a class="tile" href="/ui/admin?tab=departments">
+        <div class="icon">🏢</div>
+        <div class="title">部門管理</div>
+      </a>
+      <a class="tile" href="/ui/admin?tab=attendance">
         <div class="icon">⏱</div>
-        <div class="title">勤怠</div>
+        <div class="title">勤怠管理</div>
       </a>
-      <a class="tile" href="/ui/salary">
-        <div class="icon">¥</div>
-        <div class="title">給与</div>
+      <a class="tile" href="/ui/admin?tab=approvals">
+        <div class="icon">✅</div>
+        <div class="title">承認フロー</div>
       </a>
-      <a class="tile" href="/ui/adjust">
-        <div class="icon">🧾</div>
-        <div class="title">経費</div>
+      <a class="tile" href="/ui/admin?tab=reports">
+        <div class="icon">📊</div>
+        <div class="title">レポート</div>
       </a>
-      <a class="tile wide" href="/ui/chatbot">
-        <div class="title">サポートセンター</div>
-        <div class="arrow">›</div>
+      <a class="tile" href="/ui/admin?tab=settings">
+        <div class="icon">⚙️</div>
+        <div class="title">システム設定</div>
       </a>
-      <a class="tile wide" href="/ui/portal">
-        <div class="title">従業員ポータルへ</div>
-        <div class="arrow">›</div>
+      <a class="tile" href="/ui/admin?tab=audit">
+        <div class="icon">📝</div>
+        <div class="title">監査ログ</div>
+      </a>
+      <a class="tile" href="/ui/admin?tab=refresh">
+        <div class="icon">🔑</div>
+        <div class="title">トークン管理</div>
+      </a>
+      <a class="tile" href="/ui/admin?tab=calendar">
+        <div class="icon">📅</div>
+        <div class="title">カレンダー</div>
+      </a>
+      <a class="tile" href="/ui/admin?tab=shifts">
+        <div class="icon">🗓️</div>
+        <div class="title">シフト</div>
+      </a>
+      <a class="tile" href="/ui/admin?tab=routes">
+        <div class="icon">🔗</div>
+        <div class="title">API一覧</div>
       </a>
     </section>
   </main>
 </body>
+
 </html>

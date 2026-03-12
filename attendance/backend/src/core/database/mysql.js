@@ -11,7 +11,8 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: parseInt(process.env.DB_CONN_LIMIT || '10', 10),
   queueLimit: parseInt(process.env.DB_QUEUE_LIMIT || '0', 10),
-  dateStrings: true
+  dateStrings: true,
+  charset: 'utf8mb4'
 });
 
 // Kiểm tra kết nối DB khi khởi động server
@@ -20,6 +21,24 @@ const pool = mysql.createPool({
     const connection = await pool.getConnection();
     // Ping để đảm bảo DB sẵn sàng
     await connection.ping();
+    try {
+      const dbName = process.env.DB_NAME;
+      if (dbName) {
+        try { await connection.query(`ALTER DATABASE \`${dbName}\` CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci`); } catch {}
+        const [rows] = await connection.query(`
+          SELECT TABLE_NAME AS t, TABLE_COLLATION AS c
+          FROM information_schema.TABLES
+          WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'
+        `, [dbName]);
+        for (const r of rows || []) {
+          const coll = String(r.c || '');
+          if (!coll.startsWith('utf8mb4')) {
+            const t = String(r.t);
+            try { await connection.query(`ALTER TABLE \`${dbName}\`.\`${t}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci`); } catch {}
+          }
+        }
+      }
+    } catch {}
     console.log('✅ Kết nối MySQL thành công!');
     connection.release();
   } catch (err) {
@@ -44,6 +63,10 @@ pool.query = async function(...args) {
 const origGetConnection = pool.getConnection.bind(pool);
 pool.getConnection = async function() {
   const conn = await origGetConnection();
+  try {
+    await conn.query(`SET NAMES utf8mb4`);
+    try { await conn.query(`SET collation_connection = utf8mb4_0900_ai_ci`); } catch {}
+  } catch {}
   const origConnQuery = conn.query.bind(conn);
   conn.query = async function(...args) {
     const t0 = Date.now();

@@ -17,52 +17,57 @@
         <div class="card">
             <div class="card-header">
                 <img src="/static/images/izuk%20(1).png" alt="飯塚塗研" class="card-logo">
+                <div class="card-tagline">Your vision, our future</div>
             </div>
             <div class="card-content">
                 <div id="error" role="alert" aria-live="assertive"></div>
-                <form id="loginForm" novalidate>
+                <form id="loginForm" novalidate method="post">
                     <div class="form-row">
-                        <label for="email">
-                            <svg class="label-icon" viewBox="0 0 24 24">
-                                <path d="M4 4h16v16H4z" />
-                                <path d="M4 6l8 6 8-6" />
+                        <span class="form-icon">
+                            <svg viewBox="0 0 24 24">
+                                <circle cx="12" cy="8" r="4" />
+                                <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
                             </svg>
-                            メールアドレス
-                        </label>
+                        </span>
+                        <span class="form-label-ja"><img src="/static/images/user.png" alt="" class="label-icon-img label-icon-img-user">ユーザ名</span>
                         <div class="input-with-icon">
-                            <input id="email" type="email" placeholder="you@example.com" autocomplete="username" required>
+                            <input id="email" name="login_email" type="email" placeholder="" autocomplete="off" autocapitalize="none" spellcheck="false" class="short-input" required>
                         </div>
                     </div>
                     <div class="form-row">
-                        <label for="password">
-                            <svg class="label-icon" viewBox="0 0 24 24">
+                        <span class="form-icon">
+                            <svg viewBox="0 0 24 24">
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                                 <rect x="5" y="11" width="14" height="10" rx="2" />
                             </svg>
-                            パスワード
-                        </label>
+                        </span>
+                        <span class="form-label-ja"><img src="/static/images/pasword.png" alt="" class="label-icon-img">パスワード</span>
                         <div class="input-with-icon">
-                            <input id="password" type="password" placeholder="••••••••" autocomplete="current-password"
-                                required>
+                            <input id="password" name="login_password" type="password" placeholder="" autocomplete="off" class="short-input" required>
                             <button type="button" id="togglePassword" class="icon-btn" aria-label="toggle"></button>
                         </div>
                     </div>
-                    
-                    <div class="notes">利用規約と個人情報の取り扱いについて同意の上ログインしてください。</div>
+
+                    <div class="terms-note"><span>利用規約と個人情報の取り扱いについて同意の上</span><br><span>ログインしてください。</span></div>
                     <div class="form-row actions">
                         <button type="submit" id="loginBtn" class="btn">ログイン</button>
+                    </div>
+                    <div class="notes">
+                        注意<br>
+                        ※ユーザ名：ご自分のメールアドレス<br>
+                        ※パスワード：ご自身で設定されたパスワード
                     </div>
                     <div id="success"></div>
                     <div id="status" aria-live="polite"></div>
                 </form>
             </div>
-            <div class="circle">
-                <ul>
-                    <li><a href="#">パスワードをお忘れの方はこちら</a></li>
-                    <li><a href="#">利用規約</a></li>
-                    <li><a href="#">個人情報の取り扱いについて</a></li>
-                </ul>
-            </div>
+        </div>
+        <div class="circle">
+            <ul>
+                <li><a href="#">パスワードをお忘れの方はこちら</a></li>
+                <li><a href="#">利用規約</a></li>
+                <li><a href="#">個人情報の取り扱いについて</a></li>
+            </ul>
         </div>
     </div>
 </body>
