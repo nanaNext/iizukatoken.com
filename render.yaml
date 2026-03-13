@@ -40,6 +40,12 @@ services:
         sync: false
       - key: DB_PASS
         sync: false
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: SUPER_ADMIN_NAME
+        value: Super Admin
     disk:
       name: uploads
       mountPath: /opt/render/project/src/attendance/backend/src/uploads

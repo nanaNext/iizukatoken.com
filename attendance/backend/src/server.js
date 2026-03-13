@@ -1,4 +1,5 @@
 const app = require('./app');
+try { require('./core/bootstrap').init(); } catch {}
 
 const PORT = process.env.PORT || 3000;
 
