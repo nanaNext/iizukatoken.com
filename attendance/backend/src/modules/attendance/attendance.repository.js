@@ -40,6 +40,9 @@ async function ensureAttendanceSchema() {
     if (!idxSet.has('idx_user_checkout')) {
       try { await db.query(`ALTER TABLE attendance ADD INDEX idx_user_checkout (userId, checkOut)`); } catch {}
     }
+    if (!idxSet.has('idx_checkin')) {
+      try { await db.query(`ALTER TABLE attendance ADD INDEX idx_checkin (checkIn)`); } catch {}
+    }
     try {
       const [cols2] = await db.query(`
         SELECT COLUMN_NAME AS name 

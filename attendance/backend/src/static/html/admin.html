@@ -24,21 +24,36 @@
     .dot-spinner div:nth-child(11){transform:rotate(300deg) translate(24px);animation-delay:-0.12s}
     .dot-spinner div:nth-child(12){transform:rotate(330deg) translate(24px);animation-delay:-0.04s}
   </style>
-  <link rel="stylesheet" href="/static/css/base.css">
-  <link rel="stylesheet" href="/static/css/portal.css">
-  <script type="module" src="/static/js/pages/admin.page.js"></script>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260314">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260314">
+  <link rel="stylesheet" href="/static/css/admin.css?v=navy-20260316">
+  <script>
+    try {
+      const shouldShow = sessionStorage.getItem('navSpinner') === '1';
+      document.addEventListener('DOMContentLoaded', () => {
+        const sp = document.getElementById('pageSpinner');
+        if (!sp) return;
+        if (shouldShow) {
+          sp.removeAttribute('hidden');
+          try { setTimeout(() => { try { sp.setAttribute('hidden', ''); } catch {} }, 8000); } catch {}
+        } else {
+          sp.setAttribute('hidden', '');
+        }
+      });
+    } catch {}
+  </script>
+  <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260316"></script>
   <link rel="icon" href="data:,">
 </head>
 
-<body class="admin">
-  <div id="pageSpinner" class="page-spinner"><div class="lds-spinner" aria-hidden="true"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div></div>
+<body class="admin has-sidebar">
+  <div id="pageSpinner" class="page-spinner" hidden><div class="lds-spinner" aria-hidden="true"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div></div>
   <header class="topbar">
     <button id="mobileMenuBtn" class="mobile-btn" aria-label="menu" aria-expanded="false" aria-controls="mobileDrawer">☰</button>
     <div class="topbar-inner">
       <div class="brand">
-        <img src="/static/images/izuk%20(1).png" alt="logo" class="icon">
-        <span class="logo">飯塚塗研</span>
-        <span class="sub">管理ポータル</span>
+        <img src="/static/images/logo1.png" alt="logo" class="icon">
+        <span class="logo">IIZUKA</span>
       </div>
       <div class="search">
         <input type="search" placeholder="Search..." aria-label="Search">
@@ -51,9 +66,9 @@
             <span class="caret">▾</span>
           </button>
           <div class="dropdown" id="userDropdown" hidden>
-            <a href="/ui/portal" class="item">ホーム</a>
+            <a href="/admin/dashboard" class="item">ホーム</a>
             <a href="/ui/dashboard" class="item">現在の登録情報</a>
-            <a href="/ui/admin?tab=settings" class="item">各種設定</a>
+            <a href="/admin/system/settings" class="item">各種設定</a>
             <button class="item" id="btnLogout" type="button">ログアウト</button>
           </div>
         </div>
@@ -65,72 +80,62 @@
     <div class="drawer-header">
       <button id="mobileClose" class="mobile-close" aria-label="close">✕</button>
     </div>
-    <a href="/ui/portal" class="drawer-item">ホーム</a>
+    <a href="/admin/dashboard" class="drawer-item">ホーム</a>
     <a href="/ui/leave" class="drawer-item">申請</a>
     <a href="/ui/contact" class="drawer-item">お問い合わせ先</a>
   </div>
-  <div class="subbar">
-    <nav class="subnav">
-      <a href="/ui/portal">ホーム</a>
-      <a href="/ui/leave">申請</a>
-      <a href="/ui/contact">お問い合わせ先</a>
+  <aside class="sidebar" aria-label="Admin navigation">
+    <a class="sidebar-brand" href="/admin/dashboard">飯塚塗研(株)</a>
+    <nav class="sidebar-nav">
+      <a href="/admin/dashboard" data-admin-link="dashboard">ホーム</a>
+      <details data-default-href="/admin/employees">
+        <summary><span class="summary-text">社員管理</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/employees" data-admin-link="employees-list">社員一覧</a>
+        <a href="/admin/employees/add" data-admin-link="employees-add">社員追加</a>
+        <a href="/admin/employees/change-requests" data-admin-link="employees-requests">変更申請</a>
+      </details>
+      <details data-default-href="/admin/attendance">
+        <summary><span class="summary-text">勤怠管理</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/attendance" data-admin-link="attendance-records">勤怠記録</a>
+        <a href="/admin/attendance/adjust-requests" data-admin-link="attendance-adjust">調整申請</a>
+        <a href="/admin/work-reports" data-admin-link="work-reports">作業報告</a>
+        <a href="/admin/attendance/shifts" data-admin-link="attendance-shifts">シフト管理</a>
+        <a href="/admin/attendance/shift-assignment" data-admin-link="attendance-assign">シフト割当</a>
+        <a href="/admin/attendance/holidays" data-admin-link="attendance-holidays">休日設定</a>
+      </details>
+      <details data-default-href="/admin/leave/requests">
+        <summary><span class="summary-text">休暇管理</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/leave/requests" data-admin-link="leave-requests">申請一覧</a>
+        <a href="/admin/leave/balance" data-admin-link="leave-balance">残日数</a>
+        <a href="/admin/leave/grants" data-admin-link="leave-grants">付与管理</a>
+      </details>
+      <details data-default-href="/admin/payroll/salary">
+        <summary><span class="summary-text">給与管理</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/payroll/salary" data-admin-link="payroll-salary">給与</a>
+        <a href="/admin/payroll/payslips" data-admin-link="payroll-payslips">給与明細</a>
+      </details>
+      <details data-default-href="/admin/departments">
+        <summary><span class="summary-text">組織</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/departments" data-admin-link="org-departments">部門管理</a>
+      </details>
+      <details data-default-href="/admin/chatbot/faq">
+        <summary><span class="summary-text">チャットボット</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/chatbot/faq" data-admin-link="chatbot-faq">FAQ</a>
+        <a href="/admin/chatbot/categories" data-admin-link="chatbot-categories">カテゴリ</a>
+        <a href="/admin/chatbot/user-questions" data-admin-link="chatbot-questions">質問</a>
+      </details>
+      <details data-default-href="/admin/system/settings">
+        <summary><span class="summary-text">システム</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/system/settings" data-admin-link="system-settings">設定</a>
+        <a href="/admin/system/audit-logs" data-admin-link="system-audit">監査ログ</a>
+      </details>
     </nav>
-  </div>
+  </aside>
   <main class="content">
     <div id="status" style="margin-bottom:12px;color:#3a6ea5;font-weight:600;">Loading…</div>
     <div id="error" style="display:none;color:#b00020;font-weight:600;"></div>
     
     <section id="adminContent" class="card"></section>
-    <section class="tiles">
-      <a class="tile" href="/ui/employees">
-        <div class="icon">👤</div>
-        <div class="title">社員管理</div>
-      </a>
-      <a class="tile" href="/ui/admin?tab=users">
-        <div class="icon">👥</div>
-        <div class="title">ユーザー管理</div>
-      </a>
-      <a class="tile" href="/ui/admin?tab=departments">
-        <div class="icon">🏢</div>
-        <div class="title">部門管理</div>
-      </a>
-      <a class="tile" href="/ui/admin?tab=attendance">
-        <div class="icon">⏱</div>
-        <div class="title">勤怠管理</div>
-      </a>
-      <a class="tile" href="/ui/admin?tab=approvals">
-        <div class="icon">✅</div>
-        <div class="title">承認フロー</div>
-      </a>
-      <a class="tile" href="/ui/admin?tab=reports">
-        <div class="icon">📊</div>
-        <div class="title">レポート</div>
-      </a>
-      <a class="tile" href="/ui/admin?tab=settings">
-        <div class="icon">⚙️</div>
-        <div class="title">システム設定</div>
-      </a>
-      <a class="tile" href="/ui/admin?tab=audit">
-        <div class="icon">📝</div>
-        <div class="title">監査ログ</div>
-      </a>
-      <a class="tile" href="/ui/admin?tab=refresh">
-        <div class="icon">🔑</div>
-        <div class="title">トークン管理</div>
-      </a>
-      <a class="tile" href="/ui/admin?tab=calendar">
-        <div class="icon">📅</div>
-        <div class="title">カレンダー</div>
-      </a>
-      <a class="tile" href="/ui/admin?tab=shifts">
-        <div class="icon">🗓️</div>
-        <div class="title">シフト</div>
-      </a>
-      <a class="tile" href="/ui/admin?tab=routes">
-        <div class="icon">🔗</div>
-        <div class="title">API一覧</div>
-      </a>
-    </section>
   </main>
 </body>
 

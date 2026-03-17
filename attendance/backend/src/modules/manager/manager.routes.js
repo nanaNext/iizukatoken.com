@@ -13,4 +13,8 @@ router.get('/departments', authenticate, authorize('manager','admin'), controlle
 router.get('/salary/preview', authenticate, authorize('manager','admin'), controller.salaryPreviewDepartment);
 // Xử lý nghỉ việc cho nhân viên
 router.post('/users/:id/resign', authenticate, authorize('manager','admin'), controller.resignEmployee);
+// Phê duyệt yêu cầu cập nhật hồ sơ
+router.get('/profile-change/pending', authenticate, authorize('manager','admin'), controller.listProfileChangePending);
+router.get('/profile-change/:id', authenticate, authorize('manager','admin'), controller.getProfileChange);
+router.patch('/profile-change/:id/status', authenticate, authorize('manager','admin'), controller.approveProfileChange);
 module.exports = router;

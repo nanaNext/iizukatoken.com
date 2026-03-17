@@ -10,9 +10,9 @@ exports.list = async (req, res) => {
 };
 exports.create = async (req, res) => {
   try {
-    const { name } = req.body || {};
+    const { name, code } = req.body || {};
     if (!name) return res.status(400).json({ message: 'Missing name' });
-    const id = await repo.createDepartment(name);
+    const id = await repo.createDepartment(name, code || null);
     res.status(201).json({ id });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -21,9 +21,9 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const id = req.params.id;
-    const { name } = req.body || {};
-    if (!id || !name) return res.status(400).json({ message: 'Missing id/name' });
-    await repo.updateDepartment(id, name);
+    const { name, code } = req.body || {};
+    if (!id || (!name && !code)) return res.status(400).json({ message: 'Missing id or fields' });
+    await repo.updateDepartment(id, name || null, code || null);
     res.status(200).json({ id });
   } catch (err) {
     res.status(500).json({ message: err.message });

@@ -35,7 +35,12 @@ function roleRedirect(role) {
     const ps = document.querySelector('#pageSpinner');
     if (ps) { ps.removeAttribute('hidden'); }
   } catch {}
-  window.location.replace('/ui/portal');
+  const r = String(role || '').toLowerCase();
+  if (r === 'admin' || r === 'manager') {
+    window.location.href = '/admin/dashboard';
+    return;
+  }
+  window.location.href = '/ui/today-work';
 }
 
 async function handleSubmit(e) {
@@ -92,17 +97,22 @@ async function handleSubmit(e) {
 
 document.addEventListener('DOMContentLoaded', () => {
   try {
+    const ps = document.querySelector('#pageSpinner');
+    if (ps) { ps.setAttribute('hidden', ''); }
+    sessionStorage.removeItem('navSpinner');
+  } catch {}
+  try {
     sessionStorage.removeItem('accessToken');
     sessionStorage.removeItem('refreshToken');
     sessionStorage.removeItem('user');
+  } catch {}
+  try {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
   } catch {}
   try {
     const ref = document.referrer || '';
-    if (ref.includes('/ui/portal') || ref.includes('/ui/admin') || ref.includes('/ui/dashboard')) {
-      try { history.pushState(null, '', window.location.href); } catch {}
-    }
+    void ref;
   } catch {}
   try {
     window.addEventListener('pageshow', () => {
@@ -110,14 +120,17 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.removeItem('accessToken');
         sessionStorage.removeItem('refreshToken');
         sessionStorage.removeItem('user');
+      } catch {}
+      try {
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
       } catch {}
       try {
+        const ps = document.querySelector('#pageSpinner');
+        if (ps) { ps.setAttribute('hidden', ''); }
+        sessionStorage.removeItem('navSpinner');
         const ref = document.referrer || '';
-        if (ref.includes('/ui/portal') || ref.includes('/ui/admin') || ref.includes('/ui/dashboard')) {
-          try { history.pushState(null, '', window.location.href); } catch {}
-        }
+        void ref;
       } catch {}
     });
   } catch {}

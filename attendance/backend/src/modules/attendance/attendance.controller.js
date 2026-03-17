@@ -198,6 +198,147 @@ exports.statusToday = async (req, res) => {
   }
 };
 
+exports.todaySummary = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const db = require('../../core/database/mysql');
+    const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+
+    const [[{ c_checkin } = { c_checkin: 0 }]] = await db.query(`
+      SELECT COUNT(DISTINCT userId) AS c_checkin
+      FROM attendance
+      WHERE DATE(checkIn) = CURDATE()
+    `);
+    const [[{ c_open } = { c_open: 0 }]] = await db.query(`
+      SELECT COUNT(DISTINCT userId) AS c_open
+      FROM attendance
+      WHERE DATE(checkIn) = CURDATE() AND checkOut IS NULL
+    `);
+    const [[{ c_active } = { c_active: 0 }]] = await db.query(`
+      SELECT COUNT(*) AS c_active
+      FROM users
+      WHERE employment_status = 'active'
+        AND role IN ('employee','manager')
+    `);
+    let c_leave_users = 0;
+    try {
+      const [[{ c_leave_users: x } = { c_leave_users: 0 }]] = await db.query(`
+        SELECT COUNT(DISTINCT userId) AS c_leave_users
+        FROM leave_requests
+        WHERE status = 'approved'
+          AND CURDATE() BETWEEN startDate AND endDate
+      `);
+      c_leave_users = Number(x || 0);
+    } catch {}
+    const target = Math.max(0, Number(c_active || 0) - Number(c_leave_users || 0));
+    const notCheckedIn = Math.max(0, target - Number(c_checkin || 0));
+    const notCheckedOut = Number(c_open || 0);
+
+    const open = await require('./attendance.repository').getOpenAttendanceForUser(userId);
+    const [myRows] = await db.query(`
+      SELECT id, checkIn, checkOut
+      FROM attendance
+      WHERE userId = ?
+        AND DATE(checkIn) = CURDATE()
+      ORDER BY checkIn DESC
+      LIMIT 1
+    `, [userId]);
+    const my = myRows && myRows[0] ? myRows[0] : null;
+
+    res.status(200).json({
+      date: today,
+      counts: {
+        targetEmployees: target,
+        checkIn: Number(c_checkin || 0),
+        notCheckedIn,
+        notCheckedOut,
+        activeEmployees: Number(c_active || 0),
+        leaveUsers: Number(c_leave_users || 0)
+      },
+      me: {
+        open: !!open,
+        attendanceId: my?.id || null,
+        checkIn: my?.checkIn || null,
+        checkOut: my?.checkOut || null
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.todayRoster = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
+    const db = require('../../core/database/mysql');
+    const qDate = String(req.query?.date || '').slice(0, 10);
+    const date = qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate) ? qDate : new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    const [rows] = await db.query(`
+      SELECT
+        u.id AS userId,
+        u.employee_code AS employeeCode,
+        u.username AS username,
+        u.role AS role,
+        u.departmentId AS departmentId,
+        d.name AS departmentName,
+        a.id AS attendanceId,
+        a.checkIn AS checkIn,
+        a.checkOut AS checkOut
+      FROM users u
+      LEFT JOIN departments d
+        ON d.id = u.departmentId
+      LEFT JOIN leave_requests lr
+        ON lr.userId = u.id
+       AND lr.status = 'approved'
+       AND ? BETWEEN lr.startDate AND lr.endDate
+      LEFT JOIN (
+        SELECT t1.*
+        FROM attendance t1
+        INNER JOIN (
+          SELECT userId, MAX(checkIn) AS maxCheckIn
+          FROM attendance
+          WHERE DATE(checkIn) = ?
+          GROUP BY userId
+        ) t2
+          ON t2.userId = t1.userId AND t2.maxCheckIn = t1.checkIn
+      ) a
+        ON a.userId = u.id
+      WHERE u.employment_status = 'active'
+        AND u.role IN ('employee','manager')
+        AND lr.id IS NULL
+      ORDER BY
+        CASE WHEN a.checkIn IS NULL THEN 1 ELSE 0 END ASC,
+        COALESCE(u.employee_code, '') ASC,
+        u.id ASC
+    `, [date, date]);
+
+    const items = (rows || []).map(r => {
+      const hasIn = !!r.checkIn;
+      const hasOut = !!r.checkOut;
+      const status = hasIn ? (hasOut ? 'checked_out' : 'working') : 'not_checked_in';
+      return {
+        userId: r.userId,
+        employeeCode: r.employeeCode || null,
+        username: r.username || null,
+        departmentId: r.departmentId || null,
+        departmentName: r.departmentName || null,
+        attendance: {
+          id: r.attendanceId || null,
+          checkIn: r.checkIn || null,
+          checkOut: r.checkOut || null
+        },
+        status
+      };
+    });
+
+    res.status(200).json({ date, items });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 function parseMonth(s) {
   const [y, m] = String(s).split('-');
   const yy = parseInt(y, 10), mm = parseInt(m, 10);

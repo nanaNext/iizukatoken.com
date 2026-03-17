@@ -81,6 +81,7 @@ exports.login = async (req, res) => {
     const rt = crypto.randomBytes(48).toString('base64url');
     const expires = new Date(Date.now() + refreshTokenExpiresDays * 24 * 60 * 60 * 1000);
     await refreshRepo.createToken({ userId: user.id, token: rt, expiresAt: expires.toISOString().slice(0,19).replace('T',' '), userAgent: req.headers['user-agent'], ip: req.ip });
+    try { await userRepo.updateUser(user.id, { lastLogin: new Date().toISOString().slice(0,19).replace('T',' ') }); } catch {}
     const xfProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
     const isHttps = xfProto.includes('https') || (req.protocol === 'https');
     res.cookie('refreshToken', rt, {

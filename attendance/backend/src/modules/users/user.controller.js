@@ -14,7 +14,7 @@ const authRepo = require('../auth/auth.repository');
 const refreshRepo = require('../auth/refresh.repository');
 exports.create = async (req, res) => {
   try {
-    const { employeeCode, username, email, password, role, departmentId, employmentType, hireDate } = req.body || {};
+    const { employeeCode, username, email, password, role, departmentId, employmentType, hireDate, level, managerId, phone, birthDate, gender, avatarUrl, probationDate, officialDate, contractEnd, baseSalary, shiftId } = req.body || {};
     if (!username || !email || !password || !(role || departmentId !== undefined)) {
       return res.status(400).json({ message: 'Missing username/email/password' });
     }
@@ -23,9 +23,15 @@ exports.create = async (req, res) => {
       return res.status(409).json({ message: 'Email đã tồn tại!' });
     }
     const hashed = bcrypt.hashSync(password, bcryptRounds);
-    const id = await repo.createUser({ employeeCode, username, email, password: hashed, role, departmentId, employmentType, hireDate });
+    const id = await repo.createUser({ employeeCode, username, email, password: hashed, role, departmentId, employmentType, hireDate, level, managerId, phone, birthDate, gender, avatarUrl, probationDate, officialDate, contractEnd, baseSalary, shiftId });
     res.status(201).json({ id });
   } catch (err) {
+    if (err && (err.code === 'ER_DUP_ENTRY' || err.errno === 1062)) {
+      const msg = String(err.message || '');
+      if (msg.includes('uniq_employee_code')) {
+        return res.status(409).json({ message: '社員番号が既に存在します。別の番号を入力してください。', field: 'employeeCode' });
+      }
+    }
     res.status(500).json({ message: err.message });
   }
 };
@@ -51,8 +57,16 @@ exports.update = async (req, res) => {
       email: body.email,
       role: body.role,
       departmentId: body.departmentId,
+      level: body.level,
+      managerId: body.managerId,
       employmentType: body.employmentType,
       hireDate: body.hireDate,
+      birthDate: body.birthDate,
+      gender: body.gender,
+      phone: body.phone,
+      avatarUrl: body.avatarUrl,
+      probationDate: body.probationDate,
+      officialDate: body.officialDate,
       lang: body.lang,
       region: body.region,
       timezone: body.timezone,
@@ -61,7 +75,11 @@ exports.update = async (req, res) => {
       visaNumber: body.visaNumber,
       visaExpiry: body.visaExpiry,
       insuranceNumber: body.insuranceNumber,
-      employmentStatus: body.employmentStatus
+      employmentStatus: body.employmentStatus,
+      contractEnd: body.contractEnd,
+      baseSalary: body.baseSalary,
+      shiftId: body.shiftId,
+      joinDate: body.joinDate
     });
     res.status(200).json({ id });
   } catch (err) {

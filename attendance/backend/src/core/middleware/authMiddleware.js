@@ -31,7 +31,8 @@ async function authenticate(req, res, next) {
       return res.status(401).json({ message: 'Invalid token version' });
     }
   } catch (e) {
-    return res.status(500).json({ message: 'Auth check failed' });
+    try { console.error('auth_db_error', e && e.message ? e.message : e); } catch {}
+    return res.status(401).json({ message: 'Unauthorized' });
   }
   req.user = decoded;
   next();

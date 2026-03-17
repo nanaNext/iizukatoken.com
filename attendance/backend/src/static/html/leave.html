@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>有給休暇</title>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260314">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260314">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="/static/images/logo1.png" alt="logo" class="icon">
+        <span class="logo">IIZUKA</span>
+      </div>
+    </div>
+  </header>
+  <main class="container" style="padding:16px">
+    <h2>有給休暇</h2>
+    <section id="balance"></section>
+    <section id="apply">
+      <h3>申請</h3>
+      <form id="applyForm">
+        <input id="startDate" type="date"> 〜
+        <input id="endDate" type="date">
+        <input id="reason" placeholder="理由(任意)">
+        <button type="submit">申請</button>
+      </form>
+      <div id="applyResult"></div>
+    </section>
+  </main>
+  <script type="module" src="/static/js/pages/leave.page.js"></script>
+</body>
+</html>

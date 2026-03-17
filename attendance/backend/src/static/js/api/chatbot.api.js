@@ -1,7 +1,13 @@
 const CHATBOT_BASE = '/api/chatbot';
 
+function getCookie(name) {
+  const m = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+  return m ? decodeURIComponent(m[2]) : null;
+}
+
 async function chatbotFetchJSON(url, options) {
-  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+  const csrf = getCookie('csrfToken');
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' }, credentials: 'include', ...options });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }

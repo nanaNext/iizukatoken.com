@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, authorize } = require('../../core/middleware/authMiddleware');
+const { permit } = require('../../core/middleware/rbac');
 const userCtrl = require('../users/user.controller');
 const deptRoutes = require('../departments/department.routes');
 const settingsRoutes = require('../settings/settings.routes');
@@ -11,6 +12,8 @@ const authRepo = require('../auth/auth.repository');
 const { companyName } = require('../../config/env');
 const { rateLimit } = require('../../core/middleware/rateLimit');
 const salaryService = require('../salary/salary.service');
+const db = require('../../core/database/mysql');
+const upload = require('../../core/middleware/upload');
 // Admin tổng hợp
 router.use(authenticate);
 // Users
@@ -51,11 +54,18 @@ router.delete('/users/:id', async (req, res, next) => {
 }, authorize('admin'), userCtrl.remove);
 // Employees alias
 router.get('/employees', authorize('admin'), userCtrl.list);
-router.get('/employees/:id', authorize('admin'), async (req, res) => {
+router.get('/employees/:id', permit('employees','view'), async (req, res) => {
   try {
     const id = req.params.id;
     const row = await userRepo.getUserById(id);
     if (!row) return res.status(404).json({ message: 'User not found' });
+    if (String(req.user?.role).toLowerCase() === 'manager') {
+      const me = await userRepo.getUserById(req.user.id);
+      const myDept = me?.departmentId;
+      if (!myDept || String(row.departmentId) !== String(myDept)) {
+        return res.status(403).json({ message: 'Managers can only view employees in their own department' });
+      }
+    }
     res.status(200).json(row);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -66,22 +76,63 @@ router.post('/employees', async (req, res, next) => {
     await auditRepo.writeLog({ userId: req.user.id, action: 'admin_employee_create', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: null, afterData: JSON.stringify(req.body || {}) });
   } catch {}
   next();
-}, authorize('admin'), userCtrl.create);
+}, permit('employees','manage'), async (req, res, next) => {
+  try {
+    if (String(req.user?.role).toLowerCase() !== 'manager') return next();
+    const me = await userRepo.getUserById(req.user.id);
+    const myDept = me?.departmentId;
+    const bodyDept = req.body?.departmentId ?? null;
+    if (!myDept || String(bodyDept) !== String(myDept)) {
+      return res.status(403).json({ message: 'Managers can only create employees in their own department' });
+    }
+    next();
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}, userCtrl.create);
 router.put('/employees/:id', async (req, res, next) => {
   try {
     const before = await userRepo.getUserById(req.params.id);
     await auditRepo.writeLog({ userId: req.user.id, action: 'admin_employee_update', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify(before || {}), afterData: JSON.stringify(req.body || {}) });
   } catch {}
   next();
-}, authorize('admin'), userCtrl.update);
+}, permit('employees','manage'), async (req, res, next) => {
+  try {
+    if (String(req.user?.role).toLowerCase() !== 'manager') return next();
+    const me = await userRepo.getUserById(req.user.id);
+    const myDept = me?.departmentId;
+    const target = await userRepo.getUserById(req.params.id);
+    if (!target) return res.status(404).json({ message: 'User not found' });
+    if (!myDept || String(target.departmentId) !== String(myDept)) {
+      return res.status(403).json({ message: 'Managers can only update employees in their own department' });
+    }
+    next();
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}, userCtrl.update);
 router.patch('/employees/:id', async (req, res, next) => {
   try {
     const before = await userRepo.getUserById(req.params.id);
     await auditRepo.writeLog({ userId: req.user.id, action: 'admin_employee_update', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify(before || {}), afterData: JSON.stringify(req.body || {}) });
   } catch {}
   next();
-}, authorize('admin'), userCtrl.update);
-router.delete('/employees/:id', async (req, res) => {
+}, permit('employees','manage'), async (req, res, next) => {
+  try {
+    if (String(req.user?.role).toLowerCase() !== 'manager') return next();
+    const me = await userRepo.getUserById(req.user.id);
+    const myDept = me?.departmentId;
+    const target = await userRepo.getUserById(req.params.id);
+    if (!target) return res.status(404).json({ message: 'User not found' });
+    if (!myDept || String(target.departmentId) !== String(myDept)) {
+      return res.status(403).json({ message: 'Managers can only update employees in their own department' });
+    }
+    next();
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}, userCtrl.update);
+router.delete('/employees/:id', permit('employees','manage'), async (req, res) => {
   try {
     const id = req.params.id;
     const before = await userRepo.getUserById(id);
@@ -90,10 +141,44 @@ router.delete('/employees/:id', async (req, res) => {
     if (before?.email === superEmail) {
       return res.status(403).json({ message: 'Cannot deactivate SUPER_ADMIN user' });
     }
+    if (String(req.user?.role).toLowerCase() === 'manager') {
+      const me = await userRepo.getUserById(req.user.id);
+      const myDept = me?.departmentId;
+      if (!myDept || String(before.departmentId) !== String(myDept)) {
+        return res.status(403).json({ message: 'Managers can only deactivate employees in their own department' });
+      }
+    }
     await userRepo.updateUser(id, { employmentStatus: 'inactive' });
     try { await require('../auth/refresh.repository').deleteUserTokens(id); } catch {}
     try { await auditRepo.writeLog({ userId: req.user.id, action: 'admin_employee_deactivate', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify(before || {}), afterData: JSON.stringify({ employment_status: 'inactive' }) }); } catch {}
     res.status(200).json({ id, status: 'inactive' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+router.post('/employees/:id/avatar', permit('employees','manage'), async (req, res, next) => {
+  try {
+    if (String(req.user?.role).toLowerCase() !== 'manager') return next();
+    const me = await userRepo.getUserById(req.user.id);
+    const target = await userRepo.getUserById(req.params.id);
+    if (!target) return res.status(404).json({ message: 'User not found' });
+    if (!me?.departmentId || String(target.departmentId) !== String(me.departmentId)) {
+      return res.status(403).json({ message: 'Managers can only update employees in their own department' });
+    }
+    next();
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}, upload.single('file'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!req.file || !id) {
+      return res.status(400).json({ message: 'Missing file or id' });
+    }
+    const url = `/uploads/${req.file.filename}`;
+    await userRepo.updateUser(id, { avatarUrl: url });
+    try { await auditRepo.writeLog({ userId: req.user.id, action: 'admin_employee_avatar_upload', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: null, afterData: JSON.stringify({ id, avatarUrl: url, originalName: req.file.originalname }) }); } catch {}
+    res.status(201).json({ id, url, originalName: req.file.originalname });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -154,7 +239,7 @@ router.patch('/users/:id/unlock', authorize('admin'), async (req, res) => {
   }
 });
 // Departments
-router.use('/departments', authorize('admin'), deptRoutes);
+router.use('/departments', deptRoutes);
 // Settings
 router.use('/settings', authorize('admin'), settingsRoutes);
 // Audit: liệt kê có filter
@@ -169,6 +254,38 @@ router.get('/audit', authorize('admin'), async (req, res) => {
       pageSize: req.query.pageSize
     });
     res.status(200).json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// DB check: thống kê nhanh và kiểm tra collation
+router.get('/db/check', authorize('admin'), async (req, res) => {
+  try {
+    const [verRows] = await db.query('SELECT DATABASE() AS db, VERSION() AS version');
+    const meta = verRows && verRows[0] ? verRows[0] : {};
+    const [usersCountRows] = await db.query('SELECT COUNT(*) AS total, SUM(employment_status="active") AS active, SUM(employment_status="inactive") AS inactive, SUM(employment_status="retired") AS retired, SUM(hire_date IS NULL) AS hire_null, SUM(hire_date IS NOT NULL) AS hire_set FROM users');
+    const usersCount = usersCountRows && usersCountRows[0] ? usersCountRows[0] : {};
+    let departmentsCount = { total: 0 };
+    try {
+      const [deptRows] = await db.query('SELECT COUNT(*) AS total FROM departments');
+      departmentsCount = deptRows && deptRows[0] ? deptRows[0] : { total: 0 };
+    } catch {}
+    const [sampleUsers] = await db.query('SELECT id, employee_code, username, email, departmentId, employment_status, hire_date FROM users ORDER BY id DESC LIMIT 5');
+    const [collRows] = await db.query(`
+      SELECT TABLE_NAME AS table, TABLE_COLLATION AS collation
+      FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'
+      ORDER BY TABLE_NAME ASC
+    `);
+    res.status(200).json({
+      db: meta.db,
+      version: meta.version,
+      users: usersCount,
+      departments: departmentsCount,
+      sampleUsers,
+      collations: collRows
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -243,7 +360,7 @@ router.get('/home/stats', authorize('admin'), async (req, res) => {
   }
 });
 // Attendance admin: view timesheet and edit records
-router.get('/attendance/timesheet', authorize('admin'), async (req, res) => {
+router.get('/attendance/timesheet', permit('attendance','view'), async (req, res) => {
   try {
     const { userId, from, to } = req.query || {};
     if (!userId || !from || !to) {
@@ -255,7 +372,7 @@ router.get('/attendance/timesheet', authorize('admin'), async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-router.get('/attendance/day', authorize('admin'), async (req, res) => {
+router.get('/attendance/day', permit('attendance','view'), async (req, res) => {
   try {
     const { userId, date } = req.query || {};
     if (!userId || !date) {
@@ -267,7 +384,7 @@ router.get('/attendance/day', authorize('admin'), async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-router.patch('/attendance/:id', authorize('admin'), async (req, res) => {
+router.patch('/attendance/:id', permit('attendance','manage'), async (req, res) => {
   try {
     const id = req.params.id;
     const { checkIn, checkOut } = req.body || {};

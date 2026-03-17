@@ -43,7 +43,14 @@ export async function me(accessToken) {
     headers: { 'Authorization': `Bearer ${accessToken}` },
     credentials: 'include'
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try {
+      const j = await res.json();
+      msg = j.message || msg;
+    } catch {}
+    throw new Error(msg);
+  }
   return res.json();
 }
 
@@ -55,7 +62,14 @@ export async function refresh(refreshToken) {
     credentials: 'include',
     body: JSON.stringify(refreshToken ? { refreshToken } : {})
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try {
+      const j = await res.json();
+      msg = j.message || msg;
+    } catch {}
+    throw new Error(msg);
+  }
   return res.json(); // { accessToken, refreshToken }
 }
 
@@ -64,7 +78,7 @@ export async function logout(refreshToken) {
   const res = await fetch(`${AUTH_BASE}/logout`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' },
-    credentials: 'omit',
+    credentials: 'include',
     body: JSON.stringify(refreshToken ? { refreshToken } : {})
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);

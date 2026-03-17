@@ -1,0 +1,12 @@
+.wr-wrap { max-width: 980px; margin: 0 auto; font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; }
+.wr-title { font-size: 18px; font-weight: 650; color: #0f172a; margin: 0 0 6px; letter-spacing: .01em; }
+.wr-date { color: #475569; font-weight: 550; margin: 0 0 14px; }
+.wr-card { border: 1px solid #e5e7eb; background: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+.wr-row { display: grid; grid-template-columns: 140px 1fr; gap: 8px 12px; align-items: start; margin-bottom: 12px; }
+.wr-label { color: #475569; font-weight: 650; padding-top: 8px; }
+.wr-input, .wr-textarea { width: 100%; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; font-size: 14px; outline: none; }
+.wr-textarea { min-height: 140px; resize: vertical; }
+.wr-input:focus, .wr-textarea:focus { border-color: rgba(0,92,204,.55); box-shadow: 0 0 0 3px rgba(0,92,204,.12); }
+.wr-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.wr-note { margin-top: 10px; color: #64748b; font-size: 13px; font-weight: 550; }
+.wr-status { margin-top: 10px; font-size: 13px; font-weight: 650; color: #0b2c66; }

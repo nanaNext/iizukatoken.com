@@ -7,6 +7,7 @@ const auditRepo = require('../audit/audit.repository');
 const docRepo = require('../documents/documents.repository');
 const path = require('path');
 const fs = require('fs');
+const db = require('../../core/database/mysql');
 router.use(authenticate);
 router.get('/documents', authorize('employee','manager','admin'), async (req, res) => {
   try {
@@ -145,6 +146,34 @@ router.get('/payslips/:id/download', authorize('employee','manager','admin'), as
       await auditRepo.writeLog({ userId: req.user.id, action: 'employee_payslip_download', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify({ id: row.id, userId: row.userId }), afterData: null });
     } catch {}
     res.status(200).json({ secureUrl: `/api/payslips/me/file/${row.id}` });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+// Nhân viên gửi yêu cầu cập nhật hồ sơ -> vào hàng đợi phê duyệt
+router.post('/profile-change', authorize('employee','manager','admin'), async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const b = req.body || {};
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_change_requests (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id BIGINT UNSIGNED NOT NULL,
+        fields_json TEXT NOT NULL,
+        status VARCHAR(16) NOT NULL DEFAULT 'pending',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        approved_at DATETIME NULL,
+        approved_by BIGINT UNSIGNED NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    const allowedKeys = ['username','email','role','departmentId','level','managerId','employmentType','hireDate','birthDate','gender','phone','avatarUrl','probationDate','officialDate','address','employmentStatus','contractEnd','baseSalary','shiftId','joinDate'];
+    const filtered = {};
+    for (const k of allowedKeys) {
+      if (b[k] !== undefined && b[k] !== null && String(b[k]).trim() !== '') filtered[k] = b[k];
+    }
+    if (!Object.keys(filtered).length) return res.status(400).json({ message: 'No changes provided' });
+    const [result] = await db.query(`INSERT INTO user_change_requests (user_id, fields_json, status) VALUES (?, ?, 'pending')`, [userId, JSON.stringify(filtered)]);
+    res.status(201).json({ id: result.insertId });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

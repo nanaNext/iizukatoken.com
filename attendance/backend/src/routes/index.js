@@ -15,6 +15,8 @@ const payslipRoutes = require('../modules/payslip/payslip.routes');
 const { authenticate, authorize } = require('../core/middleware/authMiddleware');
 const employeeRoutes = require('../modules/employee/employee.routes');
 const chatbotRoutes = require('../modules/chatbot/chatbot.routes');
+const workReportsRoutes = require('../modules/workReports/workReports.routes');
+const workReportsAdminRoutes = require('../modules/workReports/workReports.admin.routes');
 
 module.exports = function(app) {
   console.log('Mounting API routes...');
@@ -31,6 +33,29 @@ module.exports = function(app) {
       res.status(500).json({ status: 'error', message: e.message });
     }
   });
+  app.get('/health/ready', async (req, res) => {
+    try {
+      const missing = [];
+      const [cols] = await db.query(`
+        SELECT table_name AS t, column_name AS c
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND (
+            (table_name = 'users' AND column_name IN ('token_version'))
+            OR (table_name = 'departments' AND column_name IN ('code'))
+          )
+      `);
+      const set = new Set((cols || []).map(r => `${String(r.t)}.${String(r.c)}`));
+      if (!set.has('users.token_version')) missing.push('users.token_version');
+      if (!set.has('departments.code')) missing.push('departments.code');
+      if (missing.length) {
+        return res.status(500).json({ status: 'error', ready: false, missing });
+      }
+      res.status(200).json({ status: 'ok', ready: true });
+    } catch (e) {
+      res.status(500).json({ status: 'error', ready: false, message: e.message });
+    }
+  });
   console.log('Registering routers: auth, attendance, leave, adjust, manager, admin, me, users, salary, payslips');
   app.use('/api/auth', authRoutes);
   app.use('/api/attendance', attendanceRoutes);
@@ -44,6 +69,8 @@ module.exports = function(app) {
   app.use('/api/payslips', payslipRoutes);
   app.use('/api/employee', employeeRoutes);
   app.use('/api/chatbot', chatbotRoutes);
+  app.use('/api/work-reports', workReportsRoutes);
+  app.use('/api/admin/work-reports', workReportsAdminRoutes);
   app.get('/api/debug/routes', (req, res) => {
     try {
       const stack = (app._router?.stack || []);

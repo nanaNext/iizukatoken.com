@@ -11,6 +11,8 @@ router.get('/timesheet', authenticate, authorize('employee','manager','admin'), 
 router.post('/gps', authenticate, authorize('employee','manager'), controller.gpsLog);
 router.post('/sync', authenticate, authorize('employee','manager'), controller.syncOffline);
 router.get('/status', authenticate, authorize('employee','manager'), controller.statusToday);
+router.get('/today-summary', authenticate, authorize('employee','manager','admin'), controller.todaySummary);
+router.get('/today-roster', authenticate, authorize('admin','manager'), controller.todayRoster);
 router.get('/date/:date', authenticate, authorize('employee','manager','admin'), controller.getDay);
 router.put('/date/:date', authenticate, authorize('employee','manager','admin'), controller.putDay);
 router.post('/date/:date/segments', authenticate, authorize('employee','manager'), controller.addSegment);

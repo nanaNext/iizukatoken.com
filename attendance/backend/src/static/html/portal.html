@@ -24,8 +24,8 @@
     .dot-spinner div:nth-child(11){transform:rotate(300deg) translate(24px);animation-delay:-0.12s}
     .dot-spinner div:nth-child(12){transform:rotate(330deg) translate(24px);animation-delay:-0.04s}
   </style>
-  <link rel="stylesheet" href="/static/css/base.css">
-  <link rel="stylesheet" href="/static/css/portal.css">
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260314">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260314">
   <script type="module" src="/static/js/pages/portal.debug.js"></script>
   <script type="module" src="/static/js/pages/portal.page.js"></script>
   <link rel="icon" href="data:,">
@@ -37,8 +37,8 @@
     <button id="mobileMenuBtn" class="mobile-btn" aria-label="menu" aria-expanded="false" aria-controls="mobileDrawer">☰</button>
     <div class="topbar-inner">
       <div class="brand">
-        <img src="/static/images/izuk%20(1).png" alt="logo" class="icon">
-        <span class="logo">飯塚塗研</span>
+        <img src="/static/images/logo1.png" alt="logo" class="icon">
+        <span class="logo">IIZUKA</span>
       </div>
       <div class="search">
         <input type="search" placeholder="Search..." aria-label="Search">
@@ -78,32 +78,7 @@
   </div>
   <main class="content">
     <div id="error" style="display:none;color:#b00020;font-weight:600;"></div>
-    <section class="tiles">
-      <a class="tile" href="/ui/leave" target="_blank" rel="noopener">
-        <div class="icon">⬆</div>
-        <div class="title">申請</div>
-      </a>
-      <a class="tile" href="/ui/attendance" target="_blank" rel="noopener">
-        <div class="icon">⟳</div>
-        <div class="title">勤怠入力</div>
-      </a>
-      <a class="tile" href="/ui/adjust" target="_blank" rel="noopener">
-        <div class="icon">🧾</div>
-        <div class="title">経費精算</div>
-      </a>
-      <a class="tile wide" href="/ui/chatbot" target="_blank" rel="noopener">
-        <div class="title">エンジニアサポートセンター</div>
-        <div class="arrow">›</div>
-      </a>
-      <a class="tile wide" href="/ui/salary" target="_blank" rel="noopener">
-        <div class="title"><img src="/static/html/luong.png" alt="salary" class="img-icon">給与明細など</div>
-        <div class="arrow">›</div>
-      </a>
-      <a class="tile wide" id="tile-admin" href="/ui/employees" target="_blank" rel="noopener">
-        <div class="title">管理ポータル</div>
-        <div class="arrow">›</div>
-      </a>
-    </section>
+    <section class="tiles" id="tiles"></section>
   </main>
 </body>
 

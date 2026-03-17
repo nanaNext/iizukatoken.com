@@ -153,6 +153,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
   }
+  try {
+    const brand = document.querySelector('.topbar .brand');
+    if (brand) {
+      brand.style.cursor = 'pointer';
+      brand.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.href = '/ui/portal';
+      });
+    }
+  } catch {}
   document.addEventListener('click', (e) => {
     const a = e.target?.closest?.('a');
     if (!a) return;
