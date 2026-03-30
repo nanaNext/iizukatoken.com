@@ -54,7 +54,7 @@ router.post('/search', async (req, res) => {
   }
 });
 
-router.get('/debug/faqs', async (req, res) => {
+router.get('/debug/faqs', authenticate, authorize('admin'), async (req, res) => {
   try {
     const [rows] = await require('../../core/database/mysql').query('SELECT id, category_id, question, popularity, status FROM chatbot_faq ORDER BY id ASC LIMIT 50');
     res.status(200).json(rows);

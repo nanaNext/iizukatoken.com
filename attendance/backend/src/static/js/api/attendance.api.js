@@ -4,16 +4,19 @@ const BASE = '/api/admin/attendance';
 
 export async function getTimesheet(userId, from, to) {
   const q = `userId=${encodeURIComponent(userId)}&from=${encodeURIComponent(from||'')}&to=${encodeURIComponent(to||'')}`;
-  return fetchJSONAuth(`${BASE}/timesheet?${q}`);
+  const options = arguments.length >= 4 ? arguments[3] : undefined;
+  return fetchJSONAuth(`${BASE}/timesheet?${q}`, options);
 }
 
 export async function getAttendanceDay(userId, date) {
   const q = `userId=${encodeURIComponent(userId)}&date=${encodeURIComponent(date)}`;
-  return fetchJSONAuth(`${BASE}/day?${q}`);
+  const options = arguments.length >= 3 ? arguments[2] : undefined;
+  return fetchJSONAuth(`${BASE}/day?${q}`, options);
 }
 
 export async function updateAttendanceSegment(id, body) {
-  return fetchJSONAuth(`${BASE}/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) });
+  const options = arguments.length >= 3 ? arguments[2] : undefined;
+  return fetchJSONAuth(`${BASE}/${encodeURIComponent(id)}`, { ...(options || {}), method: 'PATCH', body: JSON.stringify(body) });
 }
 
 export function buildTimesheetExportURL(userIds, from, to) {

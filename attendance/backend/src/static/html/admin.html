@@ -5,85 +5,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>管理ポータル</title>
-  <style id="spinnerStyle">
-    .page-spinner{position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;z-index:3000}
-    .page-spinner[hidden]{display:none}
-    .dot-spinner{position:relative;width:64px;height:64px}
-    .dot-spinner div{position:absolute;top:50%;left:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#666;opacity:.2;animation:dotfade 1s linear infinite}
-    @keyframes dotfade{0%{opacity:1}100%{opacity:.2}}
-    .dot-spinner div:nth-child(1){transform:rotate(0deg) translate(24px);animation-delay:-0.92s}
-    .dot-spinner div:nth-child(2){transform:rotate(30deg) translate(24px);animation-delay:-0.84s}
-    .dot-spinner div:nth-child(3){transform:rotate(60deg) translate(24px);animation-delay:-0.76s}
-    .dot-spinner div:nth-child(4){transform:rotate(90deg) translate(24px);animation-delay:-0.68s}
-    .dot-spinner div:nth-child(5){transform:rotate(120deg) translate(24px);animation-delay:-0.60s}
-    .dot-spinner div:nth-child(6){transform:rotate(150deg) translate(24px);animation-delay:-0.52s}
-    .dot-spinner div:nth-child(7){transform:rotate(180deg) translate(24px);animation-delay:-0.44s}
-    .dot-spinner div:nth-child(8){transform:rotate(210deg) translate(24px);animation-delay:-0.36s}
-    .dot-spinner div:nth-child(9){transform:rotate(240deg) translate(24px);animation-delay:-0.28s}
-    .dot-spinner div:nth-child(10){transform:rotate(270deg) translate(24px);animation-delay:-0.20s}
-    .dot-spinner div:nth-child(11){transform:rotate(300deg) translate(24px);animation-delay:-0.12s}
-    .dot-spinner div:nth-child(12){transform:rotate(330deg) translate(24px);animation-delay:-0.04s}
-  </style>
-  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260314">
-  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260314">
-  <link rel="stylesheet" href="/static/css/admin.css?v=navy-20260316">
-  <script>
-    try {
-      const shouldShow = sessionStorage.getItem('navSpinner') === '1';
-      document.addEventListener('DOMContentLoaded', () => {
-        const sp = document.getElementById('pageSpinner');
-        if (!sp) return;
-        if (shouldShow) {
-          sp.removeAttribute('hidden');
-          try { setTimeout(() => { try { sp.setAttribute('hidden', ''); } catch {} }, 8000); } catch {}
-        } else {
-          sp.setAttribute('hidden', '');
-        }
-      });
-    } catch {}
-  </script>
-  <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260316"></script>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260318">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260326-6">
+  <link rel="stylesheet" href="/static/css/admin.css?v=navy-20260326-6">
+  <meta name="asset-v" content="navy-20260326-6">
+  
+  <script src="/static/js/pages/session-idle.js?v=navy-20260326-6" defer></script>
+  <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260326-6"></script>
   <link rel="icon" href="data:,">
 </head>
 
 <body class="admin has-sidebar">
-  <div id="pageSpinner" class="page-spinner" hidden><div class="lds-spinner" aria-hidden="true"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div></div>
-  <header class="topbar">
-    <button id="mobileMenuBtn" class="mobile-btn" aria-label="menu" aria-expanded="false" aria-controls="mobileDrawer">☰</button>
-    <div class="topbar-inner">
-      <div class="brand">
-        <img src="/static/images/logo1.png" alt="logo" class="icon">
-        <span class="logo">IIZUKA</span>
-      </div>
-      <div class="search">
-        <input type="search" placeholder="Search..." aria-label="Search">
-      </div>
-      <div class="user">
-        <div class="user-menu">
-          <button class="user-btn" aria-haspopup="true" aria-expanded="false">
-            <img src="/static/images/logoten.png" alt="user" class="user-icon">
-            <span id="userName"></span>
-            <span class="caret">▾</span>
-          </button>
-          <div class="dropdown" id="userDropdown" hidden>
-            <a href="/admin/dashboard" class="item">ホーム</a>
-            <a href="/ui/dashboard" class="item">現在の登録情報</a>
-            <a href="/admin/system/settings" class="item">各種設定</a>
-            <button class="item" id="btnLogout" type="button">ログアウト</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
-  <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
-  <div id="mobileDrawer" class="mobile-drawer" hidden>
-    <div class="drawer-header">
-      <button id="mobileClose" class="mobile-close" aria-label="close">✕</button>
-    </div>
-    <a href="/admin/dashboard" class="drawer-item">ホーム</a>
-    <a href="/ui/leave" class="drawer-item">申請</a>
-    <a href="/ui/contact" class="drawer-item">お問い合わせ先</a>
-  </div>
+  <!--#include file="_partials/admin-topbar.html" -->
+  <!--#include file="_partials/admin-mobile-drawer.html" -->
   <aside class="sidebar" aria-label="Admin navigation">
     <a class="sidebar-brand" href="/admin/dashboard">飯塚塗研(株)</a>
     <nav class="sidebar-nav">
@@ -92,15 +26,13 @@
         <summary><span class="summary-text">社員管理</span><span class="chev" aria-hidden="true"></span></summary>
         <a href="/admin/employees" data-admin-link="employees-list">社員一覧</a>
         <a href="/admin/employees/add" data-admin-link="employees-add">社員追加</a>
-        <a href="/admin/employees/change-requests" data-admin-link="employees-requests">変更申請</a>
       </details>
       <details data-default-href="/admin/attendance">
         <summary><span class="summary-text">勤怠管理</span><span class="chev" aria-hidden="true"></span></summary>
         <a href="/admin/attendance" data-admin-link="attendance-records">勤怠記録</a>
-        <a href="/admin/attendance/adjust-requests" data-admin-link="attendance-adjust">調整申請</a>
+        <a href="/ui/attendance/monthly" data-admin-link="attendance-monthly" target="_blank" rel="noopener">月次勤怠入力(従業員)</a>
         <a href="/admin/work-reports" data-admin-link="work-reports">作業報告</a>
         <a href="/admin/attendance/shifts" data-admin-link="attendance-shifts">シフト管理</a>
-        <a href="/admin/attendance/shift-assignment" data-admin-link="attendance-assign">シフト割当</a>
         <a href="/admin/attendance/holidays" data-admin-link="attendance-holidays">休日設定</a>
       </details>
       <details data-default-href="/admin/leave/requests">
@@ -126,14 +58,15 @@
       </details>
       <details data-default-href="/admin/system/settings">
         <summary><span class="summary-text">システム</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/notices" data-admin-link="system-notices">お知らせ</a>
         <a href="/admin/system/settings" data-admin-link="system-settings">設定</a>
         <a href="/admin/system/audit-logs" data-admin-link="system-audit">監査ログ</a>
       </details>
     </nav>
   </aside>
   <main class="content">
-    <div id="status" style="margin-bottom:12px;color:#3a6ea5;font-weight:600;">Loading…</div>
-    <div id="error" style="display:none;color:#b00020;font-weight:600;"></div>
+    <div id="status" class="status">Loading…</div>
+    <div id="error" class="error"></div>
     
     <section id="adminContent" class="card"></section>
   </main>

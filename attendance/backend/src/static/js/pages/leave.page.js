@@ -2,6 +2,39 @@ import { myPaidBalance, applyPaidLeave, listMyRequests } from '../api/leave.api.
 
 const $ = (sel) => document.querySelector(sel);
 
+const draftKey = () => {
+  const path = String(window.location.pathname || '');
+  return `se.leaveDraft.v1:${path}`;
+};
+
+const loadDraft = () => {
+  try {
+    const raw = localStorage.getItem(draftKey());
+    const j = raw ? JSON.parse(raw) : null;
+    return j && typeof j === 'object' ? j : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveDraft = () => {
+  try {
+    const form = $('#applyForm');
+    if (!form) return;
+    const payload = {
+      savedAt: Date.now(),
+      startDate: String($('#startDate')?.value || ''),
+      endDate: String($('#endDate')?.value || ''),
+      reason: String($('#reason')?.value || '')
+    };
+    localStorage.setItem(draftKey(), JSON.stringify(payload));
+  } catch {}
+};
+
+const clearDraft = () => {
+  try { localStorage.removeItem(draftKey()); } catch {}
+};
+
 async function renderBalance() {
   const box = $('#balance');
   box.innerHTML = '<div>残数を読み込み中…</div>';
@@ -47,6 +80,24 @@ async function renderMyRequests() {
 function initApply() {
   const form = $('#applyForm');
   const result = $('#applyResult');
+  const d = loadDraft();
+  if (d) {
+    try { if (d.startDate) $('#startDate').value = d.startDate; } catch {}
+    try { if (d.endDate) $('#endDate').value = d.endDate; } catch {}
+    try { if (d.reason != null) $('#reason').value = d.reason; } catch {}
+  }
+  try {
+    const g = globalThis;
+    if (!Array.isArray(g.__draftFlushers)) g.__draftFlushers = [];
+    g.__draftFlushers.push(saveDraft);
+  } catch {}
+  let t = 0;
+  const schedule = () => {
+    try { clearTimeout(t); } catch {}
+    t = setTimeout(saveDraft, 400);
+  };
+  form.addEventListener('input', schedule);
+  form.addEventListener('change', schedule);
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const startDate = $('#startDate').value;
@@ -59,6 +110,7 @@ function initApply() {
     try {
       await applyPaidLeave({ startDate, endDate, reason });
       result.textContent = '申請しました';
+      clearDraft();
       await renderBalance();
     } catch (err) {
       result.textContent = '申請失敗: ' + (err?.message || 'error');

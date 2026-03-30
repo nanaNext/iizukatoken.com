@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>月次勤怠入力(管理者)</title>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260326-3">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260326-3">
+  <link rel="stylesheet" href="/static/css/admin.css?v=navy-20260326-3">
+  <link rel="stylesheet" href="/static/css/admin-attendance-monthly.css?v=navy-20260326-3">
+  <link rel="icon" href="data:,">
+  <script src="/static/js/pages/session-idle.js?v=navy-20260326-3" defer></script>
+  <script type="module" src="/static/js/pages/admin-attendance-monthly.page.js?v=navy-20260326-3"></script>
+</head>
+<body class="admin has-sidebar">
+  <!--#include file="_partials/admin-topbar-attendance-monthly.html" -->
+  <!--#include file="_partials/admin-mobile-drawer.html" -->
+  <main class="content">
+    <div id="error" class="admin-monthly-error"></div>
+    <section class="card">
+      <div class="admin-monthly-head">
+        <h3 class="admin-monthly-title">月次勤怠入力(管理者)</h3>
+        <div class="admin-monthly-controls">
+          <div class="admin-monthly-label">対象年月</div>
+          <input id="month" class="admin-monthly-month" type="month">
+        </div>
+      </div>
+      <div class="admin-monthly-hint">社員一覧から選択してください</div>
+      <div class="admin-monthly-grid">
+        <div id="list"></div>
+        <div class="admin-monthly-frame-wrap">
+          <div id="frameSpinner" class="admin-monthly-frame-spinner" hidden>
+            <div class="lds-spinner" aria-hidden="true">
+              <div></div><div></div><div></div><div></div><div></div><div></div>
+              <div></div><div></div><div></div><div></div><div></div><div></div>
+            </div>
+          </div>
+          <iframe id="monthlyFrame" class="admin-monthly-frame" title="月次勤怠入力"></iframe>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -7,6 +7,7 @@ async function ensureSchema() {
       userId BIGINT UNSIGNED NOT NULL,
       date DATE NOT NULL,
       attendanceId BIGINT UNSIGNED NULL,
+      work_type VARCHAR(24) NULL,
       site VARCHAR(120) NOT NULL,
       work TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -17,6 +18,9 @@ async function ensureSchema() {
       CONSTRAINT fk_work_report_user FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  try {
+    await db.query(`ALTER TABLE work_reports ADD COLUMN work_type VARCHAR(24) NULL`);
+  } catch {}
   try {
     const [fk] = await db.query(`
       SELECT CONSTRAINT_NAME AS name
@@ -74,17 +78,18 @@ module.exports = {
     `, [month, closedBy || null]);
     return { month, closed: true };
   },
-  async upsert({ userId, date, attendanceId, site, work }) {
+  async upsert({ userId, date, attendanceId, workType, site, work }) {
     await ensureSchema();
     const sql = `
-      INSERT INTO work_reports (userId, date, attendanceId, site, work)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO work_reports (userId, date, attendanceId, work_type, site, work)
+      VALUES (?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         attendanceId = COALESCE(VALUES(attendanceId), attendanceId),
+        work_type = VALUES(work_type),
         site = VALUES(site),
         work = VALUES(work)
     `;
-    const [res] = await db.query(sql, [userId, date, attendanceId || null, site, work]);
+    const [res] = await db.query(sql, [userId, date, attendanceId || null, workType || null, site, work]);
     return res.insertId || null;
   },
   async getByUserDate(userId, date) {

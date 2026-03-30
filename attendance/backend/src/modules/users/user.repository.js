@@ -5,6 +5,40 @@ module.exports = {
     const [rows] = await db.query(`SELECT * FROM users ORDER BY id DESC`);
     return rows;
   },
+  async listUsersPaged({ q = '', role = null, departmentId = null, employmentStatus = null, limit = 100, offset = 0 } = {}) {
+    const qq = String(q || '').trim().toLowerCase();
+    const lim = Math.min(5000, Math.max(1, Number.parseInt(String(limit || '100'), 10) || 100));
+    const off = Math.max(0, Number.parseInt(String(offset || '0'), 10) || 0);
+    const where = [];
+    const params = [];
+    if (role != null && String(role || '').trim()) {
+      where.push('LOWER(role) = ?');
+      params.push(String(role).toLowerCase());
+    }
+    if (departmentId != null && String(departmentId || '').trim()) {
+      where.push('departmentId = ?');
+      params.push(String(departmentId));
+    }
+    if (employmentStatus != null && String(employmentStatus || '').trim()) {
+      where.push('LOWER(employment_status) = ?');
+      params.push(String(employmentStatus).toLowerCase());
+    }
+    if (qq) {
+      where.push(`LOWER(CONCAT_WS(' ', employee_code, username, email, id)) LIKE ?`);
+      params.push(`%${qq}%`);
+    }
+    const wsql = where.length ? ('WHERE ' + where.join(' AND ')) : '';
+    const [rows] = await db.query(
+      `SELECT * FROM users ${wsql} ORDER BY employee_code ASC, username ASC LIMIT ? OFFSET ?`,
+      [...params, lim, off]
+    );
+    const [cntRows] = await db.query(
+      `SELECT COUNT(*) AS total FROM users ${wsql}`,
+      params
+    );
+    const total = Number(cntRows?.[0]?.total || 0);
+    return { rows, total, limit: lim, offset: off };
+  },
   async getUserById(id) {
     const [rows] = await db.query(`SELECT * FROM users WHERE id = ? LIMIT 1`, [id]);
     return rows[0];
@@ -221,5 +255,11 @@ module.exports = {
   async deleteDepartment(id) {
     const sql = `DELETE FROM departments WHERE id = ?`;
     await db.query(sql, [id]);
+  },
+
+  async touchLastActive(id, at = null) {
+    try { await db.query(`ALTER TABLE users ADD COLUMN last_active_at DATETIME NULL`); } catch {}
+    const sql = `UPDATE users SET last_active_at = COALESCE(?, NOW()) WHERE id = ?`;
+    await db.query(sql, [at ? String(at).slice(0, 19).replace('T', ' ') : null, id]);
   }
 };

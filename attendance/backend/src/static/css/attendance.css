@@ -1,0 +1,503 @@
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.kintai-spinner {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+.kintai-spinner[hidden] { display: none; }
+
+.kintai-top {
+  background: #0b2c66;
+  color: #fff;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+  position: sticky;
+  top: 0;
+  z-index: 2500;
+}
+.kintai-top-inner {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.kintai-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+  margin-left: -12px;
+}
+.kintai-logo {
+  font-weight: 800;
+  letter-spacing: .2px;
+  font-size: 34px;
+  line-height: 48px;
+  height: 48px;
+  padding-left: 12px;
+  white-space: nowrap;
+}
+.kintai-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+.kintai-nav-dd { position: relative; }
+.kintai-nav-btn {
+  border: 0;
+  background: transparent;
+  color: rgba(255,255,255,.92);
+  font-weight: 800;
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.kintai-nav-btn:hover { background: rgba(255,255,255,.10); }
+.kintai-nav-btn.active { background: rgba(255,255,255,.16); }
+.kintai-caret { font-size: 12px; opacity: .9; }
+.kintai-dd {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  min-width: 220px;
+  background: #1f3553;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  padding: 6px;
+  z-index: 120;
+}
+.kintai-nav-dd::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 10px;
+}
+.kintai-dd a {
+  display: block;
+  color: rgba(255,255,255,.95);
+  text-decoration: none;
+  font-weight: 750;
+  font-size: 13px;
+  padding: 9px 10px;
+  border-radius: 6px;
+}
+.kintai-dd a:hover { background: rgba(255,255,255,.10); }
+@media (hover:hover) and (pointer:fine) {
+  .kintai-nav-dd:hover .kintai-dd { display: block; }
+  .kintai-nav-dd:hover .kintai-dd[hidden] { display: block; }
+}
+
+.kintai-user { position: relative; }
+.kintai-top-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-right: 10px;
+}
+.kintai-top-link {
+  color: rgba(255,255,255,.95);
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.kintai-top-link:hover { background: rgba(255,255,255,.10); }
+.kintai-user-btn {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.kintai-user-btn:hover { background: rgba(255,255,255,.10); }
+.kintai-user-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 180px;
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.10);
+  padding: 8px;
+  z-index: 100;
+}
+.kintai-user-menu a,
+.kintai-user-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #0f172a;
+  text-decoration: none;
+  font-weight: 650;
+}
+.kintai-user-menu a:hover,
+.kintai-user-menu button:hover { background: #f1f5f9; }
+
+.kintai-main {
+  background: #f5f6f8;
+  min-height: calc(100vh - 48px);
+  padding: 12px 12px 24px;
+}
+
+@media (max-width: 700px) {
+  .kintai-top-inner {
+    max-width: none;
+    padding: 0 10px;
+    gap: 10px;
+  }
+  .kintai-brand { min-width: auto; }
+  .kintai-brand { margin-left: -10px; }
+  .kintai-logo { font-size: 24px; line-height: 48px; height: 48px; padding-left: 10px; }
+  .kintai-nav {
+    display: flex;
+    flex: 1;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .kintai-nav::-webkit-scrollbar { display: none; }
+  .kintai-nav-btn {
+    font-size: 13px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .kintai-nav-dd { position: static; }
+  .kintai-dd {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    top: 56px;
+    min-width: 0;
+    max-height: calc(100vh - 72px);
+    overflow: auto;
+    z-index: 2600;
+  }
+}
+.kintai-grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 14px;
+}
+.kintai-card {
+  background: #fff;
+  border: 1px solid #d7dbe3;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.kintai-card-title {
+  font-weight: 800;
+  font-size: 13px;
+  color: #0f172a;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 10px;
+}
+.kintai-error {
+  max-width: 1100px;
+  margin: 0 auto 10px;
+  color: #b00020;
+  font-weight: 700;
+}
+.kintai-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.kintai-table td, .kintai-table th {
+  border: 1px solid #e5e7eb;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+.kintai-table th {
+  background: #f1f5f9;
+  text-align: left;
+  width: 90px;
+}
+
+.kintai-notice-meta {
+  display: grid;
+  gap: 8px;
+}
+.kintai-notice-meta-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+.kintai-notice-meta-label {
+  font-size: 12px;
+  font-weight: 900;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.kintai-notice-meta-value {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.kintai-notice-section {
+  margin-top: 10px;
+}
+.kintai-notice-toolbar {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+.kintai-notice-toggle {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0b2c66;
+  font-weight: 900;
+  cursor: pointer;
+  font-size: 12px;
+}
+.kintai-notice-toggle:hover {
+  background: #f8fafc;
+}
+.kintai-notice-list {
+  display: grid;
+  gap: 8px;
+}
+.kintai-notice-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+.kintai-notice-item.is-unread {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .18), 0 10px 24px rgba(2, 6, 23, .08);
+}
+.kintai-notice-item.is-read {
+  border-color: #e5e7eb;
+}
+.kintai-notice-item[open] {
+  border-color: #93c5fd;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, .06);
+}
+.kintai-notice-item.is-unread .kintai-notice-summary {
+  background: linear-gradient(180deg, #dbeafe 0%, #ffffff 100%);
+}
+.kintai-notice-item.is-unread .kintai-notice-preview {
+  color: #0b2c66;
+  font-weight: 900;
+}
+.kintai-notice-item.is-unread .kintai-notice-tag {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+.kintai-notice-item.is-read .kintai-notice-summary {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+.kintai-notice-item.is-read .kintai-notice-preview {
+  color: #334155;
+  font-weight: 800;
+}
+.kintai-notice-item.is-read .kintai-notice-tag {
+  border-color: #e2e8f0;
+  background: #fff;
+  color: #334155;
+}
+.kintai-notice-item.is-unread .kintai-notice-time {
+  color: #1d4ed8;
+  font-weight: 900;
+}
+.kintai-notice-item.is-unread .kintai-notice-time::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #ef4444;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.kintai-notice-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+.kintai-notice-summary::-webkit-details-marker { display: none; }
+.kintai-notice-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.kintai-notice-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0b2c66;
+  font-weight: 900;
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+.kintai-notice-new {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-weight: 900;
+  font-size: 10px;
+  flex: 0 0 auto;
+}
+.kintai-notice-preview {
+  font-weight: 900;
+  color: #0f172a;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 520px;
+}
+.kintai-notice-time {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  flex: 0 0 auto;
+}
+.kintai-notice-body {
+  padding: 10px 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #fff;
+}
+.kintai-notice-empty {
+  padding: 10px 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+}
+.kintai-notice-links {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+.kintai-notice-links a {
+  color: #2563eb;
+  text-decoration: none;
+}
+.kintai-notice-links a:hover {
+  text-decoration: underline;
+}
+.kintai-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.kintai-actions-split {
+  justify-content: space-between;
+  align-items: center;
+}
+.kintai-actions-left,
+.kintai-actions-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.kintai-monthly-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: #2563eb;
+  font-weight: 900;
+}
+.kintai-monthly-link:hover {
+  text-decoration: underline;
+}
+.kintai-icon-pc {
+  width: 32px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.kintai-btn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0b2c66;
+  font-weight: 800;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.kintai-btn.primary {
+  background: #0b2c66;
+  border-color: #0b2c66;
+  color: #fff;
+}
+.kintai-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+
+@media (max-width: 900px) {
+  .kintai-grid { grid-template-columns: 1fr; }
+  .kintai-brand { min-width: 0; }
+  .kintai-nav { gap: 6px; }
+  .kintai-nav-item { padding: 6px 8px; }
+}

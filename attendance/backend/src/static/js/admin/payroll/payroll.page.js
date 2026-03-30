@@ -5,11 +5,11 @@ const normalizePath = (p) => {
   return s.length > 1 ? s.replace(/\/+$/, '') : s;
 };
 
-const p = normalizePath(window.location.pathname);
-let tab = 'salary_list';
-let hash = '';
-
-if (p === '/admin/payroll/payslips') tab = 'salary_send';
-if (p === '/admin/payroll/salary') tab = 'salary_list';
-
-bootLegacyTab({ tab, hash });
+export async function mount() {
+  const p = normalizePath(window.location.pathname);
+  if (p === '/admin/payroll/payslips') {
+    try { window.location.href = '/admin/payroll/salary?tab=payroll_editor'; } catch {}
+    return;
+  }
+  await bootLegacyTab({ tab: 'payroll_editor', hash: '' });
+}

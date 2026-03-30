@@ -741,31 +741,38 @@ body.drawer-open .content {
 /* Excel-like table */
 .admin .card .excel-table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0 12px;
+  border-collapse: collapse;
   table-layout: auto;
   box-shadow: none;
-  background: transparent;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
 }
+
 .admin .card .excel-table thead th {
   position: static;
-  top: auto;
-  background: #f3f4f6;
-  color: #111827;
-  font-weight: 600;
+  background: #f1f7ff;
+  color: #0d2c5b;
+  font-weight: 700;
   border: none;
-  border-bottom: 2px solid #9ca3af;
-  padding: 10px 12px;
+  border-bottom: 1px solid #d1d5db;
+  border-right: 1px solid #d1d5db;
+  padding: 8px;
   text-align: left;
   white-space: nowrap;
   cursor: default;
   user-select: none;
   font-size: 14px;
 }
+.admin .card .excel-table thead th:last-child {
+  border-right: none;
+}
 .admin .card .excel-table tbody td {
   background: #fff;
-  border: 1px solid #d1d5db;
-  padding: 12px 14px;
+  border-bottom: 1px solid #d1d5db;
+  border-right: 1px solid #d1d5db;
+  padding: 4px 8px;
   white-space: nowrap;
   vertical-align: middle;
   overflow: hidden;
@@ -774,32 +781,35 @@ body.drawer-open .content {
   color: #0f172a;
   line-height: 1.6;
 }
+.admin .card .excel-table tbody td:last-child {
+  border-right: none;
+}
+.admin .card .excel-table tbody tr:last-child td {
+  border-bottom: none;
+}
 .admin .card .excel-table tbody tr:hover td {
-  background: #fff;
-}
-.admin .card .excel-table tbody tr td:first-child {
-  border-radius: 10px 0 0 10px;
-  border-left: 2px solid #9ca3af;
-}
-.admin .card .excel-table tbody tr td:last-child {
-  border-radius: 0 10px 10px 0;
-  border-right: 2px solid #9ca3af;
-}
-.admin .card .excel-table tbody tr td:last-child {
-  min-width: 220px;
+  background: #f7fbff;
 }
 .admin .card .excel-table input,
 .admin .card .excel-table select {
-  height: 28px;
-  line-height: 28px;
+  height: 32px;
+  line-height: 32px;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border-radius: 4px;
   background: #fff;
   color: #0f172a;
-  font-size: 12px;
+  font-size: 13px;
   padding: 0 8px;
-  width: 320px !important;
+  width: 100% !important;
+  max-width: 100%;
   box-sizing: border-box;
+  margin: 0;
+}
+.admin .card .excel-table input:focus,
+.admin .card .excel-table select:focus {
+  outline: none;
+  border-color: #2a6ea5;
+  box-shadow: 0 0 0 2px rgba(42, 110, 165, 0.2);
 }
 .admin .card .excel-table input::placeholder {
   color: #94a3b8;
@@ -812,8 +822,20 @@ body.drawer-open .content {
   white-space: nowrap;
 }
 .admin .card .excel-table tbody td.col-name a {
-  font-size: 12px;
-  font-weight: 400;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1151ac;
+  text-decoration: underline;
+  display: inline-block;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+.admin .card .excel-table tbody td.col-name a:hover {
+  text-decoration: none;
+  background-color: #1151ac;
+  color: #ffffff;
 }
 .admin .card .excel-table tbody td.col-email {
   font-size: 12px;
@@ -851,92 +873,78 @@ body.drawer-open .content {
   background: #e0e7ff;
   border-color: #a5b4fc;
 }
+
+.admin .card table#list tbody td .text-pill,
+.admin .card table#list tbody td .status-pill,
+.admin .card table#list tbody td .role-pill,
+.admin .card table#list tbody td .type-pill { width: auto; }
+
 .admin .card .role-pill,
-.admin .card .type-pill {
+.admin .card .type-pill,
+.admin .card .status-pill {
   display: inline-block;
-  padding: 4px 10px;
-  border-radius: 999px;
+  padding: 0;
+  border-radius: 0;
   font-size: 14px;
-  font-weight: 600;
-  border: 1px solid transparent;
+  font-weight: 400;
+  border: none;
+  background: transparent;
+  color: #1f2937;
 }
-.admin .card .role-pill.admin {
-  background: #fdecec;
-  color: #b00020;
-  border-color: #f5b2b7;
+
+.admin .card .role-pill.admin,
+.admin .card .role-pill.manager,
+.admin .card .role-pill.employee,
+.admin .card .type-pill.full,
+.admin .card .type-pill.part,
+.admin .card .type-pill.contract,
+.admin .card .status-pill.active,
+.admin .card .status-pill.retired,
+.admin .card .status-pill.inactive {
+  background: transparent;
+  border: none;
 }
-.admin .card .role-pill.manager {
-  background: #fff3e6;
-  color: #b45309;
-  border-color: #f7d1a8;
+
+.admin .card .role-pill.admin { color: #b00020; }
+.admin .card .role-pill.manager { color: #b45309; }
+.admin .card .role-pill.employee { color: #1151ac; }
+
+.admin .card .type-pill.full { color: #1b7c3f; }
+.admin .card .type-pill.part { color: #0f766e; }
+.admin .card .type-pill.contract { color: #6b21a8; }
+
+.admin .card .status-pill.active { color: #1b7c3f; }
+.admin .card .status-pill.retired { color: #6b7280; }
+.admin .card .status-pill.inactive { color: #8a6d00; }
+.admin .card .text-pill {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 400;
+  color: #1f2937;
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
 }
-.admin .card .role-pill.employee {
-  background: #eef6ff;
-  color: #1151ac;
-  border-color: #cfe0ff;
-}
-.admin .card .type-pill.full {
-  background: #eaf7ee;
-  color: #1b7c3f;
-  border-color: #bfe3ca;
-}
-.admin .card .type-pill.part {
-  background: #e6f7f4;
-  color: #0f766e;
-  border-color: #c3e9e4;
-}
-.admin .card .type-pill.contract {
-  background: #f3e8ff;
-  color: #6b21a8;
-  border-color: #dfc3ff;
+.admin .card .text-pill.neutral {
+  background: transparent;
+  color: #1f3b63;
+  border: none;
 }
 .admin .card .unreg {
   color: #6b7280;
 }
-.admin .card .status-pill {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  border: 1px solid transparent;
-}
-.admin .card .status-pill.active {
-  background: #eaf7ee;
-  color: #1b7c3f;
-  border-color: #bfe3ca;
-}
-.admin .card .status-pill.retired {
-  background: #f1f3f6;
-  color: #6b7280;
-  border-color: #d7dde5;
-}
-.admin .card .text-pill {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 400;
-  background: #eef6ff;
-  color: #1151ac;
-  border: 1px solid #cfe0ff;
-}
-.admin .card .text-pill.neutral {
-  background: #f1f5f9;
-  color: #1f3b63;
-  border-color: #d7dde5;
-}
 .admin .card .text-pill a {
-  color: inherit;
+  color: #1151ac;
   text-decoration: none;
 }
 .admin .card .text-pill a:hover {
   text-decoration: underline;
 }
 .admin .card .text-pill.danger {
-  background: #fdecec;
   color: #b00020;
-  border-color: #f5b2b7;
+  border: none;
+  background: transparent;
 }
 .admin .card .status-pill.inactive {
   background: #fff8e1;
@@ -1152,7 +1160,7 @@ body.drawer-open .content {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   padding: 6px 0;
 }
 .admin.employees-wide .subbar .subnav .filter-bar {
@@ -1174,7 +1182,7 @@ body.drawer-open .content {
 .filter-bar .fi {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   white-space: nowrap;
   min-width: 0;
   background: transparent;
@@ -1183,18 +1191,18 @@ body.drawer-open .content {
   padding: 0;
 }
 .filter-bar .fi-label {
-  flex: 0 0 60px;
+  flex: 0 0 auto;
   color: #0d2c5b;
   font-weight: 600;
-  margin-right: 4px;
+  margin-right: 0;
 }
 .filter-bar .fi-name {
-  width: 180px;
+  width: 240px;
 }
 .filter-bar .fi-dept,
 .filter-bar .fi-role,
 .filter-bar .fi-status {
-  width: 140px;
+  width: 180px;
 }
 .filter-bar .fi-range .fi-date {
   width: 120px;
@@ -1247,26 +1255,37 @@ body.drawer-open .content {
 /* modern table styles for employees */
 .admin .card table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse;
   background: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
 }
 .admin .card thead th {
-  position: sticky;
-  top: 0;
+  position: static;
   background: #f1f7ff;
-  border-bottom: 1px solid #cfe0f5;
+  border-bottom: 1px solid #d1d5db;
+  border-right: 1px solid #d1d5db;
   padding: 8px;
   text-align: left;
   font-weight: 700;
   color: #0d2c5b;
 }
+.admin .card thead th:last-child {
+  border-right: none;
+}
 .admin .card tbody td {
-  border-bottom: 1px solid #e7f1ff;
+  border-bottom: 1px solid #d1d5db;
+  border-right: 1px solid #d1d5db;
   padding: 8px;
 }
-.admin .card tbody tr:hover {
+.admin .card tbody td:last-child {
+  border-right: none;
+}
+.admin .card tbody tr:last-child td {
+  border-bottom: none;
+}
+.admin .card tbody tr:hover td {
   background: #f7fbff;
 }
 .admin .card .filters {
@@ -1296,8 +1315,19 @@ body.drawer-open .content {
 }
 .tiles.employee-portal .emp-tiles-3 {
   display: grid;
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
   gap: 16px;
+}
+.tiles.employee-portal .emp-tiles-3 .tile {
+  aspect-ratio: 16 / 9;
+  padding: 10px 12px;
+}
+.tiles.employee-portal .emp-tiles-3 .tile .icon {
+  font-size: 28px;
+}
+.tiles.employee-portal .emp-tiles-3 .tile .title {
+  margin-top: 6px;
+  font-size: 17px;
 }
 .tiles.employee-portal .emp-tiles-2 {
   display: grid;
@@ -1306,19 +1336,20 @@ body.drawer-open .content {
 }
 .tiles.employee-portal .tile.emp-wide {
   aspect-ratio: auto;
-  height: 92px;
+  height: 78px;
   flex-direction: row;
   justify-content: flex-start;
   gap: 14px;
-  padding: 14px 16px;
+  padding: 12px 14px;
 }
 .tiles.employee-portal .tile.emp-wide .icon {
-  font-size: 28px;
+  font-size: 26px;
 }
 .tiles.employee-portal .tile.emp-wide .title {
   margin-top: 0;
   text-align: left;
   line-height: 1.15;
+  font-size: 16px;
 }
 .tiles.employee-portal .tile.emp-wide .arrow {
   margin-top: 0;
@@ -1327,7 +1358,7 @@ body.drawer-open .content {
   color: #2a6ea5;
 }
 @media (max-width: 900px) {
-  .tiles.employee-portal .emp-tiles-3 { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+  .tiles.employee-portal .emp-tiles-3 { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
   .tiles.employee-portal .emp-tiles-2 { grid-template-columns: 1fr; }
 }
 .admin .tiles {

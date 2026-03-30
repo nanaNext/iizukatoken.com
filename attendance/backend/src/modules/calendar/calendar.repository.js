@@ -280,7 +280,8 @@ module.exports = {
     const list = Array.isArray(r.detail) ? r.detail : [];
     const matched = list.filter(it => String(it.date) === String(dateStr));
     const reasons = matched.map(it => ({ type: it.type, name: it.name, is_off: it.is_off }));
-    const isOff = reasons.some(x => x.is_off);
+    const offDays = Array.isArray(r.off_days) ? r.off_days.map(d => String(d)) : [];
+    const isOff = offDays.includes(String(dateStr)) || reasons.some(x => x.is_off);
     return { date: dateStr, is_off: isOff ? 1 : 0, reasons };
   },
   async computeYear(year) {

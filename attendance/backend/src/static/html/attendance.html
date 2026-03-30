@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>勤怠入力</title>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260317">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=navy-20260323-11">
+  <link rel="icon" href="data:,">
+  <script src="/static/js/pages/session-idle.js?v=navy-20260324-1" defer></script>
+  <script src="/static/js/pages/kintai-topbar-links.js?v=navy-20260330-1" defer></script>
+  <script type="module" src="/static/js/pages/attendance.page.js?v=navy-20260323-12"></script>
+</head>
+<body>
+  <div id="pageSpinner" class="kintai-spinner" hidden>
+    <div class="lds-spinner" aria-hidden="true">
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+    </div>
+  </div>
+
+  <header class="kintai-top">
+    <div class="kintai-top-inner">
+      <div class="kintai-brand">
+        <div class="kintai-logo">スマートE勤怠</div>
+      </div>
+      <nav class="kintai-nav" aria-label="main">
+        <div class="kintai-nav-dd">
+          <button class="kintai-nav-btn active" type="button" data-dd="att" aria-haspopup="true" aria-expanded="false">
+            勤怠入力 <span class="kintai-caret">▾</span>
+          </button>
+          <div class="kintai-dd" data-dd-panel="att" hidden>
+            <a href="/ui/attendance">個人カレンダー登録画面</a>
+            <a href="/ui/attendance/monthly">月次勤怠入力へ</a>
+            <a href="/ui/attendance/simple">簡易登録画面</a>
+          </div>
+        </div>
+        <div class="kintai-nav-dd">
+          <button class="kintai-nav-btn" type="button" data-dd="leave" aria-haspopup="true" aria-expanded="false">
+            有休管理 <span class="kintai-caret">▾</span>
+          </button>
+          <div class="kintai-dd" data-dd-panel="leave" hidden>
+            <a href="/ui/leave">休暇及び勤怠帳画面</a>
+          </div>
+        </div>
+        <div class="kintai-nav-dd">
+          <button class="kintai-nav-btn" type="button" data-dd="common" aria-haspopup="true" aria-expanded="false">
+            共通機能 <span class="kintai-caret">▾</span>
+          </button>
+          <div class="kintai-dd" data-dd-panel="common" hidden>
+            <a href="/ui/dashboard">パスワード変更画面</a>
+          </div>
+        </div>
+      </nav>
+      <div class="kintai-user">
+        <div class="kintai-top-links">
+          <a class="kintai-top-link" href="/ui/manual">操作マニュアル</a>
+          <a class="kintai-top-link" href="/ui/faq">よくある質問</a>
+          <a class="kintai-top-link logout-link" href="/ui/logout">ログアウト</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="kintai-main">
+    <div id="error" class="kintai-error" style="display:none;"></div>
+    <section class="kintai-grid">
+      <div class="kintai-card">
+        <div class="kintai-card-title">お知らせ</div>
+        <div id="noticeHost"></div>
+      </div>
+      <div class="kintai-card">
+        <div class="kintai-card-title">勤怠入力</div>
+        <div id="attendanceHost"></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

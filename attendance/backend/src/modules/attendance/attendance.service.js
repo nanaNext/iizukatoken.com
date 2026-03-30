@@ -40,11 +40,13 @@ async function checkIn(userId, time, loc) {
   const flags = await settingsService.getFlags();
   const ts = time ? formatInputToMySQLJST(time) : nowJSTMySQL();
   const labels = computeLabelsForCheckIn(flags, loc);
-  const id = await repo.createCheckInTx(userId, ts, loc, labels.join(','));
+  const wt = String(arguments[3] || '').trim();
+  const workType = wt === 'onsite' || wt === 'remote' || wt === 'satellite' ? wt : null;
+  const id = await repo.createCheckInTx(userId, ts, loc, labels.join(','), workType);
   if (!id) {
     return null;
   }
-  return { id, userId, checkIn: ts, labels };
+  return { id, userId, checkIn: ts, labels, workType };
 }
 
 async function checkOut(userId, time, loc) {

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { authenticate, authorize } = require('../../core/middleware/authMiddleware');
 const repo = require('./workReports.repository');
+const attendanceRepo = require('../attendance/attendance.repository');
+const calendarRepo = require('../calendar/calendar.repository');
 const db = require('../../core/database/mysql');
 
 const isISODate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
@@ -19,7 +21,10 @@ router.use(authenticate);
 
 router.get('/', authorize('admin', 'manager'), async (req, res) => {
   try {
+    await repo.ensureSchema().catch(() => null);
+    await attendanceRepo.ensureAttendanceSchemaPublic().catch(() => null);
     const date = isISODate(req.query?.date) ? String(req.query.date) : todayJST();
+    const isOff = await calendarRepo.isOff(date).catch(() => false);
     const [rows] = await db.query(`
       SELECT
         u.id AS userId,
@@ -30,6 +35,8 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
         a.id AS attendanceId,
         a.checkIn AS checkIn,
         a.checkOut AS checkOut,
+        COALESCE(wr.work_type, a.work_type) AS work_type,
+        ad.kubun AS daily_kubun,
         wr.site AS site,
         wr.work AS work,
         wr.updated_at AS updated_at
@@ -40,6 +47,9 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
         ON lr.userId = u.id
        AND lr.status = 'approved'
        AND ? BETWEEN lr.startDate AND lr.endDate
+      LEFT JOIN attendance_daily ad
+        ON ad.userId = u.id
+       AND ad.date = ?
       LEFT JOIN (
         SELECT t1.*
         FROM attendance t1
@@ -61,13 +71,24 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
         CASE WHEN a.checkIn IS NULL THEN 1 ELSE 0 END ASC,
         COALESCE(u.employee_code, '') ASC,
         u.id ASC
-    `, [date, date, date]);
+    `, [date, date, date, date]);
 
     const items = (rows || []).map(r => {
       const hasIn = !!r.checkIn;
       const hasOut = !!r.checkOut;
-      const status = hasIn ? (hasOut ? 'checked_out' : 'working') : 'not_checked_in';
+      const kubun = String(r.daily_kubun || '').trim();
+      const offKubun = new Set(['休日', '代替休日']);
+      const leaveKubun = new Set(['有給休暇', '無給休暇', '欠勤']);
+      const workKubun = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
+      const dayIsOff = offKubun.has(kubun) || (!workKubun.has(kubun) && isOff);
+      const forceLeave = leaveKubun.has(kubun);
+      const status = forceLeave
+        ? 'leave'
+        : (hasIn
+            ? (hasOut ? (dayIsOff ? 'holiday_work' : 'checked_out') : (dayIsOff ? 'holiday_working' : 'working'))
+            : (dayIsOff ? 'leave' : 'not_checked_in'));
       const hasReport = !!(r.site && r.work);
+      const wt = r.work_type || null;
       return {
         userId: r.userId,
         employeeCode: r.employeeCode || null,
@@ -80,7 +101,9 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
           checkOut: r.checkOut || null
         },
         status,
+        workType: wt,
         report: hasReport ? {
+          workType: wt,
           site: r.site,
           work: r.work,
           updatedAt: r.updated_at || null
@@ -97,11 +120,345 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
   }
 });
 
+router.post('/backfill-worktype', authorize('admin', 'manager'), async (req, res) => {
+  try {
+    await attendanceRepo.ensureAttendanceSchemaPublic().catch(() => null);
+    const date = isISODate(req.body?.date) ? String(req.body.date) : todayJST();
+    const wtRaw = String(req.body?.workType || req.body?.work_type || 'onsite').trim();
+    const workType = wtRaw === 'onsite' || wtRaw === 'remote' || wtRaw === 'satellite' ? wtRaw : 'onsite';
+    const [r] = await db.query(
+      `UPDATE attendance
+       SET work_type = ?
+       WHERE DATE(checkIn) = ?
+         AND checkIn IS NOT NULL
+         AND (work_type IS NULL OR work_type = '')`,
+      [workType, date]
+    );
+    res.status(200).json({ date, workType, updated: Number(r?.affectedRows || 0) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/export.xlsx', authorize('admin', 'manager'), async (req, res) => {
+  try {
+    await repo.ensureSchema().catch(() => null);
+    await attendanceRepo.ensureAttendanceSchemaPublic().catch(() => null);
+    const period = String(req.query?.period || 'day').toLowerCase();
+    const qDate = String(req.query?.date || todayJST()).slice(0, 10);
+    const qMonth = String(req.query?.month || qDate.slice(0, 7)).slice(0, 7);
+    const qYear = parseInt(String(req.query?.year || qDate.slice(0, 4)), 10);
+
+    const addDays = (dateStr, delta) => {
+      const dt = new Date(String(dateStr).slice(0, 10) + 'T00:00:00Z');
+      dt.setUTCDate(dt.getUTCDate() + delta);
+      return dt.toISOString().slice(0, 10);
+    };
+    const lastDayOfMonth = (ym) => {
+      const [y, m] = String(ym).split('-').map(n => parseInt(n, 10));
+      return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    };
+    const weekRange = (dateStr) => {
+      const dt = new Date(String(dateStr).slice(0, 10) + 'T00:00:00Z');
+      const dow = dt.getUTCDay();
+      const diffToMon = (dow + 6) % 7;
+      const start = addDays(dateStr, -diffToMon);
+      const end = addDays(start, 6);
+      return { start, end };
+    };
+
+    let start = qDate;
+    let end = qDate;
+    if (period === 'week') {
+      const r = weekRange(qDate);
+      start = r.start;
+      end = r.end;
+    } else if (period === 'month') {
+      start = `${qMonth}-01`;
+      end = lastDayOfMonth(qMonth);
+    } else if (period === 'year') {
+      const y = qYear || parseInt(qDate.slice(0, 4), 10);
+      start = `${String(y).padStart(4, '0')}-01-01`;
+      end = `${String(y).padStart(4, '0')}-12-31`;
+    }
+
+    const dates = (() => {
+      const out = [];
+      const d0 = new Date(start + 'T00:00:00Z');
+      const d1 = new Date(end + 'T00:00:00Z');
+      for (let t = d0.getTime(); t <= d1.getTime(); t += 24 * 60 * 60 * 1000) {
+        out.push(new Date(t).toISOString().slice(0, 10));
+      }
+      return out;
+    })();
+    const yearsInRange = Array.from(new Set(dates.map(d => parseInt(String(d).slice(0, 4), 10)).filter(Boolean)));
+    const offByYear = new Map();
+    for (const y of yearsInRange) {
+      const cal = await calendarRepo.computeYear(y).catch(() => null);
+      const off = new Set((cal?.off_days || []).map(ds => String(ds).slice(0, 10)));
+      offByYear.set(y, off);
+    }
+    const isOffDate = (dateStr) => {
+      const y = parseInt(String(dateStr).slice(0, 4), 10);
+      const set = offByYear.get(y);
+      if (!set) return false;
+      return set.has(String(dateStr).slice(0, 10));
+    };
+
+    const [users] = await db.query(`
+      SELECT u.id AS userId, u.employee_code AS employeeCode, u.username AS username,
+             d.name AS departmentName
+      FROM users u
+      LEFT JOIN departments d ON d.id = u.departmentId
+      WHERE u.employment_status = 'active'
+        AND u.role IN ('employee','manager')
+      ORDER BY COALESCE(u.employee_code, '') ASC, u.id ASC
+    `);
+
+    const [attRows] = await db.query(`
+      SELECT a.userId, DATE(a.checkIn) AS date, a.checkIn, a.checkOut, a.work_type AS work_type
+      FROM attendance a
+      INNER JOIN (
+        SELECT userId, DATE(checkIn) AS date, MAX(checkIn) AS maxCheckIn
+        FROM attendance
+        WHERE DATE(checkIn) >= ? AND DATE(checkIn) <= ?
+        GROUP BY userId, DATE(checkIn)
+      ) t
+        ON t.userId = a.userId AND t.maxCheckIn = a.checkIn
+    `, [start, end]);
+
+    const [repRows] = await db.query(`
+      SELECT userId, date, site, work, work_type
+      FROM work_reports
+      WHERE date >= ? AND date <= ?
+    `, [start, end]);
+
+    const [leaveRows] = await db.query(`
+      SELECT userId, startDate, endDate, type
+      FROM leave_requests
+      WHERE status = 'approved'
+        AND endDate >= ? AND startDate <= ?
+    `, [start, end]);
+
+    const attMap = new Map();
+    for (const a of (attRows || [])) {
+      const d = String(a.date || a.checkIn || '').slice(0, 10);
+      attMap.set(`${a.userId}|${d}`, a);
+    }
+    const repMap = new Map();
+    for (const r of (repRows || [])) {
+      repMap.set(`${r.userId}|${String(r.date).slice(0, 10)}`, r);
+    }
+    const leaveByUser = new Map();
+    for (const lr of (leaveRows || [])) {
+      const uid = Number(lr.userId);
+      if (!leaveByUser.has(uid)) leaveByUser.set(uid, []);
+      leaveByUser.get(uid).push({ start: String(lr.startDate).slice(0, 10), end: String(lr.endDate).slice(0, 10), type: String(lr.type || '') });
+    }
+    const isOnLeave = (uid, dateStr) => {
+      const arr = leaveByUser.get(Number(uid));
+      if (!arr || !arr.length) return null;
+      for (const it of arr) {
+        if (dateStr >= it.start && dateStr <= it.end) return it;
+      }
+      return null;
+    };
+
+    const fmtHm = (dt) => {
+      if (!dt) return '';
+      const s = String(dt);
+      return s.length >= 16 ? s.slice(11, 16) : s;
+    };
+    const dowJa = (dateStr) => {
+      try {
+        const [y, m, d] = String(dateStr).slice(0, 10).split('-').map(x => parseInt(x, 10));
+        const dt = new Date(Date.UTC(y, (m || 1) - 1, d || 1));
+        return ['日','月','火','水','木','金','土'][dt.getUTCDay()];
+      } catch {
+        return '';
+      }
+    };
+    const wtLabel = (wt) => wt === 'onsite' ? '出社' : wt === 'remote' ? '在宅' : wt === 'satellite' ? '現場/出張' : '';
+    const leaveLabel = (t) => {
+      const s = String(t || '').toLowerCase();
+      if (s === 'paid') return '有給';
+      if (s === 'sick') return '病欠';
+      if (s === 'overtime') return '残業';
+      return '休暇';
+    };
+
+    const buildRow = (u, d) => {
+      const uid = Number(u.userId);
+      const code = u.employeeCode || `EMP${String(uid).padStart(3, '0')}`;
+      const name = u.username || '';
+      const dept = u.departmentName || '';
+      const leave = isOnLeave(uid, d);
+      const att = attMap.get(`${uid}|${d}`) || null;
+      const rep = repMap.get(`${uid}|${d}`) || null;
+      const wt = String(rep?.work_type || att?.work_type || '').trim();
+      let status = '未出勤';
+      let cin = '';
+      let cout = '';
+      if (isOffDate(d) && !att?.checkIn) {
+        status = '休日';
+      } else if (leave) {
+        status = leaveLabel(leave.type);
+      } else if (att?.checkIn) {
+        status = att?.checkOut ? (isOffDate(d) ? '休日出勤' : '退勤済') : (isOffDate(d) ? '休日出勤' : '出勤中');
+        cin = fmtHm(att.checkIn);
+        cout = fmtHm(att.checkOut);
+      }
+      return {
+        uid,
+        code,
+        name,
+        dept,
+        wt,
+        wtText: wtLabel(wt),
+        status,
+        cin,
+        cout,
+        site: isOffDate(d) && !att?.checkIn ? '' : String(rep?.site || ''),
+        work: isOffDate(d) && !att?.checkIn ? '' : String(rep?.work || ''),
+        isOff: isOffDate(d)
+      };
+    };
+
+    const safeFile = (s) => String(s || '').replace(/[\\\/:*?"<>|]/g, '_');
+    const fileName = safeFile(`attendance_${period}_${start}_${end}.xlsx`);
+
+    const { buildXlsx, buildXlsxBook } = require('../../utils/xlsx');
+
+    if (period === 'week') {
+      const mmdd = (d) => String(d).slice(5, 10).replace('-', '/');
+      const weekCol = (d) => `${dowJa(d)}(${mmdd(d)})`;
+      const summaryColumns = [
+        { header: '社員番号', width: 12 },
+        { header: '氏名', width: 14 },
+        { header: '部署', width: 22 },
+        ...dates.map(d => ({ header: weekCol(d), width: 22 }))
+      ];
+      const summaryRows = (users || []).map(u => {
+        const uid = Number(u.userId);
+        const code = u.employeeCode || `EMP${String(uid).padStart(3, '0')}`;
+        const name = u.username || '';
+        const dept = u.departmentName || '';
+        const dayCells = dates.map(d => {
+          const r = buildRow(u, d);
+          if (r.status === '休日') return '休日';
+          const t1 = r.status ? r.status : '';
+          const t2 = r.wtText ? r.wtText : '';
+          const t3 = r.cin || r.cout ? `${r.cin || ''}${r.cout ? '-' + r.cout : ''}` : '';
+          const t4 = r.site ? r.site : '';
+          return [t2, t1, t3, t4].filter(Boolean).join('\n');
+        });
+        return { isOff: false, cells: [code, name, dept, ...dayCells] };
+      });
+
+      const dayColumns = [
+        { header: '社員番号', width: 12 },
+        { header: '氏名', width: 14 },
+        { header: '部署', width: 22 },
+        { header: '勤務区分', width: 12 },
+        { header: '状態', width: 10 },
+        { header: '出勤', width: 8 },
+        { header: '退勤', width: 8 },
+        { header: '現場', width: 18 },
+        { header: '作業内容', width: 52 }
+      ];
+      const sheets = [
+        { name: `週次サマリー ${start}`, columns: summaryColumns, rows: summaryRows }
+      ];
+      for (const d of dates) {
+        const dayRows = (users || []).map(u => {
+          const r = buildRow(u, d);
+          return {
+            isOff: r.isOff,
+            cells: [
+              r.code,
+              r.name,
+              r.dept,
+              r.wtText || '',
+              r.status || '',
+              r.cin || '',
+              r.cout || '',
+              r.site || '',
+              r.work || ''
+            ]
+          };
+        });
+        sheets.push({ name: `${mmdd(d)} ${dowJa(d)}`, columns: dayColumns, rows: dayRows });
+      }
+
+      const buf = buildXlsxBook({ sheets });
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.status(200).send(buf);
+      return;
+    }
+
+    const rows = [];
+    for (const d of dates) {
+      for (const u of (users || [])) {
+        const r = buildRow(u, d);
+        rows.push({
+          isOff: r.isOff,
+          cells: [
+            d,
+            dowJa(d),
+            r.code,
+            r.name,
+            r.dept,
+            r.wtText,
+            r.status,
+            r.cin,
+            r.cout,
+            r.site,
+            r.work
+          ]
+        });
+      }
+    }
+
+    const columns = [
+      { header: '日付', width: 12 },
+      { header: '曜日', width: 6 },
+      { header: '社員番号', width: 12 },
+      { header: '氏名', width: 14 },
+      { header: '部署', width: 22 },
+      { header: '勤務区分', width: 12 },
+      { header: '状態', width: 10 },
+      { header: '出勤', width: 8 },
+      { header: '退勤', width: 8 },
+      { header: '現場', width: 18 },
+      { header: '作業内容', width: 52 }
+    ];
+
+    const baseName = period === 'month' ? `月次_${qMonth}` : period === 'year' ? `年次_${qYear}` : `日次_${start}`;
+    const buf = buildXlsx({ sheetName: baseName, columns, rows });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.status(200).send(buf);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.get('/month', authorize('admin', 'manager'), async (req, res) => {
   try {
     const month = isYM(req.query?.month) ? String(req.query.month) : monthJST();
     const { start, end } = monthRange(month);
     const closed = await repo.isMonthClosed(month).catch(() => false);
+    const wantDebug = String(req.query?.debug || '') === '1';
+
+    // カレンダーの休日（祝日/土日）を取得して判定に利用
+    let isOffDate = (ds) => false;
+    try {
+      const y = parseInt(String(month).slice(0, 4), 10);
+      const cal = await calendarRepo.computeYear(y).catch(() => null);
+      const off = new Set((cal?.off_days || []).map((d) => String(d).slice(0, 10)));
+      isOffDate = (ds) => off.has(String(ds).slice(0, 10));
+    } catch {}
 
     const [users] = await db.query(`
       SELECT u.id AS userId, u.employee_code AS employeeCode, u.username AS username,
@@ -113,24 +470,66 @@ router.get('/month', authorize('admin', 'manager'), async (req, res) => {
       ORDER BY COALESCE(u.employee_code, '') ASC, u.id ASC
     `);
 
+    // Load shift definitions to compute planned work/off per user per day
+    let shiftDefs = [];
+    try {
+      shiftDefs = await attendanceRepo.listShiftDefinitions();
+    } catch { shiftDefs = []; }
+    const shiftById = new Map();
+    const shiftByName = new Map();
+    for (const s of shiftDefs || []) {
+      if (s?.id != null) shiftById.set(Number(s.id), s);
+      if (s?.name) shiftByName.set(String(s.name), s);
+    }
+    const parseWorkingDays = (s) => {
+      const t = String(s || '').toLowerCase();
+      if (!t || t === 'flexible') return new Set([1,2,3,4,5]); // default Mon-Fri
+      if (t.includes('mon-fri-sat') || t.includes('mon-sat')) return new Set([1,2,3,4,5,6]);
+      if (t.includes('mon-fri')) return new Set([1,2,3,4,5]);
+      if (t.includes('mon-sun') || t.includes('7') || t.includes('all')) return new Set([0,1,2,3,4,5,6]);
+      const map = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
+      const out = new Set();
+      for (const part of t.split(/[^a-z]+/g)) {
+        if (map.hasOwnProperty(part)) out.add(map[part]);
+      }
+      if (out.size === 0) return new Set([1,2,3,4,5]);
+      return out;
+    };
+    const ymToDow = (ds) => {
+      const y = parseInt(String(ds).slice(0,4), 10);
+      const m = parseInt(String(ds).slice(5,7), 10) - 1;
+      const d = parseInt(String(ds).slice(8,10), 10);
+      return new Date(Date.UTC(y, m, d, 0, 0, 0)).getUTCDay();
+    };
+    const getPlanFor = (assignList, ds) => {
+      if (!Array.isArray(assignList) || !assignList.length) return isOffDate(ds) ? 'off' : 'work';
+      // pick latest assignment effective by ds
+      const eff = assignList.filter(a => {
+        const st = String(a.start_date || a.date || '').slice(0,10);
+        const ed = a.end_date ? String(a.end_date).slice(0,10) : null;
+        return st && st <= ds && (!ed || ds <= ed);
+      }).slice(-1)[0];
+      if (!eff) return isOffDate(ds) ? 'off' : 'work';
+      let def = null;
+      if (eff.shiftId != null) def = shiftById.get(Number(eff.shiftId)) || null;
+      if (!def && eff.shift) def = shiftByName.get(String(eff.shift)) || null;
+      const set = parseWorkingDays(def?.working_days);
+      const dow = ymToDow(ds);
+      return set.has(dow) ? 'work' : 'off';
+    };
+
     let latestRows = [];
     try {
       const [x] = await db.query(`
         SELECT a.id, a.userId, a.checkIn, a.checkOut
         FROM attendance a
-        INNER JOIN (
-          SELECT userId, MAX(checkIn) AS maxCheckIn
-          FROM attendance
-          WHERE checkIn >= ? AND checkIn < DATE_ADD(?, INTERVAL 1 DAY)
-            AND userId IN (
-              SELECT id
-              FROM users
-              WHERE employment_status = 'active'
-                AND role IN ('employee','manager')
-            )
-          GROUP BY userId, DATE(checkIn)
-        ) t
-          ON t.userId = a.userId AND t.maxCheckIn = a.checkIn
+        WHERE a.checkIn >= ? AND a.checkIn < DATE_ADD(?, INTERVAL 1 DAY)
+          AND a.userId IN (
+            SELECT id
+            FROM users
+            WHERE employment_status = 'active'
+              AND role IN ('employee','manager')
+          )
       `, [start + ' 00:00:00', end + ' 00:00:00']);
       latestRows = x;
     } catch {
@@ -157,6 +556,12 @@ router.get('/month', authorize('admin', 'manager'), async (req, res) => {
         AND endDate >= ? AND startDate <= ?
     `, [start, end]);
 
+    const [dailyRows] = await db.query(`
+      SELECT userId, date, kubun
+      FROM attendance_daily
+      WHERE date >= ? AND date <= ?
+    `, [start, end]);
+
     const reports = await repo.listByMonth(month);
     const reportMap = new Map();
     for (const r of (reports || [])) {
@@ -177,13 +582,35 @@ router.get('/month', authorize('admin', 'manager'), async (req, res) => {
       }
       return false;
     };
+    const dailyByUserDate = new Map();
+    for (const r of (dailyRows || [])) {
+      const key = `${r.userId}|${String(r.date).slice(0,10)}`;
+      dailyByUserDate.set(key, String(r.kubun || '').trim());
+    }
 
     const attLatest = new Map();
     for (const a of (latestRows || [])) {
       const d = String(a.checkIn).slice(0, 10);
       const key = `${a.userId}|${d}`;
       const prev = attLatest.get(key);
-      if (!prev || String(a.checkIn) > String(prev.checkIn)) attLatest.set(key, a);
+      if (!prev) {
+        attLatest.set(key, a);
+        continue;
+      }
+      const prevHasOut = !!prev.checkOut;
+      const curHasOut = !!a.checkOut;
+      if (!prevHasOut && curHasOut) {
+        attLatest.set(key, a);
+        continue;
+      }
+      if (prevHasOut && curHasOut) {
+        if (String(a.checkOut) > String(prev.checkOut)) attLatest.set(key, a);
+        continue;
+      }
+      if (!prevHasOut && !curHasOut) {
+        if (String(a.checkIn) > String(prev.checkIn)) attLatest.set(key, a);
+        continue;
+      }
     }
 
     const daysInMonth = (() => {
@@ -200,34 +627,80 @@ router.get('/month', authorize('admin', 'manager'), async (req, res) => {
     let submittedTotal = 0;
     let missingTotal = 0;
 
-    const items = (users || []).map(u => {
+    const items = [];
+    for (const u of (users || [])) {
       const uid = Number(u.userId);
       const perDay = {};
+      // load assignments for this user once
+      let assigns = [];
+      try { assigns = await attendanceRepo.listShiftAssignmentsBetween(uid, start, end); } catch { assigns = []; }
       for (const d of daysInMonth) {
-        if (isOnLeave(uid, d)) {
-          perDay[d] = { status: 'leave', report: null };
+        const kubun = dailyByUserDate.get(`${uid}|${d}`) || '';
+        const offKubun = new Set(['休日', '代替休日']);
+        const leaveKubun = new Set(['有給休暇', '無給休暇', '欠勤']);
+        const isOffKubun = offKubun.has(kubun);
+        const forceLeave = leaveKubun.has(kubun) || isOnLeave(uid, d);
+        if (forceLeave || isOffKubun) {
+          const entry = { status: 'leave', report: null, kubun, plan: null };
+          if (wantDebug) entry.debug = { date: d, userId: uid, reason: forceLeave ? 'kubun_or_approved_leave' : 'off_kubun', kubun, isOffDate: isOffDate(d), hasAttendance: false };
+          perDay[d] = entry;
           continue;
         }
         const a = attLatest.get(`${uid}|${d}`) || null;
+        if (!a) {
+          const effKubun = kubun || '';
+          const workLike = new Set(['出勤', '半休']);
+          const leaveLike = new Set(['欠勤', '有給休暇', '無給休暇']);
+          if (leaveLike.has(effKubun)) {
+            const entry = { status: 'leave', report: null, kubun: effKubun, plan: null };
+            if (wantDebug) entry.debug = { date: d, userId: uid, reason: 'kubun_leave', kubun: effKubun, isOffDate: isOffDate(d), hasAttendance: false };
+            perDay[d] = entry;
+            continue;
+          }
+          if (workLike.has(effKubun)) {
+            const entry = { status: 'leave', report: null, kubun: '欠勤', plan: null };
+            if (wantDebug) entry.debug = { date: d, userId: uid, reason: 'worklike_no_attendance_absent', kubun: effKubun, isOffDate: isOffDate(d), hasAttendance: false };
+            perDay[d] = entry;
+            continue;
+          }
+          // Không có chấm công và chưa chọn kubun: hiển thị 予 theo kế hoạch (work/off) dựa theo phân ca của nhân viên
+          const plan = getPlanFor(assigns, d);
+          const entry = { status: 'planned', plan, report: null, kubun: null };
+          if (wantDebug) entry.debug = { date: d, userId: uid, reason: 'planned_no_data', kubun: null, plan, isOffDate: isOffDate(d), hasAttendance: false };
+          perDay[d] = entry;
+          continue;
+        }
+        // Nếu là ngày quá khứ mà chỉ có checkIn không có checkOut, coi như 欠勤 thay vì 出
+        if (a && !a.checkOut) {
+          const today = todayJST();
+          if (String(d) < String(today)) {
+            const entry = { status: 'leave', report: null, kubun: '欠勤', plan: null };
+            if (wantDebug) entry.debug = { date: d, userId: uid, reason: 'past_in_without_out_absent', kubun: '欠勤', isOffDate: isOffDate(d), hasAttendance: true, hasOut: false };
+            perDay[d] = entry;
+            continue;
+          }
+        }
         const status = a ? (a.checkOut ? 'checked_out' : 'working') : 'not_checked_in';
         const rep = reportMap.get(`${uid}|${d}`) || null;
         const report = rep ? { site: rep.site, work: rep.work, updatedAt: rep.updated_at || rep.updatedAt || null } : null;
-        perDay[d] = { status, report };
+        const entry = { status, report, kubun, plan: null };
+        if (wantDebug) entry.debug = { date: d, userId: uid, reason: status === 'working' ? 'in_progress' : 'checked_out', kubun, isOffDate: isOffDate(d), hasAttendance: true, hasOut: !!a.checkOut };
+        perDay[d] = entry;
         if (status === 'checked_out') {
           requiredTotal++;
           if (report) submittedTotal++;
           else missingTotal++;
         }
       }
-      return {
+      items.push({
         userId: uid,
         employeeCode: u.employeeCode || null,
         username: u.username || null,
         departmentId: u.departmentId || null,
         departmentName: u.departmentName || null,
         days: perDay
-      };
-    });
+      });
+    }
 
     res.status(200).json({
       month,

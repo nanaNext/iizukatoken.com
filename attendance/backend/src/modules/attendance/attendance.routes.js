@@ -5,21 +5,42 @@ const controller = require('./attendance.controller');
 const attendanceRepo = require('./attendance.repository');
 const calendarRepo = require('../calendar/calendar.repository');
 
-router.post('/checkin', authenticate, authorize('employee','manager'), controller.checkIn);
-router.post('/checkout', authenticate, authorize('employee','manager'), controller.checkOut);
+router.post('/checkin', authenticate, authorize('employee','manager','admin'), controller.checkIn);
+router.post('/checkout', authenticate, authorize('employee','manager','admin'), controller.checkOut);
+router.post('/worktype', authenticate, authorize('employee','manager','admin'), controller.setWorkType);
 router.get('/timesheet', authenticate, authorize('employee','manager','admin'), controller.timesheet);
 router.post('/gps', authenticate, authorize('employee','manager'), controller.gpsLog);
 router.post('/sync', authenticate, authorize('employee','manager'), controller.syncOffline);
-router.get('/status', authenticate, authorize('employee','manager'), controller.statusToday);
-router.get('/today-summary', authenticate, authorize('employee','manager','admin'), controller.todaySummary);
+router.get('/status', authenticate, authorize('employee','manager','admin'), controller.statusToday);
+router.get('/today-summary', authenticate, authorize('manager','admin'), controller.todaySummary);
 router.get('/today-roster', authenticate, authorize('admin','manager'), controller.todayRoster);
 router.get('/date/:date', authenticate, authorize('employee','manager','admin'), controller.getDay);
+router.get('/date/:date/daily', authenticate, authorize('employee','manager','admin'), controller.getDaily);
 router.put('/date/:date', authenticate, authorize('employee','manager','admin'), controller.putDay);
+router.put('/date/:date/daily', authenticate, authorize('employee','manager','admin'), controller.putDaily);
 router.post('/date/:date/segments', authenticate, authorize('employee','manager'), controller.addSegment);
 router.delete('/segment/:id', authenticate, authorize('employee','manager'), controller.deleteSegment);
 router.post('/date/:date/submit', authenticate, authorize('employee','manager'), controller.submitDay);
-router.get('/month', authenticate, authorize('employee','manager','admin'), controller.getMonth);
-router.put('/month/bulk', authenticate, authorize('employee','manager'), controller.putMonthBulk);
+router.get('/month', authenticate, authorize('employee','manager','admin','payroll'), controller.getMonth);
+router.get('/month/detail', authenticate, authorize('employee','manager','admin','payroll'), controller.getMonthDetail);
+router.get('/month/status', authenticate, authorize('employee','manager','admin','payroll'), controller.getMonthStatus);
+router.get('/month/status-bulk', authenticate, authorize('manager','admin'), controller.getMonthStatusBulk);
+router.post('/month/submit', authenticate, authorize('employee','manager','admin'), controller.submitMonth);
+router.post('/month/approve', authenticate, authorize('manager','admin'), controller.approveMonth);
+router.post('/month/unlock', authenticate, authorize('admin'), controller.unlockMonth);
+router.get('/month/summary', authenticate, authorize('employee','manager','admin'), controller.getMonthSummary);
+router.put('/month/summary', authenticate, authorize('manager','admin'), controller.putMonthSummary);
+router.get('/shifts/assignments', authenticate, authorize('employee','manager','admin'), controller.getShiftAssignments);
+router.post('/shifts/assignments', authenticate, authorize('manager','admin'), controller.postShiftAssignment);
+router.delete('/shifts/assignments/:id', authenticate, authorize('manager','admin'), controller.deleteShiftAssignment);
+router.put('/month/bulk', authenticate, authorize('employee','manager','admin'), controller.putMonthBulk);
+router.get('/month/export.xlsx', authenticate, authorize('employee','manager','admin','payroll'), controller.exportMonthXlsx);
+router.get('/work-details', authenticate, authorize('employee','manager','admin'), controller.getWorkDetails);
+router.post('/work-details', authenticate, authorize('manager','admin'), controller.postWorkDetail);
+router.put('/work-details/:id', authenticate, authorize('manager','admin'), controller.putWorkDetail);
+router.delete('/work-details/:id', authenticate, authorize('manager','admin'), controller.deleteWorkDetail);
+router.get('/shifts/definitions', authenticate, authorize('manager','admin'), controller.listShiftDefinitions);
+router.post('/shifts/definitions', authenticate, authorize('manager','admin'), controller.postShiftDefinition);
 router.get('/export', authenticate, authorize('employee','manager','admin'), controller.exportCsv);
 router.get('/calendar', authenticate, authorize('employee','manager','admin'), async (req, res) => {
   try {
@@ -141,7 +162,7 @@ router.get('/calendar/debug', authenticate, authorize('employee','manager','admi
     res.status(500).json({ message: err.message });
   }
 });
-router.get('/debug/routes', async (req, res) => {
+router.get('/debug/routes', authenticate, authorize('admin'), async (req, res) => {
   try {
     const list = (router.stack || [])
       .map(l => l.route ? { path: l.route.path, methods: Object.keys(l.route.methods || {}) } : null)
@@ -151,7 +172,7 @@ res.status(200).json({ routes: list });
     res.status(500).json({ message: err.message });
 }
 });
-router.post('/debug/routes', async (req, res) => {
+router.post('/debug/routes', authenticate, authorize('admin'), async (req, res) => {
   try {
     const list = (router.stack || [])
       .map(l => l.route ? { path: l.route.path, methods: Object.keys(l.route.methods || {}) } : null)
@@ -161,7 +182,7 @@ router.post('/debug/routes', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-router.get('/debug/classify', async (req, res) => {
+router.get('/debug/classify', authenticate, authorize('admin'), async (req, res) => {
   try {
     const userId = parseInt(req.query.userId, 10);
     const date = String(req.query.date || '').slice(0,10);
@@ -197,7 +218,7 @@ router.get('/debug/classify', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-router.post('/debug/classify', async (req, res) => {
+router.post('/debug/classify', authenticate, authorize('admin'), async (req, res) => {
   try {
     const userId = parseInt((req.body?.userId ?? req.query.userId), 10);
     const date = String((req.body?.date ?? req.query.date) || '').slice(0,10);
@@ -236,7 +257,7 @@ router.post('/debug/classify', async (req, res) => {
 router.get('/shifts/ping', authenticate, authorize('admin'), (req, res) => {
   res.status(200).json({ ok: true });
 });
-router.get('/shifts/definitions', authenticate, authorize('admin'), async (req, res) => {
+router.get('/shifts/definitions', authenticate, authorize('admin','manager'), async (req, res) => {
   try {
     const rows = await attendanceRepo.listShiftDefinitions();
     res.status(200).json(rows);
@@ -246,17 +267,17 @@ router.get('/shifts/definitions', authenticate, authorize('admin'), async (req, 
 });
 router.post('/shifts/definitions', authenticate, authorize('admin'), async (req, res) => {
   try {
-    const { name, start_time, end_time, break_minutes } = req.body || {};
+    const { name, start_time, end_time, break_minutes, working_days } = req.body || {};
     if (!name || !start_time || !end_time) {
       return res.status(400).json({ message: 'Missing name/start_time/end_time' });
     }
-    const row = await attendanceRepo.upsertShiftDefinition({ name, start_time, end_time, break_minutes: break_minutes || 0 });
+    const row = await attendanceRepo.upsertShiftDefinition({ name, start_time, end_time, break_minutes: break_minutes || 0, working_days });
     res.status(201).json(row);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
-router.post('/shifts/assign', authenticate, authorize('admin'), async (req, res) => {
+router.post('/shifts/assign', authenticate, authorize('admin','manager'), async (req, res) => {
   try {
     const { userId, shiftId, startDate, endDate } = req.body || {};
     if (!userId || !shiftId || !startDate) {

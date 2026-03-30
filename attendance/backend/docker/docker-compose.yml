@@ -2,7 +2,9 @@ version: "3.9"
 
 services:
   api:
-    build: .
+    build:
+      context: ../../..
+      dockerfile: attendance/backend/docker/Dockerfile
     container_name: attendance-api
     restart: always
     ports:
@@ -13,6 +15,7 @@ services:
       - DB_USER=root
       - DB_PASSWORD=secret
       - DB_NAME=attendance
+      - COMPANY_NAME=飯塚塗研株式会社
     depends_on:
       - db
 

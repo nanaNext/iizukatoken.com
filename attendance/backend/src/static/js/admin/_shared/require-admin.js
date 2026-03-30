@@ -5,7 +5,7 @@ export async function requireAdmin() {
   try {
     profile = await fetchJSONAuth('/api/auth/me');
   } catch {}
-  const role = String(profile?.role || '').toLowerCase();
+  const role = String(profile && profile.role ? profile.role : '').toLowerCase();
   if (!profile || (role !== 'admin' && role !== 'manager')) {
     try {
       const err = document.querySelector('#error');

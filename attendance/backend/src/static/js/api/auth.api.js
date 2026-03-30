@@ -5,9 +5,20 @@ function getCookie(name) {
   return m ? decodeURIComponent(m[2]) : null;
 }
 
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const ms = Number(timeoutMs || 0) > 0 ? Number(timeoutMs) : 15000;
+  const ac = new AbortController();
+  const id = setTimeout(() => ac.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: ac.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 async function fetchJSON(url, options) {
   const csrf = getCookie('csrfToken');
-  const res = await fetch(url, { headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' }, credentials: 'include', ...options });
+  const res = await fetchWithTimeout(url, { headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' }, credentials: 'include', ...options }, 15000);
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try {
@@ -20,12 +31,12 @@ async function fetchJSON(url, options) {
 }
 
 export async function login(email, password) {
-  const res = await fetch(`${AUTH_BASE}/login`, {
+  const res = await fetchWithTimeout(`${AUTH_BASE}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ email, password })
-  });
+  }, 15000);
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try {
@@ -39,10 +50,10 @@ export async function login(email, password) {
 }
 
 export async function me(accessToken) {
-  const res = await fetch(`${AUTH_BASE}/me`, {
+  const res = await fetchWithTimeout(`${AUTH_BASE}/me`, {
     headers: { 'Authorization': `Bearer ${accessToken}` },
     credentials: 'include'
-  });
+  }, 15000);
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try {
@@ -56,12 +67,12 @@ export async function me(accessToken) {
 
 export async function refresh(refreshToken) {
   const csrf = getCookie('csrfToken');
-  const res = await fetch(`${AUTH_BASE}/refresh`, {
+  const res = await fetchWithTimeout(`${AUTH_BASE}/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' },
     credentials: 'include',
     body: JSON.stringify(refreshToken ? { refreshToken } : {})
-  });
+  }, 15000);
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try {
@@ -75,12 +86,12 @@ export async function refresh(refreshToken) {
 
 export async function logout(refreshToken) {
   const csrf = getCookie('csrfToken');
-  const res = await fetch(`${AUTH_BASE}/logout`, {
+  const res = await fetchWithTimeout(`${AUTH_BASE}/logout`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' },
     credentials: 'include',
     body: JSON.stringify(refreshToken ? { refreshToken } : {})
-  });
+  }, 15000);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }

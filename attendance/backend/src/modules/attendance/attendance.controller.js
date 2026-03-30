@@ -3,6 +3,7 @@ const auditRepo = require('../audit/audit.repository');
 const rules = require('./attendance.rules');
 const repo = require('./attendance.repository');
 const { formatInputToMySQLJST } = require('../../utils/dateTime');
+const userRepo = require('../users/user.repository');
 // Controller xử lý request/response cho module chấm công
 
 exports.checkIn = async (req, res) => {
@@ -12,6 +13,21 @@ exports.checkIn = async (req, res) => {
       return res.status(400).json({ message: 'Missing userId' });
     }
     const b = req.body || {};
+    
+    // 1. Validation: Chặn thời gian ngoài khoảng 06:00 - 23:59 (Ưu tiên 1)
+    const checkTimeRange = (timeInput) => {
+      try {
+        const d = timeInput ? new Date(timeInput) : new Date(Date.now() + 9 * 3600 * 1000);
+        const hm = `${String(d.getUTCHours() + 9).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+        return hm >= '06:00' && hm <= '23:59';
+      } catch { return true; }
+    };
+    if (!checkTimeRange(b?.time)) {
+      return res.status(400).json({ message: 'Invalid time: Check-in must be between 06:00 and 23:59' });
+    }
+
+    const wt = String(b?.workType || b?.work_type || '').trim();
+    const workType = wt === 'onsite' || wt === 'remote' || wt === 'satellite' ? wt : null;
     const loc = {
       latitude: b?.latitude,
       longitude: b?.longitude,
@@ -22,7 +38,7 @@ exports.checkIn = async (req, res) => {
       deviceId: b?.deviceId,
       tzOffset: b?.tzOffset
     };
-    const result = await service.checkIn(userId, b?.time, loc);
+    const result = await service.checkIn(userId, b?.time, loc, workType);
     if (!result) {
       return res.status(409).json({ message: 'Already checked in' });
     }
@@ -35,7 +51,7 @@ exports.checkIn = async (req, res) => {
         ip: req.ip,
         userAgent: req.headers['user-agent'],
         beforeData: null,
-        afterData: JSON.stringify({ ...loc, result })
+        afterData: JSON.stringify({ ...loc, workType, result })
       });
     } catch {}
     res.status(201).json(result);
@@ -78,6 +94,21 @@ exports.checkOut = async (req, res) => {
       });
     } catch {}
     res.status(200).json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.setWorkType = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const b = req.body || {};
+    const date = String(b.date || '').slice(0, 10) || new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    const wt = String(b?.workType || b?.work_type || '').trim();
+    const workType = wt === 'onsite' || wt === 'remote' || wt === 'satellite' ? wt : null;
+    const r = await require('./attendance.repository').setWorkTypeForUserDate(userId, date, workType);
+    res.status(200).json({ date, workType, updated: Number(r?.updated || 0) });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -182,15 +213,18 @@ exports.syncOffline = async (req, res) => {
 exports.statusToday = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const date = (req.query?.date || new Date().toISOString().slice(0,10));
+    const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    const qDate = String(req.query?.date || '').slice(0, 10);
+    const date = qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate) ? qDate : today;
     if (!userId) {
       return res.status(400).json({ message: 'Missing userId' });
     }
     const range = await service.timesheet(userId, date, date);
-    const open = await require('./attendance.repository').getOpenAttendanceForUser(userId);
+    const open = date === today ? await require('./attendance.repository').getOpenAttendanceForUser(userId) : null;
     res.status(200).json({
       date,
       open: !!open,
+      attendance: open ? { id: open.id, checkIn: open.checkIn || null, checkOut: open.checkOut || null } : null,
       timesheet: range
     });
   } catch (err) {
@@ -273,6 +307,7 @@ exports.todayRoster = async (req, res) => {
     const role = String(req.user?.role || '').toLowerCase();
     if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
     const db = require('../../core/database/mysql');
+    const attendanceRepo = require('./attendance.repository');
     const qDate = String(req.query?.date || '').slice(0, 10);
     const date = qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate) ? qDate : new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
     const [rows] = await db.query(`
@@ -284,6 +319,7 @@ exports.todayRoster = async (req, res) => {
         u.departmentId AS departmentId,
         d.name AS departmentName,
         a.id AS attendanceId,
+        a.shiftId AS shiftId,
         a.checkIn AS checkIn,
         a.checkOut AS checkOut
       FROM users u
@@ -326,6 +362,7 @@ exports.todayRoster = async (req, res) => {
         departmentName: r.departmentName || null,
         attendance: {
           id: r.attendanceId || null,
+          shiftId: r.shiftId || null,
           checkIn: r.checkIn || null,
           checkOut: r.checkOut || null
         },
@@ -333,7 +370,55 @@ exports.todayRoster = async (req, res) => {
       };
     });
 
-    res.status(200).json({ date, items });
+    const [plannedBase] = await db.query(`
+      SELECT
+        u.id AS userId,
+        u.employee_code AS employeeCode,
+        u.username AS username,
+        u.departmentId AS departmentId,
+        d.name AS departmentName,
+        CASE WHEN lr.id IS NULL THEN 0 ELSE 1 END AS isLeave
+      FROM users u
+      LEFT JOIN departments d
+        ON d.id = u.departmentId
+      LEFT JOIN leave_requests lr
+        ON lr.userId = u.id
+       AND lr.status = 'approved'
+       AND ? BETWEEN lr.startDate AND lr.endDate
+      WHERE u.employment_status = 'active'
+        AND u.role IN ('employee','manager')
+      ORDER BY COALESCE(u.employee_code, '') ASC, u.id ASC
+    `, [date]);
+    const planned = [];
+    for (const r of plannedBase || []) {
+      let shift = null;
+      try {
+        const assign = await attendanceRepo.getActiveAssignment(r.userId, date);
+        if (assign?.shiftId) {
+          const def = await attendanceRepo.getShiftById(assign.shiftId);
+          shift = def ? { id: def.id, name: def.name, start_time: def.start_time, end_time: def.end_time } : null;
+        } else if (Object.prototype.hasOwnProperty.call(assign || {}, 'shift') && assign.shift) {
+          const [defs] = await db.query(`SELECT * FROM shift_definitions WHERE name = ? LIMIT 1`, [assign.shift]);
+          const def = defs && defs[0] ? defs[0] : null;
+          shift = def ? { id: def.id, name: def.name, start_time: def.start_time, end_time: def.end_time } : null;
+        } else if (r.shiftId) {
+          const def2 = await attendanceRepo.getShiftById(r.shiftId).catch(() => null);
+          shift = def2 ? { id: def2.id, name: def2.name, start_time: def2.start_time, end_time: def2.end_time } : null;
+        }
+      } catch {}
+      planned.push({
+        userId: r.userId,
+        employeeCode: r.employeeCode || null,
+        username: r.username || null,
+        departmentId: r.departmentId || null,
+        departmentName: r.departmentName || null,
+        planned: {
+          status: Number(r.isLeave || 0) ? 'leave' : 'work',
+          shift
+        }
+      });
+    }
+    res.status(200).json({ date, items, planned });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -346,11 +431,291 @@ function parseMonth(s) {
   return { y: yy, m: mm };
 }
 function isEditableMonth(y, m) {
-  const now = new Date();
-  const cy = now.getFullYear();
-  const cm = now.getMonth() + 1;
-  return (y === cy && m === cm) || (y === cy && m === cm + 1) || (y === cy + (cm === 12 ? 1 : 0) && m === (cm === 12 ? 1 : cm + 1));
+  const now = new Date(Date.now() + 9 * 3600 * 1000);
+  const cy = now.getUTCFullYear();
+  const cm = now.getUTCMonth() + 1;
+  const idx = Number(y) * 12 + Number(m);
+  const cidx = cy * 12 + cm;
+  // Cho phép tháng hiện tại và tháng kế tiếp
+  return idx === cidx || idx === cidx + 1;
 }
+
+async function resolveTargetUserId(req) {
+  const role = String(req.user?.role || '').toLowerCase();
+  const meId = req.user?.id;
+  const raw = (req.query?.userId ?? req.body?.userId ?? null);
+  const targetId = raw == null || raw === '' ? meId : parseInt(String(raw), 10);
+  if (!meId || !targetId) return null;
+  if (role === 'employee') return meId;
+  if (role === 'manager' && String(targetId) !== String(meId)) {
+    const me = await userRepo.getUserById(meId);
+    const target = await userRepo.getUserById(targetId);
+    if (!target) return null;
+    if (!me?.departmentId || String(me.departmentId) !== String(target.departmentId)) {
+      return '__forbidden__';
+    }
+  }
+  return targetId;
+}
+
+async function getMonthStatusValue(userId, year, month) {
+  try {
+    const r = await repo.getMonthStatus(userId, year, month);
+    const st = String(r?.status || '').trim();
+    return st || 'draft';
+  } catch {
+    return 'draft';
+  }
+}
+
+async function assertMonthWritable(req, targetUserId, year, month) {
+  const role = String(req.user?.role || '').toLowerCase();
+  const meId = req.user?.id;
+  const y = parseInt(String(year), 10);
+  const m = parseInt(String(month), 10);
+  if (role === 'employee' && !isEditableMonth(y, m)) {
+    const e = new Error('Forbidden: employees can only edit current month');
+    e.status = 403;
+    throw e;
+  }
+  const st = await getMonthStatusValue(targetUserId, y, m);
+  if (st === 'approved') {
+    const e = new Error('Locked: month is closed');
+    e.status = 423;
+    throw e;
+  }
+  if (st === 'submitted' && role === 'payroll') {
+    const e = new Error('Locked: month is submitted');
+    e.status = 423;
+    throw e;
+  }
+  if (role === 'manager' && String(targetUserId) !== String(meId)) {
+    const e = new Error('Forbidden: managers cannot edit other users');
+    e.status = 403;
+    throw e;
+  }
+}
+
+exports.getMonthStatus = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const { year, month } = req.query || {};
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    if (!year || !month) return res.status(400).json({ message: 'Missing year/month' });
+    const r = await repo.getMonthStatus(userId, year, month);
+    const status = String(r?.status || '').trim() || 'draft';
+    res.status(200).json({
+      userId,
+      year: parseInt(String(year), 10),
+      month: parseInt(String(month), 10),
+      status,
+      submitted_at: r?.submitted_at || null,
+      submitted_by: r?.submitted_by || null,
+      approved_at: r?.approved_at || null,
+      approved_by: r?.approved_by || null,
+      approved_by_name: r?.approved_by_name || null,
+      unlocked_at: r?.unlocked_at || null,
+      unlocked_by: r?.unlocked_by || null
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getMonthStatusBulk = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
+    const { userIds, year, month } = req.query || {};
+    if (!userIds || !year || !month) return res.status(400).json({ message: 'Missing userIds/year/month' });
+    const ids = String(userIds).split(',').map(s => parseInt(s, 10)).filter(Boolean);
+    if (!ids.length) return res.status(200).json([]);
+    const rows = await repo.getMonthStatusBulk(ids, year, month);
+    const y = parseInt(String(year), 10);
+    const m = parseInt(String(month), 10);
+    const pad = (n) => String(n).padStart(2, '0');
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const from = `${y}-${pad(m)}-01`;
+    const to = `${y}-${pad(m)}-${pad(lastDay)}`;
+    const calendarRepo = require('../calendar/calendar.repository');
+    const cal = await calendarRepo.computeYear(y).catch(() => null);
+    const off = new Set();
+    try {
+      const detail = Array.isArray(cal?.detail) ? cal.detail : [];
+      for (const it of detail) {
+        const ds = String(it?.date || '').slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
+        if (Number(it?.is_off || 0) === 1) off.add(ds);
+      }
+    } catch {}
+    const workKubunSet = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
+    const enrich = async (uid) => {
+      try {
+        const dailyRows = await repo.listDailyBetween(uid, from, to).catch(() => []);
+        const dailyKubun = new Map((dailyRows || []).map(r => [String(r?.date || '').slice(0, 10), String(r?.kubun || '').trim()]));
+        const segRows = await repo.listByUserBetween(uid, from, to).catch(() => []);
+        const segByDate = new Map();
+        for (const r of segRows || []) {
+          const ds = String(r?.checkIn || '').slice(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
+          if (!segByDate.has(ds)) segByDate.set(ds, []);
+          segByDate.get(ds).push(r);
+        }
+        let missing = 0;
+        for (let day = 1; day <= lastDay; day++) {
+          const ds = `${y}-${pad(m)}-${pad(day)}`;
+          const dow = ['日', '月', '火', '水', '木', '金', '土'][new Date(Date.UTC(y, m - 1, day, 0, 0, 0)).getUTCDay()];
+          const isOff = off.has(ds) || dow === '日' || dow === '土';
+          const k0 = dailyKubun.get(ds) || '';
+          const allowedNormal = new Set(['', '出勤', '半休', '欠勤', '有給休暇', '無給休暇', '代替休日']);
+          const allowedOff = new Set(['休日', '休日出勤', '代替出勤']);
+          const kubun = (isOff ? (allowedOff.has(k0) ? k0 : '休日') : (allowedNormal.has(k0) ? (k0 || '出勤') : '出勤'));
+          const segs = segByDate.get(ds) || [];
+          const hasComplete = segs.some(s => !!s?.checkIn && !!s?.checkOut);
+          const isWork = workKubunSet.has(kubun);
+          if (isWork && !hasComplete) missing++;
+        }
+        return { ready: missing === 0, missingCount: missing };
+      } catch {
+        return { ready: false, missingCount: null };
+      }
+    };
+    const readyMap = new Map();
+    for (const id of ids) {
+      readyMap.set(String(id), await enrich(id));
+    }
+    res.status(200).json(rows.map(r => {
+      const extra = readyMap.get(String(r.userId)) || { ready: false, missingCount: null };
+      return {
+        userId: r.userId,
+        year: r.year,
+        month: r.month,
+        status: r.status,
+        ready: !!extra.ready,
+        missing_count: extra.missingCount,
+        submitted_at: r.submitted_at || null,
+        submitted_by: r.submitted_by || null,
+        approved_at: r.approved_at || null,
+        approved_by: r.approved_by || null,
+        approved_by_name: r.approved_by_name || null
+      };
+    }));
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.submitMonth = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const { year, month } = req.body || {};
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    if (!year || !month) return res.status(400).json({ message: 'Missing year/month' });
+    const y = parseInt(String(year), 10);
+    const m = parseInt(String(month), 10);
+    if (String(req.user?.role || '').toLowerCase() === 'employee' && !isEditableMonth(y, m)) {
+      return res.status(403).json({ message: 'Forbidden: cannot submit past months' });
+    }
+    const status = await getMonthStatusValue(userId, y, m);
+    if (status === 'approved') return res.status(409).json({ message: 'Locked: month is closed' });
+
+    try {
+      const pad = (n) => String(n).padStart(2, '0');
+      const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      const from = `${y}-${pad(m)}-01`;
+      const to = `${y}-${pad(m)}-${pad(lastDay)}`;
+      const calendarRepo = require('../calendar/calendar.repository');
+      const cal = await calendarRepo.computeYear(y).catch(() => null);
+      const off = new Set();
+      try {
+        const detail = Array.isArray(cal?.detail) ? cal.detail : [];
+        for (const it of detail) {
+          const ds = String(it?.date || '').slice(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
+          if (Number(it?.is_off || 0) === 1) off.add(ds);
+        }
+      } catch {}
+      const dailyRows = await repo.listDailyBetween(userId, from, to).catch(() => []);
+      const dailyKubun = new Map((dailyRows || []).map(r => [String(r?.date || '').slice(0, 10), String(r?.kubun || '').trim()]));
+      const segRows = await repo.listByUserBetween(userId, from, to).catch(() => []);
+      const segByDate = new Map();
+      for (const r of segRows || []) {
+        const ds = String(r?.checkIn || '').slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
+        if (!segByDate.has(ds)) segByDate.set(ds, []);
+        segByDate.get(ds).push(r);
+      }
+      const workKubunSet = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
+      const errors = [];
+      for (let day = 1; day <= lastDay; day++) {
+        const ds = `${y}-${pad(m)}-${pad(day)}`;
+        const dow = ['日', '月', '火', '水', '木', '金', '土'][new Date(Date.UTC(y, m - 1, day, 0, 0, 0)).getUTCDay()];
+        const isOff = off.has(ds) || dow === '日' || dow === '土';
+        const k0 = dailyKubun.get(ds) || '';
+        const allowedNormal = new Set(['', '出勤', '半休', '欠勤', '有給休暇', '無給休暇', '代替休日']);
+        const allowedOff = new Set(['休日', '休日出勤', '代替出勤']);
+        const kubun = (isOff ? (allowedOff.has(k0) ? k0 : '休日') : (allowedNormal.has(k0) ? (k0 || '出勤') : '出勤'));
+        const segs = segByDate.get(ds) || [];
+        const hasSeg = segs.some(s => !!s?.checkIn);
+        const hasComplete = segs.some(s => !!s?.checkIn && !!s?.checkOut);
+        const isWork = workKubunSet.has(kubun);
+        if (isWork && !hasComplete) {
+          errors.push(`${ds} (${kubun}): missing checkIn/checkOut`);
+        }
+        if (!isWork && hasSeg) {
+          errors.push(`${ds} (${kubun}): has attendance but kubun is non-work`);
+        }
+      }
+      if (errors.length) {
+        return res.status(400).json({ message: `入力が未完了です: ${errors.slice(0, 10).join('; ')}${errors.length > 10 ? ' ...' : ''}` });
+      }
+    } catch {}
+
+    await repo.setMonthStatus(userId, y, m, 'submitted', req.user?.id);
+    res.status(200).json({ ok: true, userId, year: y, month: m, status: 'submitted' });
+  } catch (err) {
+    res.status(Number(err?.status || 500)).json({ message: err.message });
+  }
+};
+
+exports.approveMonth = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const { year, month } = req.body || {};
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    if (!year || !month) return res.status(400).json({ message: 'Missing year/month' });
+    const y = parseInt(String(year), 10);
+    const m = parseInt(String(month), 10);
+    const status = await getMonthStatusValue(userId, y, m);
+    if (status !== 'submitted') {
+      return res.status(409).json({ message: 'Invalid state: month must be submitted' });
+    }
+    await repo.setMonthStatus(userId, y, m, 'approved', req.user?.id);
+    res.status(200).json({ ok: true, userId, year: y, month: m, status: 'approved' });
+  } catch (err) {
+    res.status(Number(err?.status || 500)).json({ message: err.message });
+  }
+};
+
+exports.unlockMonth = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+    const userId = await resolveTargetUserId(req);
+    const { year, month } = req.body || {};
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    if (!year || !month) return res.status(400).json({ message: 'Missing year/month' });
+    const y = parseInt(String(year), 10);
+    const m = parseInt(String(month), 10);
+    await repo.setMonthStatus(userId, y, m, 'unlocked', req.user?.id);
+    res.status(200).json({ ok: true, userId, year: y, month: m, status: 'unlocked' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 exports.getDay = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -362,21 +727,67 @@ exports.getDay = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+exports.getDaily = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const date = String(req.params.date || '').slice(0, 10);
+    if (!userId || !date) return res.status(400).json({ message: 'Missing date' });
+    const daily = await repo.getDaily(userId, date);
+    res.status(200).json({ date, daily });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+exports.putDaily = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const date = String(req.params.date || '').slice(0, 10);
+    if (!userId || !date) return res.status(400).json({ message: 'Missing date' });
+    const y = parseInt(date.slice(0, 4), 10);
+    const m = parseInt(date.slice(5, 7), 10);
+    await assertMonthWritable(req, userId, y, m);
+    if (req.user.role === 'employee' && !isEditableMonth(y, m)) {
+      return res.status(403).json({ message: 'Forbidden: cannot edit past months' });
+    }
+    await repo.upsertDaily(userId, date, req.body || {});
+    const daily = await repo.getDaily(userId, date);
+    res.status(200).json({ date, daily });
+  } catch (err) {
+    res.status(Number(err?.status || 500)).json({ message: err.message });
+  }
+};
 exports.putDay = async (req, res) => {
   try {
     const userId = req.user?.id;
     const date = req.params.date;
     if (!userId || !date) return res.status(400).json({ message: 'Missing date' });
     const y = parseInt(date.slice(0,4),10), m = parseInt(date.slice(5,7),10);
+    await assertMonthWritable(req, userId, y, m);
     if (req.user.role === 'employee' && !isEditableMonth(y,m)) {
       return res.status(403).json({ message: 'Forbidden: cannot edit past months' });
     }
+
     const { attendanceId, checkIn, checkOut } = req.body || {};
     if (!attendanceId) return res.status(400).json({ message: 'Missing attendanceId' });
-    await repo.updateTimes(attendanceId, checkIn || null, checkOut || null);
+    const row = await repo.getById(attendanceId);
+    if (!row || String(row.userId) !== String(userId)) {
+      return res.status(404).json({ message: 'Attendance not found' });
+    }
+    const nextIn = (typeof checkIn === 'undefined') ? row.checkIn : (checkIn || null);
+    const nextOut = (typeof checkOut === 'undefined') ? row.checkOut : (checkOut || null);
+    
+    // Bypass strict future check to allow setting end of day time before the end of day.
+    const todayStr = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    if (date > todayStr) {
+      // return res.status(400).json({ message: 'Cannot set future attendance times' });
+    }
+
+    await repo.updateTimes(attendanceId, nextIn, nextOut);
     res.status(200).json({ id: attendanceId });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(Number(err?.status || 500)).json({ message: err.message });
   }
 };
 exports.addSegment = async (req, res) => {
@@ -384,22 +795,39 @@ exports.addSegment = async (req, res) => {
     const userId = req.user?.id;
     const date = req.params.date;
     const { checkIn, checkOut } = req.body || {};
-    if (!userId || !date || !checkIn || !checkOut) return res.status(400).json({ message: 'Missing fields' });
+    if (!userId || !date || !checkIn) return res.status(400).json({ message: 'Missing checkIn' });
     const y = parseInt(date.slice(0,4),10), m = parseInt(date.slice(5,7),10);
+    await assertMonthWritable(req, userId, y, m);
     if (req.user.role === 'employee' && !isEditableMonth(y,m)) {
       return res.status(403).json({ message: 'Forbidden: cannot edit past months' });
     }
+    
     const id = await repo.createCheckIn(userId, checkIn, null, null);
-    await repo.setCheckOut(id, checkOut, null, null);
+    if (checkOut) {
+      await repo.setCheckOut(id, checkOut, null, null);
+    }
     res.status(201).json({ id });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(Number(err?.status || 500)).json({ message: err.message });
   }
 };
 exports.deleteSegment = async (req, res) => {
   try {
+    const userId = req.user?.id;
     const id = parseInt(req.params.id, 10);
-    if (!id) return res.status(400).json({ message: 'Missing id' });
+    if (!userId || !id) return res.status(400).json({ message: 'Missing id' });
+    const row = await repo.getById(id);
+    if (!row || String(row.userId) !== String(userId)) {
+      return res.status(404).json({ message: 'Attendance not found' });
+    }
+    try {
+      const ds = String(row.checkIn || row.checkOut || '').slice(0, 10);
+      const y = parseInt(ds.slice(0, 4), 10);
+      const m = parseInt(ds.slice(5, 7), 10);
+      if (y && m) await assertMonthWritable(req, userId, y, m);
+    } catch (e) {
+      return res.status(Number(e?.status || 500)).json({ message: e.message });
+    }
     await require('../../core/database/mysql').query(`DELETE FROM attendance WHERE id = ?`, [id]);
     res.status(200).json({ id });
   } catch (err) {
@@ -413,7 +841,6 @@ exports.submitDay = async (req, res) => {
     if (!userId || !date) return res.status(400).json({ message: 'Missing date' });
     const rows = await repo.listByUserBetween(userId, date, date);
     for (const r of rows) {
-      await repo.updateTimes(r.id, null, null);
       await require('../../core/database/mysql').query(`UPDATE attendance SET labels = CONCAT_WS(',', labels, 'submitted') WHERE id = ?`, [r.id]);
     }
     res.status(200).json({ submitted: rows.length });
@@ -423,40 +850,620 @@ exports.submitDay = async (req, res) => {
 };
 exports.getMonth = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
     const { year, month } = req.query || {};
-    if (!userId || !year || !month) return res.status(400).json({ message: 'Missing year/month' });
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    if (!year || !month) return res.status(400).json({ message: 'Missing year/month' });
+    const pad = n => String(n).padStart(2,'0');
+    const y = parseInt(year,10), m = parseInt(month,10);
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const from = `${y}-${pad(m)}-01`;
+    let to = `${y}-${pad(m)}-${pad(lastDay)}`;
+    const role = String(req.user?.role || '').toLowerCase();
+    const status = await getMonthStatusValue(userId, y, m);
+    if (role === 'payroll' && status !== 'approved') {
+      return res.status(403).json({ message: 'Forbidden: month is not closed' });
+    }
+    try {
+      const todayStr = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      if (role !== 'payroll' && status !== 'approved') {
+        if (todayStr < from) {
+          to = from;
+        } else if (to > todayStr) {
+          to = todayStr;
+        }
+      }
+    } catch {}
+    const result = await service.timesheet(userId, from, to);
+    res.status(200).json({ ...result, monthStatus: { status } });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+exports.getMonthDetail = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const { year, month } = req.query || {};
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    if (!year || !month) return res.status(400).json({ message: 'Missing year/month' });
     const pad = n => String(n).padStart(2,'0');
     const y = parseInt(year,10), m = parseInt(month,10);
     const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
     const from = `${y}-${pad(m)}-01`;
     const to = `${y}-${pad(m)}-${pad(lastDay)}`;
-    const result = await service.timesheet(userId, from, to);
-    res.status(200).json(result);
+    const role = String(req.user?.role || '').toLowerCase();
+    const monthStatusObj = await repo.getMonthStatus(userId, y, m);
+    const monthStatus = monthStatusObj?.status || 'draft';
+    const approverName = monthStatusObj?.approved_by_name || null;
+    if (role === 'payroll' && monthStatus !== 'approved') {
+      return res.status(403).json({ message: 'Forbidden: month is not closed' });
+    }
+    let rows = [];
+    let todayStr = null;
+    try { todayStr = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10); } catch {}
+    if (role !== 'payroll' && monthStatus !== 'approved' && todayStr && todayStr < from) {
+      rows = [];
+    } else {
+      rows = await repo.listByUserBetween(userId, from, to);
+    }
+    const dailyRows = await repo.listDailyBetween(userId, from, to).catch(() => []);
+    const calendarRepo = require('../calendar/calendar.repository');
+    const cal = await calendarRepo.computeYear(y).catch(() => null);
+    const off = new Set();
+    try {
+      const detail = Array.isArray(cal?.detail) ? cal.detail : [];
+      const byDate = new Map();
+      for (const it of detail) {
+        const ds = String(it?.date || '').slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
+        if (!byDate.has(ds)) byDate.set(ds, []);
+        byDate.get(ds).push({
+          type: String(it?.type || ''),
+          is_off: Number(it?.is_off || 0) === 1
+        });
+      }
+      const addDaysUTC = (dateStr, n) => {
+        const yy = parseInt(String(dateStr).slice(0, 4), 10);
+        const mm = parseInt(String(dateStr).slice(5, 7), 10) - 1;
+        const dd = parseInt(String(dateStr).slice(8, 10), 10);
+        const dt = new Date(Date.UTC(yy, mm, dd, 0, 0, 0));
+        dt.setUTCDate(dt.getUTCDate() + n);
+        const y2 = dt.getUTCFullYear();
+        const m2 = String(dt.getUTCMonth() + 1).padStart(2, '0');
+        const d2 = String(dt.getUTCDate()).padStart(2, '0');
+        return `${y2}-${m2}-${d2}`;
+      };
+      const isHolidayType = (t) => {
+        if (t === 'fixed') return true;
+        if (t === 'jp_auto') return true;
+        if (t === 'jp_substitute') return true;
+        if (t === 'jp_bridge') return true;
+        return false;
+      };
+      const isNonWeekendHoliday = (ds) => {
+        const list = byDate.get(ds) || [];
+        return list.some(x => x.is_off && isHolidayType(x.type));
+      };
+      const hasValidBridge = (ds) => {
+        const list = byDate.get(ds) || [];
+        const hasBridge = list.some(x => x.is_off && x.type === 'jp_bridge');
+        if (!hasBridge) return false;
+        const prev = addDaysUTC(ds, -1);
+        const next = addDaysUTC(ds, 1);
+        return isNonWeekendHoliday(prev) && isNonWeekendHoliday(next);
+      };
+      for (const [ds, list] of byDate.entries()) {
+        const hasSunday = list.some(x => x.is_off && x.type === 'sunday');
+        if (hasSunday) off.add(ds);
+        if (list.some(x => x.is_off && x.type === 'saturday_last')) off.add(ds);
+        if (list.some(x => x.is_off && x.type === 'fixed')) off.add(ds);
+        if (list.some(x => x.is_off && x.type === 'jp_auto')) off.add(ds);
+        if (list.some(x => x.is_off && x.type === 'jp_substitute')) off.add(ds);
+        if (hasValidBridge(ds)) off.add(ds);
+      }
+    } catch {}
+    const shiftDefs = await repo.listShiftDefinitions().catch(() => []);
+    const shiftById = new Map((shiftDefs || []).map(s => [String(s.id), s]));
+    const shiftByName = new Map((shiftDefs || []).map(s => [String(s.name), s]));
+    const assigns = await repo.listShiftAssignmentsBetween(userId, from, to).catch(() => []);
+    const resolveDefForAssign = (a) => {
+      let def = null;
+      const sid = a?.shiftId != null ? String(a.shiftId) : '';
+      if (sid) def = shiftById.get(sid) || null;
+      if (!def) {
+        const nm = a?.shift != null ? String(a.shift) : '';
+        if (nm) def = shiftByName.get(nm) || null;
+      }
+      return def;
+    };
+    const days = [];
+    const map = new Map();
+    const toMySQLDateTime = (v) => {
+      if (!v) return '';
+      if (typeof v === 'string') {
+        const s = String(v);
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(s)) return s.slice(0, 19);
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(s)) return s.replace('T', ' ').slice(0, 19);
+        return s;
+      }
+      try {
+        return formatInputToMySQLJST(v);
+      } catch {
+        return String(v || '');
+      }
+    };
+    for (const r of (rows || [])) {
+      const inStr = toMySQLDateTime(r.checkIn);
+      const outStr = toMySQLDateTime(r.checkOut);
+      const d = String(inStr || '').slice(0, 10) || String(outStr || '').slice(0, 10);
+      if (!d) continue;
+      try {
+        const sid = r.shiftId != null ? String(r.shiftId) : '';
+        const def = sid ? (shiftById.get(sid) || null) : null;
+        const wt = String(r.work_type || '').trim();
+        const labels = String(r.labels || '').trim();
+        const inHm = String(inStr || '').slice(11, 16);
+        const outHm = String(outStr || '').slice(11, 16);
+        if (def && !wt && !labels && inHm === String(def.start_time || '').trim() && outHm === String(def.end_time || '').trim()) {
+          continue;
+        }
+      } catch {}
+      if (!map.has(d)) map.set(d, []);
+      map.get(d).push({
+        id: r.id,
+        checkIn: inStr || null,
+        checkOut: outStr || null,
+        shiftId: r.shiftId || null,
+        workType: r.work_type || null,
+        labels: r.labels || null
+      });
+    }
+    const dailyMap = new Map();
+    for (const r of dailyRows || []) {
+      const d = String(r?.date || '').slice(0, 10);
+      if (!d) continue;
+      const kc = (() => {
+        try {
+          const raw = Number(r.kubun_confirmed || 0);
+          if (raw) return 1;
+          const k = String(r.kubun || '').trim();
+          return k ? 1 : 0;
+        } catch {
+          return 0;
+        }
+      })();
+      dailyMap.set(d, {
+        kubun: r.kubun || null,
+        kubunConfirmed: kc,
+        workType: r.work_type || null,
+        location: r.location || null,
+        reason: r.reason || null,
+        memo: r.memo || null,
+        breakMinutes: r.break_minutes == null ? null : Number(r.break_minutes),
+        nightBreakMinutes: r.night_break_minutes == null ? null : Number(r.night_break_minutes)
+      });
+    }
+    const shiftForDate = (ds) => {
+      let best = null;
+      for (const a of assigns || []) {
+        const sd = String(a?.start_date || '').slice(0, 10);
+        if (!sd || sd > ds) continue;
+        const ed = a?.end_date ? String(a.end_date).slice(0, 10) : '';
+        if (ed && ed < ds) continue;
+        best = a;
+      }
+      if (!best) return null;
+      const def = resolveDefForAssign(best);
+      if (!def) return null;
+      return {
+        id: def.id,
+        name: def.name,
+        start_time: def.start_time,
+        end_time: def.end_time,
+        break_minutes: def.break_minutes,
+        standard_minutes: def.standard_minutes
+      };
+    };
+    const shiftAssignments = (assigns || []).map(a => {
+      const def = resolveDefForAssign(a);
+      return {
+        id: a?.id || null,
+        start_date: String(a?.start_date || '').slice(0, 10) || null,
+        end_date: a?.end_date ? String(a.end_date).slice(0, 10) : null,
+        shift: def ? {
+          id: def.id,
+          name: def.name,
+          start_time: def.start_time,
+          end_time: def.end_time,
+          break_minutes: def.break_minutes,
+          standard_minutes: def.standard_minutes
+        } : null
+      };
+    });
+    const workDetailsRows = await repo.listWorkDetailsBetween(userId, from, to).catch(() => []);
+    const workDetails = (workDetailsRows || []).map(r => ({
+      id: r.id,
+      startDate: String(r.start_date || '').slice(0, 10) || null,
+      endDate: r.end_date ? String(r.end_date).slice(0, 10) : null,
+      companyName: r.company_name || null,
+      workPlaceAddress: r.work_place_address || null,
+      workContent: r.work_content || null,
+      roleTitle: r.role_title || null,
+      responsibilityLevel: r.responsibility_level || null
+    }));
+    const monthSummaryRow = await repo.getMonthSummary(userId, y, m).catch(() => null);
+    const monthSummary = (() => {
+      if (!monthSummaryRow) return null;
+      const safeParse = (s) => {
+        try { return s ? JSON.parse(String(s)) : null; } catch { return null; }
+      };
+      return {
+        all: safeParse(monthSummaryRow.summary_all),
+        inhouse: safeParse(monthSummaryRow.summary_inhouse),
+        updatedBy: monthSummaryRow.updated_by || null,
+        updatedAt: monthSummaryRow.updated_at || null
+      };
+    })();
+    const leaveSummary = await (async () => {
+      const daysBetweenInclusive = (a, b) => {
+        const ms = 24 * 60 * 60 * 1000;
+        const d1 = new Date(String(a).slice(0, 10) + 'T00:00:00Z');
+        const d2 = new Date(String(b).slice(0, 10) + 'T00:00:00Z');
+        return Math.max(0, Math.ceil((d2 - d1) / ms) + 1);
+      };
+      const overlapDays = (aStart, aEnd, bStart, bEnd) => {
+        const s = aStart > bStart ? aStart : bStart;
+        const e = aEnd < bEnd ? aEnd : bEnd;
+        if (s > e) return 0;
+        return daysBetweenInclusive(s, e);
+      };
+      try {
+        const leaveRepo = require('../leave/leave.repository');
+        const all = await leaveRepo.listByUser(userId).catch(() => []);
+        let paidDays = 0;
+        let substituteDays = 0;
+        let unpaidDays = 0;
+        let standbyDays = 0;
+        for (const r of (all || [])) {
+          if (String(r?.status || '') !== 'approved') continue;
+          const s = String(r?.startDate || '').slice(0, 10);
+          const e = String(r?.endDate || '').slice(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || !/^\d{4}-\d{2}-\d{2}$/.test(e)) continue;
+          const ov = overlapDays(s, e, from, to);
+          if (ov <= 0) continue;
+          const t = String(r?.type || '').toLowerCase();
+          if (t === 'paid') paidDays += ov;
+          else if (t.includes('sub') || t.includes('daikyu') || t.includes('comp')) substituteDays += ov;
+          else if (t.includes('unpaid') || t.includes('nopay') || t.includes('no_pay')) unpaidDays += ov;
+          else if (t.includes('standby') || t.includes('wait') || t.includes('taiki')) standbyDays += ov;
+        }
+        return { paidDays, substituteDays, unpaidDays, standbyDays };
+      } catch {
+        return { paidDays: 0, substituteDays: 0, unpaidDays: 0, standbyDays: 0 };
+      }
+    })();
+    for (let day = 1; day <= lastDay; day++) {
+      const ds = `${y}-${pad(m)}-${pad(day)}`;
+      days.push({ date: ds, is_off: off.has(ds) ? 1 : 0, shift: shiftForDate(ds), daily: dailyMap.get(ds) || null, segments: map.get(ds) || [] });
+    }
+    const u = await userRepo.getUserById(userId).catch(() => null);
+    const user = u ? {
+      id: u.id,
+      employee_code: u.employee_code || null,
+      employeeCode: u.employee_code || null,
+      username: u.username || null,
+      email: u.email || null,
+      departmentId: u.departmentId || null,
+      departmentName: u.departmentName || null,
+      office_code: u.office_code || null,
+      officeCode: u.office_code || null
+    } : null;
+    res.status(200).json({
+      year: y,
+      month: m,
+      from,
+      to,
+      user,
+      monthStatus: {
+        status: monthStatus,
+        approved_by: monthStatusObj?.approved_by || null,
+        approved_at: monthStatusObj?.approved_at || null,
+        approverName: approverName
+      },
+      shiftAssignments,
+      workDetails,
+      monthSummary,
+      leaveSummary,
+      days
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.listShiftDefinitions = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
+    const rows = await repo.listShiftDefinitions();
+    res.status(200).json(rows || []);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.postShiftDefinition = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
+    const b = req.body || {};
+    const name = String(b.name || '').trim();
+    const start_time = String(b.start_time || '').trim();
+    const end_time = String(b.end_time || '').trim();
+    const break_minutes = b.break_minutes == null ? 60 : parseInt(String(b.break_minutes), 10);
+    const working_days = b.working_days == null ? null : String(b.working_days);
+    if (!name || !/^\d{2}:\d{2}$/.test(start_time) || !/^\d{2}:\d{2}$/.test(end_time)) {
+      return res.status(400).json({ message: 'Invalid name/start_time/end_time' });
+    }
+    const row = await repo.upsertShiftDefinition({ name, start_time, end_time, break_minutes, working_days });
+    res.status(200).json(row);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+exports.getMonthSummary = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const y = parseInt(String(req.query?.year || ''), 10);
+    const m = parseInt(String(req.query?.month || ''), 10);
+    if (!userId || !y || !m) return res.status(400).json({ message: 'Missing userId/year/month' });
+    const row = await repo.getMonthSummary(userId, y, m);
+    const safeParse = (s) => { try { return s ? JSON.parse(String(s)) : null; } catch { return null; } };
+    res.status(200).json({
+      userId,
+      year: y,
+      month: m,
+      all: row ? safeParse(row.summary_all) : null,
+      inhouse: row ? safeParse(row.summary_inhouse) : null,
+      updatedBy: row ? (row.updated_by || null) : null,
+      updatedAt: row ? (row.updated_at || null) : null
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.putMonthSummary = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const b = req.body || {};
+    const y = parseInt(String(b.year || req.query?.year || ''), 10);
+    const m = parseInt(String(b.month || req.query?.month || ''), 10);
+    if (!userId || !y || !m) return res.status(400).json({ message: 'Missing userId/year/month' });
+    const all = b.all ?? b.summaryAll ?? null;
+    const inhouse = b.inhouse ?? b.summaryInhouse ?? null;
+    try {
+      const s1 = all == null ? '' : JSON.stringify(all);
+      const s2 = inhouse == null ? '' : JSON.stringify(inhouse);
+      if (s1.length > 50000 || s2.length > 50000) return res.status(400).json({ message: 'Payload too large' });
+    } catch {
+      return res.status(400).json({ message: 'Invalid summary payload' });
+    }
+    const r = await repo.upsertMonthSummary(userId, y, m, all, inhouse, req.user?.id || null);
+    res.status(200).json({ ok: true, ...r });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getShiftAssignments = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const from = String(req.query?.from || '1900-01-01').slice(0, 10);
+    const to = String(req.query?.to || '2999-12-31').slice(0, 10);
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    const assigns = await repo.listShiftAssignmentsBetween(userId, from, to).catch(() => []);
+    const shiftDefs = await repo.listShiftDefinitions().catch(() => []);
+    const shiftById = new Map((shiftDefs || []).map(s => [String(s.id), s]));
+    const shiftByName = new Map((shiftDefs || []).map(s => [String(s.name), s]));
+    const resolveDefForAssign = (a) => {
+      let def = null;
+      const sid = a?.shiftId != null ? String(a.shiftId) : '';
+      if (sid) def = shiftById.get(sid) || null;
+      if (!def) {
+        const nm = a?.shift != null ? String(a.shift) : '';
+        if (nm) def = shiftByName.get(nm) || null;
+      }
+      return def;
+    };
+    const items = (assigns || []).map(a => {
+      const def = resolveDefForAssign(a);
+      return {
+        id: a?.id || null,
+        start_date: String(a?.start_date || '').slice(0, 10) || null,
+        end_date: a?.end_date ? String(a.end_date).slice(0, 10) : null,
+        shift: def ? {
+          id: def.id,
+          name: def.name,
+          start_time: def.start_time,
+          end_time: def.end_time,
+          break_minutes: def.break_minutes,
+          standard_minutes: def.standard_minutes
+        } : null
+      };
+    });
+    res.status(200).json({ userId, from, to, items });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.postShiftAssignment = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const b = req.body || {};
+    const shiftId = parseInt(String(b.shiftId || ''), 10);
+    const startDate = String(b.startDate || '').slice(0, 10);
+    const endDate = b.endDate == null || b.endDate === '' ? null : String(b.endDate).slice(0, 10);
+    if (!userId || !shiftId || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      return res.status(400).json({ message: 'Missing userId/shiftId/startDate' });
+    }
+    await repo.assignShiftToUser(userId, shiftId, startDate, endDate);
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.deleteShiftAssignment = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const id = parseInt(String(req.params.id), 10);
+    if (!userId || !id) return res.status(400).json({ message: 'Missing userId/id' });
+    const r = await repo.deleteShiftAssignment(id, userId);
+    if (!r?.ok) return res.status(404).json({ message: 'Not found' });
+    res.status(200).json(r);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getWorkDetails = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    const from = String(req.query?.from || '').slice(0, 10);
+    const to = String(req.query?.to || '').slice(0, 10);
+    const rows = await repo.listWorkDetailsBetween(userId, from || '1900-01-01', to || '2999-12-31');
+    const items = (rows || []).map(r => ({
+      id: r.id,
+      startDate: String(r.start_date || '').slice(0, 10) || null,
+      endDate: r.end_date ? String(r.end_date).slice(0, 10) : null,
+      companyName: r.company_name || null,
+      workPlaceAddress: r.work_place_address || null,
+      workContent: r.work_content || null,
+      roleTitle: r.role_title || null,
+      responsibilityLevel: r.responsibility_level || null
+    }));
+    res.status(200).json({ userId, items });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.postWorkDetail = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    const id = await repo.createWorkDetail(userId, req.body || {});
+    if (!id) return res.status(400).json({ message: 'Invalid payload' });
+    res.status(201).json({ id });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.putWorkDetail = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    const id = parseInt(String(req.params.id), 10);
+    if (!id) return res.status(400).json({ message: 'Missing id' });
+    const r = await repo.updateWorkDetail(id, userId, req.body || {});
+    if (!r?.ok) return res.status(404).json({ message: 'Not found' });
+    res.status(200).json({ id, updated: r.updated || 0 });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.deleteWorkDetail = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    const id = parseInt(String(req.params.id), 10);
+    if (!id) return res.status(400).json({ message: 'Missing id' });
+    const r = await repo.deleteWorkDetail(id, userId);
+    res.status(200).json({ id, deleted: r.deleted || 0 });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 exports.putMonthBulk = async (req, res) => {
   try {
-    const userId = req.user?.id;
-    const { year, month, updates } = req.body || {};
-    if (!userId || !year || !month || !Array.isArray(updates)) return res.status(400).json({ message: 'Missing fields' });
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const { year, month, updates, dailyUpdates } = req.body || {};
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    if (!year || !month || !Array.isArray(updates)) return res.status(400).json({ message: 'Missing fields' });
     const y = parseInt(year,10), m = parseInt(month,10);
+    await assertMonthWritable(req, userId, y, m);
     if (req.user.role === 'employee' && !isEditableMonth(y,m)) {
       return res.status(403).json({ message: 'Forbidden: cannot edit past months' });
     }
-    for (const u of updates) {
-      if (u.id) {
-        await repo.updateTimes(u.id, u.checkIn || null, u.checkOut || null);
-      } else if (u.checkIn && u.checkOut) {
-        const id = await repo.createCheckIn(userId, u.checkIn, null, null);
-        await repo.setCheckOut(id, u.checkOut, null, null);
+
+    // Role-based classification validation:
+    // If employee, prevent setting kubun back to Planned ('') if they have actual data or non-empty kubun.
+    if (req.user.role === 'employee' && Array.isArray(dailyUpdates)) {
+      for (const d of dailyUpdates) {
+        if (d.kubun === '' || d.kubun === null) {
+          // If trying to set to Planned, check if they are providing actual times in this request
+          const date = String(d.date || '').slice(0, 10);
+          const hasActualInBody = Array.isArray(updates) && updates.some(u => {
+            const uDate = String(u.checkIn || u.checkOut || '').slice(0, 10);
+            return uDate === date && (u.checkIn || u.checkOut) && u.delete !== true;
+          });
+          if (hasActualInBody) {
+            return res.status(400).json({ message: 'Cannot set classification to Planned when attendance times are provided' });
+          }
+        }
       }
     }
-    res.status(200).json({ ok: true });
+
+    // 1. Validation: Cho phép mọi khung giờ (00:00 - 23:59) để hỗ trợ ca đêm và tăng ca muộn
+    // (Đã gỡ bỏ logic chặn 06:00 - 23:59 theo yêu cầu của người dùng)
+
+    const result = await repo.bulkUpsertAttendance(userId, { updates, dailyUpdates });
+
+    try {
+      await auditRepo.writeLog({
+        userId: req.user?.id,
+        action: 'attendance_month_bulk',
+        path: req.path,
+        method: req.method,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        beforeData: null,
+        afterData: JSON.stringify({ targetUserId: userId, year: y, month: m, saved: result.saved })
+      });
+    } catch {}
+
+    res.status(200).json(result);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(Number(err?.status || 500)).json({ message: err.message });
   }
 };
 exports.exportCsv = async (req, res) => {
@@ -472,6 +1479,352 @@ exports.exportCsv = async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=\"timesheet.csv\"');
     res.status(200).send(csv);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.exportMonthXlsx = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const { year, month } = req.query || {};
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    if (!year || !month) return res.status(400).json({ message: 'Missing year/month' });
+    const pad = (n) => String(n).padStart(2, '0');
+    const y = parseInt(year, 10), m = parseInt(month, 10);
+    if (!y || !m) return res.status(400).json({ message: 'Invalid year/month' });
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const from = `${y}-${pad(m)}-01`;
+    const to = `${y}-${pad(m)}-${pad(lastDay)}`;
+    const role = String(req.user?.role || '').toLowerCase();
+    const monthStatus = await getMonthStatusValue(userId, y, m);
+    if (role === 'payroll' && monthStatus !== 'approved') {
+      return res.status(403).json({ message: 'Forbidden: month is not closed' });
+    }
+
+    const user = await userRepo.getUserById(userId).catch(() => null);
+    const employeeCode = String(user?.employee_code || user?.employeeCode || '').trim();
+    const employeeName = String(user?.username || user?.email || '').trim();
+
+    const rows = await repo.listByUserBetween(userId, from, to);
+    const dailyRows = await repo.listDailyBetween(userId, from, to).catch(() => []);
+    const shiftDefs = await repo.listShiftDefinitions().catch(() => []);
+    const shiftById = new Map((shiftDefs || []).map(s => [String(s.id), s]));
+    const calendarRepo = require('../calendar/calendar.repository');
+    const cal = await calendarRepo.computeYear(y).catch(() => null);
+    const off = new Set();
+    try {
+      const detail = Array.isArray(cal?.detail) ? cal.detail : [];
+      const byDate = new Map();
+      for (const it of detail) {
+        const ds = String(it?.date || '').slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
+        if (!byDate.has(ds)) byDate.set(ds, []);
+        byDate.get(ds).push({
+          type: String(it?.type || ''),
+          is_off: Number(it?.is_off || 0) === 1
+        });
+      }
+      const addDaysUTC = (dateStr, n) => {
+        const yy = parseInt(String(dateStr).slice(0, 4), 10);
+        const mm = parseInt(String(dateStr).slice(5, 7), 10) - 1;
+        const dd = parseInt(String(dateStr).slice(8, 10), 10);
+        const dt = new Date(Date.UTC(yy, mm, dd, 0, 0, 0));
+        dt.setUTCDate(dt.getUTCDate() + n);
+        const y2 = dt.getUTCFullYear();
+        const m2 = String(dt.getUTCMonth() + 1).padStart(2, '0');
+        const d2 = String(dt.getUTCDate()).padStart(2, '0');
+        return `${y2}-${m2}-${d2}`;
+      };
+      const isHolidayType = (t) => {
+        if (t === 'fixed') return true;
+        if (t === 'jp_auto') return true;
+        if (t === 'jp_substitute') return true;
+        if (t === 'jp_bridge') return true;
+        return false;
+      };
+      const isNonWeekendHoliday = (ds) => {
+        const list = byDate.get(ds) || [];
+        return list.some(x => x.is_off && isHolidayType(x.type));
+      };
+      const hasValidBridge = (ds) => {
+        const list = byDate.get(ds) || [];
+        const hasBridge = list.some(x => x.is_off && x.type === 'jp_bridge');
+        if (!hasBridge) return false;
+        const prev = addDaysUTC(ds, -1);
+        const next = addDaysUTC(ds, 1);
+        return isNonWeekendHoliday(prev) && isNonWeekendHoliday(next);
+      };
+      for (const [ds, list] of byDate.entries()) {
+        const hasSunday = list.some(x => x.is_off && x.type === 'sunday');
+        if (hasSunday) off.add(ds);
+        if (list.some(x => x.is_off && x.type === 'saturday_last')) off.add(ds);
+        if (list.some(x => x.is_off && x.type === 'fixed')) off.add(ds);
+        if (list.some(x => x.is_off && x.type === 'jp_auto')) off.add(ds);
+        if (list.some(x => x.is_off && x.type === 'jp_substitute')) off.add(ds);
+        if (hasValidBridge(ds)) off.add(ds);
+      }
+    } catch {}
+
+    const dailyMap = new Map();
+    for (const r of dailyRows || []) {
+      const d = String(r?.date || '').slice(0, 10);
+      if (!d) continue;
+      dailyMap.set(d, {
+        kubun: r.kubun || null,
+        workType: r.work_type || null,
+        location: r.location || null,
+        reason: r.reason || null,
+        memo: r.memo || null,
+        breakMinutes: r.break_minutes == null ? null : Number(r.break_minutes),
+        nightBreakMinutes: r.night_break_minutes == null ? null : Number(r.night_break_minutes)
+      });
+    }
+
+    const segMap = new Map();
+    for (const r of (rows || [])) {
+      const d = String(r.checkIn || '').slice(0, 10) || String(r.checkOut || '').slice(0, 10);
+      if (!d) continue;
+      if (!segMap.has(d)) segMap.set(d, []);
+      segMap.get(d).push({
+        id: r.id,
+        checkIn: r.checkIn || null,
+        checkOut: r.checkOut || null,
+        shiftId: r.shiftId || null,
+        workType: r.work_type || null,
+        labels: r.labels || null
+      });
+    }
+
+    const dowJa = (dateStr) => {
+      try {
+        const [yy, mm, dd] = String(dateStr).slice(0, 10).split('-').map(x => parseInt(x, 10));
+        const dt = new Date(Date.UTC(yy, (mm || 1) - 1, dd || 1, 0, 0, 0));
+        return ['日', '月', '火', '水', '木', '金', '土'][dt.getUTCDay()];
+      } catch {
+        return '';
+      }
+    };
+    const hm = (dtStr) => {
+      const s = String(dtStr || '');
+      if (!s) return '';
+      if (s.includes('T')) return s.slice(11, 16);
+      return s.slice(11, 16);
+    };
+    const fmtHm = (mins) => {
+      const m0 = Math.max(0, Number(mins || 0));
+      const h = Math.floor(m0 / 60);
+      const mm = Math.floor(m0 % 60);
+      return `${h}:${String(mm).padStart(2, '0')}`;
+    };
+    const minutesBetween = (aStr, bStr) => {
+      const a = String(aStr || '');
+      const b = String(bStr || '');
+      if (!a || !b) return 0;
+      const aD = a.slice(0, 10);
+      const bD = b.slice(0, 10);
+      const aT = a.slice(11, 16);
+      const bT = b.slice(11, 16);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(aD) || !/^\d{4}-\d{2}-\d{2}$/.test(bD)) return 0;
+      if (!/^\d{2}:\d{2}$/.test(aT) || !/^\d{2}:\d{2}$/.test(bT)) return 0;
+      const [ay, am, ad] = aD.split('-').map(n => parseInt(n, 10));
+      const [by, bm, bd] = bD.split('-').map(n => parseInt(n, 10));
+      const [ah, amn] = aT.split(':').map(n => parseInt(n, 10));
+      const [bh, bmn] = bT.split(':').map(n => parseInt(n, 10));
+      const aUtc = Date.UTC(ay, (am || 1) - 1, ad || 1, (ah || 0) - 9, amn || 0, 0);
+      const bUtc = Date.UTC(by, (bm || 1) - 1, bd || 1, (bh || 0) - 9, bmn || 0, 0);
+      return Math.max(0, Math.round((bUtc - aUtc) / 60000));
+    };
+    const brLabel = (min) => min === 45 ? '0:45' : min === 30 ? '0:30' : min === 0 ? '0:00' : '1:00';
+    const nbLabel = (min) => min === 60 ? '1:00' : min === 30 ? '0:30' : '0:00';
+    const reasonLabel = (r) => {
+      const s = String(r || '').trim();
+      if (s === 'private') return '私用';
+      if (s === 'late') return '遅刻';
+      if (s === 'early') return '早退';
+      if (s === 'other') return 'その他';
+      return s;
+    };
+
+    const workDetailsRows = await repo.listWorkDetailsBetween(userId, from, to).catch(() => []);
+    const workDetails = (workDetailsRows || []).map(r => ({
+      startDate: String(r.start_date || '').slice(0, 10) || null,
+      endDate: r.end_date ? String(r.end_date).slice(0, 10) : null,
+      companyName: r.company_name || null,
+      workContent: r.work_content || null
+    }));
+    const resolveWorkDetail = (ds) => {
+      let best = null;
+      for (const w of workDetails) {
+        const sd = String(w?.startDate || '').slice(0, 10);
+        if (!sd || sd > ds) continue;
+        const ed = w?.endDate ? String(w.endDate).slice(0, 10) : '';
+        if (ed && ed < ds) continue;
+        best = w;
+      }
+      return best;
+    };
+
+    const assigns = await repo.listShiftAssignmentsBetween(userId, from, to).catch(() => []);
+    const shiftForDate = (ds) => {
+      let best = null;
+      for (const a of assigns || []) {
+        const sd = String(a?.start_date || '').slice(0, 10);
+        if (!sd || sd > ds) continue;
+        const ed = a?.end_date ? String(a.end_date).slice(0, 10) : '';
+        if (ed && ed < ds) continue;
+        best = a;
+      }
+      if (!best) return null;
+      const sid = best?.shiftId != null ? String(best.shiftId) : '';
+      const def = sid ? (shiftById.get(sid) || null) : null;
+      if (!def) return null;
+      const st = String(def.start_time || '').trim();
+      const et = String(def.end_time || '').trim();
+      if (!/^\d{2}:\d{2}$/.test(st) || !/^\d{2}:\d{2}$/.test(et)) return null;
+      const [sh, sm] = st.split(':').map(n => parseInt(n, 10));
+      const [eh, em] = et.split(':').map(n => parseInt(n, 10));
+      return { startMin: (sh || 0) * 60 + (sm || 0), endMin: (eh || 0) * 60 + (em || 0) };
+    };
+
+    const columns = [
+      { header: '社員番号', width: 14 },
+      { header: '氏名', width: 18 },
+      { header: '日付', width: 12 },
+      { header: '曜日', width: 6 },
+      { header: '勤務区分', width: 10 },
+      { header: '企業名', width: 28 },
+      { header: '出社', width: 6 },
+      { header: '在宅', width: 6 },
+      { header: '現場・出張', width: 14 },
+      { header: '開始時刻', width: 10 },
+      { header: '終了時刻', width: 10 },
+      { header: '休憩時間', width: 10 },
+      { header: '深夜休憩', width: 10 },
+      { header: '勤務時間', width: 10 },
+      { header: '超過時間', width: 10 },
+      { header: '遅刻/早退', width: 10 },
+      { header: '理由', width: 12 },
+      { header: '社内業務', width: 14 },
+      { header: '備考', width: 26 },
+      { header: '承認ステータス', width: 12 },
+      { header: '承認者', width: 12 }
+    ];
+
+    const sheetRows = [];
+    for (let day = 1; day <= lastDay; day++) {
+      const ds = `${y}-${pad(m)}-${pad(day)}`;
+      const segs0 = (segMap.get(ds) || []).slice().sort((a, b) => String(a?.checkIn || '').localeCompare(String(b?.checkIn || '')));
+      const segs = segs0.filter(s => {
+        try {
+          const sid = s?.shiftId != null ? String(s.shiftId) : '';
+          const def = sid ? (shiftById.get(sid) || null) : null;
+          const wt = String(s?.workType || '').trim();
+          const labels = String(s?.labels || '').trim();
+          const inHm = hm(s?.checkIn);
+          const outHm = hm(s?.checkOut);
+          if (def && !wt && !labels && inHm === String(def.start_time || '').trim() && outHm === String(def.end_time || '').trim()) {
+            return false;
+          }
+        } catch {}
+        return true;
+      });
+      const seg = segs[0] || null;
+      const daily = dailyMap.get(ds) || null;
+      const wd = resolveWorkDetail(ds);
+      const dow = dowJa(ds);
+      const isOff = off.has(ds) || dow === '日' || dow === '土';
+      const inHm = hm(seg?.checkIn);
+      const outHm = hm(seg?.checkOut);
+      const hasTime = !!inHm || !!outHm;
+      const workKubunSet = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
+      const dailyKubun = String(daily?.kubun || '').trim();
+      const kubun = (() => {
+        if (isOff) {
+          if (dailyKubun === '休日' || dailyKubun === '休日出勤' || dailyKubun === '代替出勤') return dailyKubun;
+          if (hasTime) return '休日出勤';
+          return '休日';
+        }
+        const allowed = new Set(['', '出勤', '半休', '欠勤', '有給休暇', '無給休暇', '代替休日']);
+        if (allowed.has(dailyKubun)) return dailyKubun || '出勤';
+        return '出勤';
+      })();
+      const isWorkKubun = workKubunSet.has(kubun);
+      let wt = isWorkKubun ? String(seg?.workType || daily?.workType || '').trim() : '';
+      if (isWorkKubun && !wt) wt = 'onsite';
+      const wtOn = wt === 'onsite' ? { v: '✓', s: 'checkOn' } : '';
+      const wtRe = wt === 'remote' ? { v: '✓', s: 'checkOn' } : '';
+      const wtSa = wt === 'satellite' ? { v: '✓', s: 'checkOn' } : '';
+      const holidayLock = !isWorkKubun;
+      const brMin = holidayLock ? 0 : (daily?.breakMinutes == null ? 60 : Number(daily.breakMinutes));
+      const nbMin = holidayLock ? 0 : (daily?.nightBreakMinutes == null ? 0 : Number(daily.nightBreakMinutes));
+      const workedMin = holidayLock ? 0 : Math.max(0, minutesBetween(seg?.checkIn, seg?.checkOut) - brMin);
+      const otMin = holidayLock ? 0 : Math.max(0, workedMin - (8 * 60));
+      const lateEarly = (() => {
+        if (holidayLock) return '';
+        if (!inHm && !outHm) return '';
+        const parse = (t) => {
+          const s = String(t || '');
+          if (!/^\d{2}:\d{2}$/.test(s)) return null;
+          const [h, mi] = s.split(':').map(n => parseInt(n, 10));
+          return (h || 0) * 60 + (mi || 0);
+        };
+        const a = parse(inHm);
+        const b = parse(outHm);
+        if (a == null || b == null) return '';
+        const se = shiftForDate(ds);
+        const startBase = se?.startMin ?? (8 * 60);
+        const endBase = se?.endMin ?? (17 * 60);
+        const late = a > (startBase + 30);
+        const early = b < (endBase + 30);
+        if (late && early) return '遅刻/早退';
+        if (late) return '遅刻';
+        if (early) return '早退';
+        return '';
+      })();
+      const companyName = String(wd?.companyName || '').trim() || String(daily?.location || '').trim();
+      const inhouseWork = String(wd?.workContent || '').trim();
+      const approveStatus = monthStatus === 'approved' ? '承認済' : (() => {
+        const labels = String(seg?.labels || '').split(',').map(s => s.trim()).filter(Boolean);
+        if (labels.includes('submitted')) return '承認待ち';
+        return '';
+      })();
+      sheetRows.push({
+        isOff,
+        cells: [
+          employeeCode || '',
+          employeeName || '',
+          ds,
+          dow,
+          kubun,
+          companyName,
+          wtOn,
+          wtRe,
+          wtSa,
+          inHm,
+          outHm,
+          brLabel(brMin),
+          nbLabel(nbMin),
+          fmtHm(workedMin),
+          fmtHm(otMin),
+          lateEarly,
+          reasonLabel(daily?.reason || ''),
+          inhouseWork,
+          String(daily?.memo || ''),
+          approveStatus,
+          ''
+        ]
+      });
+    }
+
+    const safeFile = (s) => String(s || '').replace(/[\\\/:*?"<>|]/g, '_');
+    const fileName = safeFile(`attendance_month_${from.slice(0, 7)}_${userId}.xlsx`);
+    const { buildXlsxBook } = require('../../utils/xlsx');
+    const buf = buildXlsxBook({ sheets: [{ name: `月次 ${from.slice(0, 7)}`, columns, rows: sheetRows, headerStyleKey: 'headerGrey' }] });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.status(200).send(buf);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -2,12 +2,30 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const authRepository = require('./auth.repository');
-const { jwtSecretCurrent, bcryptRounds, accessTokenExpires, refreshTokenExpiresDays } = require('../../config/env');
+const { jwtSecretCurrent, bcryptRounds, accessTokenExpires, refreshTokenExpiresDays, idleTimeoutSeconds } = require('../../config/env');
 const refreshRepo = require('./refresh.repository');
 const crypto = require('crypto');
 const userRepo = require('../users/user.repository');
 const auditRepo = require('../audit/audit.repository');
 // Controller xác thực: đăng ký và đăng nhập
+
+function isHttpsRequest(req) {
+  const xfProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+  return xfProto.includes('https') || req.protocol === 'https';
+}
+
+function setSessionCookie(req, res, token) {
+  res.cookie('session_token', token, {
+    httpOnly: true,
+    secure: isHttpsRequest(req),
+    sameSite: 'lax',
+    path: '/'
+  });
+}
+
+function clearSessionCookie(res) {
+  res.clearCookie('session_token', { path: '/' });
+}
 
 // Đăng ký tài khoản mới
 exports.signup = async (req, res) => {
@@ -47,7 +65,6 @@ exports.login = async (req, res) => {
         // ignore lock to ensure users can sign in
       }
     } catch {}
-    await authRepository.ensureUserSecurityColumns();
     const user = await authRepository.findUserByEmail(email);
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -82,8 +99,8 @@ exports.login = async (req, res) => {
     const expires = new Date(Date.now() + refreshTokenExpiresDays * 24 * 60 * 60 * 1000);
     await refreshRepo.createToken({ userId: user.id, token: rt, expiresAt: expires.toISOString().slice(0,19).replace('T',' '), userAgent: req.headers['user-agent'], ip: req.ip });
     try { await userRepo.updateUser(user.id, { lastLogin: new Date().toISOString().slice(0,19).replace('T',' ') }); } catch {}
-    const xfProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
-    const isHttps = xfProto.includes('https') || (req.protocol === 'https');
+    try { await userRepo.touchLastActive(user.id); } catch {}
+    const isHttps = isHttpsRequest(req);
     res.cookie('refreshToken', rt, {
       httpOnly: true,
       secure: isHttps,
@@ -99,6 +116,7 @@ exports.login = async (req, res) => {
       maxAge: refreshTokenExpiresDays * 24 * 60 * 60 * 1000,
       path: '/'
     });
+    setSessionCookie(req, res, token);
     res.status(200).json({
       id: user.id,
       username: user.username,
@@ -258,19 +276,33 @@ exports.refresh = async (req, res) => {
     const u = await userRepo.getUserById(row.userId);
     const role2 = u?.role || 'employee';
     const tokenVersion2 = u?.token_version || 1;
+    const idleSecs = Math.max(0, Number(idleTimeoutSeconds || 0));
+    try {
+      if (idleSecs > 0) {
+        const last = u?.last_active_at ? new Date(u.last_active_at).getTime() : 0;
+        if (last && (Date.now() - last) > idleSecs * 1000) {
+          await refreshRepo.deleteUserTokens(u?.id || row.userId);
+          res.clearCookie('refreshToken', { path: '/api/auth' });
+          clearSessionCookie(res);
+          return res.status(401).json({ message: 'Session expired (idle)' });
+        }
+      }
+    } catch {}
     const token = jwt.sign({ id: row.userId, role: role2, v: tokenVersion2 }, jwtSecretCurrent, { expiresIn: accessTokenExpires });
     // rotate refresh token
     const newRt = crypto.randomBytes(48).toString('base64url');
     const expires = new Date(Date.now() + refreshTokenExpiresDays * 24 * 60 * 60 * 1000);
     await refreshRepo.revokeToken(refreshToken);
     await refreshRepo.createToken({ userId: row.userId, token: newRt, expiresAt: expires.toISOString().slice(0,19).replace('T',' '), userAgent: req.headers['user-agent'], ip: req.ip });
+    try { await userRepo.touchLastActive(row.userId); } catch {}
     res.cookie('refreshToken', newRt, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttpsRequest(req),
       sameSite: 'lax',
       maxAge: refreshTokenExpiresDays * 24 * 60 * 60 * 1000,
       path: '/api/auth'
     });
+    setSessionCookie(req, res, token);
     res.status(200).json({ accessToken: token, refreshToken: newRt });
     try { require('../../core/metrics').inc('token_refresh', 1); } catch {}
   } catch (err) {
@@ -303,6 +335,7 @@ exports.logout = async (req, res) => {
     await refreshRepo.revokeToken(refreshToken);
     res.clearCookie('refreshToken', { path: '/api/auth' });
     res.clearCookie('csrfToken', { path: '/' });
+    clearSessionCookie(res);
     res.status(200).json({ ok: true });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -316,6 +349,7 @@ exports.revokeAll = async (req, res) => {
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
     await refreshRepo.deleteUserTokens(userId);
     res.clearCookie('refreshToken', { path: '/api/auth' });
+    clearSessionCookie(res);
     res.status(200).json({ ok: true });
   } catch (err) {
     res.status(500).json({ message: err.message });

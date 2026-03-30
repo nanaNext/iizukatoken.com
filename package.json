@@ -4,8 +4,8 @@
   "main": "attendance/backend/src/server.js",
   "scripts": {
     "start": "node attendance/backend/src/server.js",
-    "test": "node -e \"console.log('No test runner configured');\"",
-    "test:unit": "node -e \"console.log('No unit tests configured');\"",
+    "test": "jest",
+    "test:unit": "jest attendance/backend/tests",
     "test:integration": "node -e \"console.log('No integration tests configured');\""
   },
   "dependencies": {
@@ -17,7 +17,11 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.0",
     "mysql2": "^3.18.2",
+    "pdfkit": "^0.17.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "jest": "^30.3.0"
   }
 }

@@ -15,3 +15,24 @@ body {
     text-rendering: optimizeLegibility;
     min-height: 100vh;
 }
+
+input,
+select,
+textarea,
+button {
+    font-family: Meiryo, "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+#btnLogout::before,
+#drawerLogout::before,
+[data-action="logout"]::before,
+.logout-link::before {
+    content: "";
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 6px;
+    background: url("/static/images/iconlogin.png") no-repeat center;
+    background-size: contain;
+    vertical-align: -2px;
+}

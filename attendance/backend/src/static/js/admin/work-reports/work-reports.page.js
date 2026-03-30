@@ -31,7 +31,7 @@ const fmtTime = (dt) => {
   return s.length >= 16 ? s.slice(11, 16) : s;
 };
 
-const boot = async () => {
+export async function mount() {
   const content = $('#adminContent');
   if (content) {
     content.className = 'card';
@@ -105,7 +105,6 @@ const boot = async () => {
         </div>
         <input id="wrMonth" type="month" value="${init.month}" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;${init.mode === 'month' ? '' : 'display:none;'}">
         <input id="wrDate" type="date" value="${init.date}" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;${init.mode === 'day' ? '' : 'display:none;'}">
-        <button id="wrCloseMonth" class="btn" type="button" style="text-decoration:none;${init.mode === 'month' ? '' : 'display:none;'}">月を締める</button>
         <a class="btn" href="/admin/dashboard" style="text-decoration:none;">ホームへ</a>
       </div>
     </div>
@@ -135,11 +134,11 @@ const boot = async () => {
     armListWatchdog();
     try {
       const r = await fetchJSONAuth(`/api/admin/work-reports?date=${encodeURIComponent(d)}`);
-      const sum = r?.summary || {};
-      const items = Array.isArray(r?.items) ? r.items : [];
+      const sum = (r && r.summary) ? r.summary : {};
+      const items = (r && Array.isArray(r.items)) ? r.items : [];
       const summaryEl = $('#wrSummary');
       if (summaryEl) {
-        summaryEl.textContent = `必要(退勤済): ${sum.required ?? 0} / 提出: ${sum.submitted ?? 0} / 未提出: ${sum.missing ?? 0}`;
+        summaryEl.textContent = `必要(退勤済): ${sum.required == null ? 0 : sum.required} / 提出: ${sum.submitted == null ? 0 : sum.submitted} / 未提出: ${sum.missing == null ? 0 : sum.missing}`;
       }
       const tableHost = $('#wrTable');
       renderDetail('');
@@ -159,9 +158,9 @@ const boot = async () => {
         const code = it.employeeCode || `EMP${String(it.userId).padStart(3,'0')}`;
         const name = it.username || '';
         const dept = it.departmentName || '—';
-        const cin = fmtTime(it.attendance?.checkIn);
-        const cout = fmtTime(it.attendance?.checkOut);
-        const site = it.report?.site || '—';
+        const cin = fmtTime(it.attendance ? it.attendance.checkIn : undefined);
+        const cout = fmtTime(it.attendance ? it.attendance.checkOut : undefined);
+        const site = (it.report && it.report.site) ? it.report.site : '—';
         const rep = it.report ? '提出済' : (missing ? '未提出' : '—');
         const statusJa = st === 'working' ? '出勤中' : (st === 'checked_out' ? '退勤済' : '未出勤');
         const pill = `<span class="dash-pill" style="${missing ? 'background:#fff1f1;color:#991b1b;border-color:#ffcccc;' : ''}">${esc(rep)}</span>`;
@@ -181,7 +180,9 @@ const boot = async () => {
           armDetailWatchdog();
           try {
             const rr = await fetchJSONAuth(`/api/admin/work-reports/${encodeURIComponent(it.userId)}?date=${encodeURIComponent(d)}`);
-            const rep2 = rr?.report || rr?.item?.report || rr?.item || null;
+            const rep2 = (rr && rr.report)
+              ? rr.report
+              : ((rr && rr.item && rr.item.report) ? rr.item.report : ((rr && rr.item) ? rr.item : null));
             if (!rep2 || (!rep2.site && !rep2.work)) {
               renderDetail(`<div class="dash-card"><div class="dash-card-title">詳細</div><div style="color:#475569;font-weight:650;">${title}<br>作業報告はありません。</div></div>`);
               return;
@@ -197,7 +198,7 @@ const boot = async () => {
               </div>
             `);
           } catch (e) {
-            renderDetail(`<div class="dash-card"><div class="dash-card-title">詳細</div><div style="color:#b00020;font-weight:650;">取得に失敗しました: ${esc(e?.message || 'unknown')}</div></div>`);
+            renderDetail(`<div class="dash-card"><div class="dash-card-title">詳細</div><div style="color:#b00020;font-weight:650;">取得に失敗しました: ${esc((e && e.message) ? e.message : 'unknown')}</div></div>`);
           } finally {
             hideSpinner();
             disarmDetailWatchdog();
@@ -218,7 +219,7 @@ const boot = async () => {
     } catch (e) {
       const tableHost = $('#wrTable');
       if (tableHost) {
-        tableHost.innerHTML = `<div class="empty-state"><div style="font-size:28px;">⚠️</div><div>読み込み失敗: ${String(e?.message || 'unknown')}</div></div>`;
+        tableHost.innerHTML = `<div class="empty-state"><div style="font-size:28px;">⚠️</div><div>読み込み失敗: ${String((e && e.message) ? e.message : 'unknown')}</div></div>`;
       }
     } finally {
       hideSpinner();
@@ -231,17 +232,17 @@ const boot = async () => {
     armListWatchdog();
     try {
       const r = await fetchJSONAuth(`/api/admin/work-reports/month?month=${encodeURIComponent(m)}`);
-      const sum = r?.summary || {};
-      const days = Array.isArray(r?.days) ? r.days : [];
-      const items = Array.isArray(r?.items) ? r.items : [];
+      const sum = (r && r.summary) ? r.summary : {};
+      const days = (r && Array.isArray(r.days)) ? r.days : [];
+      const items = (r && Array.isArray(r.items)) ? r.items : [];
       const summaryEl = $('#wrSummary');
       const closeBtn = $('#wrCloseMonth');
       if (summaryEl) {
-        summaryEl.textContent = `必要(退勤済): ${sum.required ?? 0} / 提出: ${sum.submitted ?? 0} / 未提出: ${sum.missing ?? 0}${r?.closed ? ' / 締め済み' : ''}`;
+        summaryEl.textContent = `必要(退勤済): ${sum.required == null ? 0 : sum.required} / 提出: ${sum.submitted == null ? 0 : sum.submitted} / 未提出: ${sum.missing == null ? 0 : sum.missing}${(r && r.closed) ? ' / 締め済み' : ''}`;
       }
       if (closeBtn) {
-        closeBtn.disabled = !!r?.closed;
-        closeBtn.textContent = r?.closed ? '締め済み' : '月を締める';
+        closeBtn.disabled = !!(r && r.closed);
+        closeBtn.textContent = (r && r.closed) ? '締め済み' : '月を締める';
       }
       const tableHost = $('#wrTable');
       renderDetail('');
@@ -270,6 +271,13 @@ const boot = async () => {
       table.appendChild(thead);
 
       const tbody = document.createElement('tbody');
+      const openMonthly = (uid, ym) => {
+        const url = new URL('/ui/attendance/monthly', window.location.origin);
+        url.searchParams.set('userId', String(uid));
+        if (ym && /^\d{4}-\d{2}$/.test(ym)) url.searchParams.set('month', ym);
+        url.searchParams.set('embed', '1');
+        window.open(url.pathname + url.search, '_blank', 'noopener');
+      };
       for (const u of items) {
         const uid = u.userId;
         const code = u.employeeCode || `EMP${String(uid).padStart(3,'0')}`;
@@ -283,7 +291,25 @@ const boot = async () => {
         tdCode.style.background = '#fff';
         tdCode.style.zIndex = '1';
         const tdName = document.createElement('td');
-        tdName.textContent = name;
+        const nameWrap = document.createElement('div');
+        nameWrap.style.display = 'flex';
+        nameWrap.style.alignItems = 'center';
+        nameWrap.style.gap = '6px';
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = name;
+        const jump = document.createElement('a');
+        jump.href = '#';
+        jump.textContent = '月次';
+        jump.style.fontSize = '11px';
+        jump.style.fontWeight = '800';
+        jump.style.color = '#0b2c66';
+        jump.addEventListener('click', (e) => {
+          e.preventDefault();
+          openMonthly(uid, m);
+        });
+        nameWrap.appendChild(nameSpan);
+        nameWrap.appendChild(jump);
+        tdName.appendChild(nameWrap);
         tdName.style.position = 'sticky';
         tdName.style.left = '110px';
         tdName.style.background = '#fff';
@@ -301,46 +327,78 @@ const boot = async () => {
           const cell = document.createElement('td');
           cell.style.textAlign = 'center';
           cell.style.cursor = 'pointer';
-          const st = u?.days?.[d]?.status || 'not_checked_in';
-          const rep = u?.days?.[d]?.report || null;
+          const dmap = (u && u.days) ? u.days : {};
+          const drow = (dmap && dmap[d]) ? dmap[d] : {};
+          const st = (drow && drow.status) ? drow.status : 'not_checked_in';
+          const rep = (drow && drow.report) ? drow.report : null;
           let text = '';
           let bg = '';
           let color = '#334155';
           if (st === 'leave') {
-            text = '休';
-            color = '#64748b';
-          } else if (st === 'checked_out') {
-            if (rep) {
-              text = '✓';
-              bg = '#ecfdf5';
-              color = '#166534';
-            } else {
-              text = '未';
-              bg = '#fff1f1';
+            if ((drow && drow.kubun === '欠勤')) {
+              text = '欠';
+              bg = '#fdecec';
               color = '#991b1b';
+            } else {
+              text = '休';
+              color = '#64748b';
             }
+          } else if (st === 'planned') {
+            text = '予';
+            bg = '#eef2ff';
+            color = '#1e3a8a';
+          } else if (st === 'checked_out') {
+            text = '出';
+            bg = '#eef5ff';
+            color = '#0b2c66';
           } else if (st === 'working') {
             text = '出';
             bg = '#eef5ff';
             color = '#0b2c66';
+          } else if (st === 'not_checked_in') {
+            text = '未';
+            bg = '#fff1f1';
+            color = '#991b1b';
           } else {
             text = '';
           }
           cell.textContent = text;
+          const kubunTitle = (() => {
+            const k = (drow && drow.kubun) ? String(drow.kubun) : '';
+            if (k) return k;
+            const pl = drow && drow.plan ? String(drow.plan) : '';
+            if (pl === 'off') return '予定休日';
+            if (pl === 'work') return '予定出勤';
+            if (st === 'leave') return (drow && drow.kubun === '欠勤') ? '欠勤' : '休日';
+            if (st === 'working' || st === 'checked_out') return '出勤';
+            if (st === 'not_checked_in') return '未';
+            return '';
+          })();
+          if (kubunTitle) cell.title = kubunTitle;
           if (bg) cell.style.background = bg;
           cell.style.color = color;
           cell.addEventListener('click', async () => {
             const title = `${esc(code)} ${esc(name)} / ${esc(d)}`;
+            const kubunText = (() => {
+              const k = (drow && drow.kubun) ? String(drow.kubun) : '';
+              if (k) return k;
+              const pl = drow && drow.plan ? String(drow.plan) : '';
+              if (pl === 'off') return '予定休日';
+              if (pl === 'work') return '予定出勤';
+              if (st === 'leave') return (drow && drow.kubun === '欠勤') ? '欠勤' : '休日';
+              if (st === 'working' || st === 'checked_out') return '出勤';
+              return '—';
+            })();
             if (st === 'leave') {
-              renderDetail(`<div class="dash-card"><div class="dash-card-title">詳細</div><div style="color:#475569;font-weight:650;">${title}<br>休暇</div></div>`);
+              renderDetail(`<div class="dash-card"><div class="dash-card-title">詳細</div><div style="color:#475569;font-weight:650;">${title}<br>勤務区分: ${esc(kubunText)}</div></div>`);
               return;
             }
             if (st !== 'checked_out') {
-              renderDetail(`<div class="dash-card"><div class="dash-card-title">詳細</div><div style="color:#475569;font-weight:650;">${title}<br>退勤後に報告します。</div></div>`);
+              renderDetail(`<div class="dash-card"><div class="dash-card-title">詳細</div><div style="color:#475569;font-weight:650;">${title}<br>勤務区分: ${esc(kubunText)}<br>退勤後に報告します。</div></div>`);
               return;
             }
             if (!rep) {
-              renderDetail(`<div class="dash-card"><div class="dash-card-title">詳細</div><div style="color:#991b1b;font-weight:650;">${title}<br>未提出</div></div>`);
+              renderDetail(`<div class="dash-card"><div class="dash-card-title">詳細</div><div style="color:#991b1b;font-weight:650;">${title}<br>勤務区分: ${esc(kubunText)}<br>未提出</div></div>`);
               return;
             }
             renderDetail(`
@@ -348,6 +406,7 @@ const boot = async () => {
                 <div class="dash-card-title">詳細</div>
                 <div style="display:grid;grid-template-columns:140px 1fr;gap:8px 12px;align-items:start;">
                   <div style="color:#475569;font-weight:650;">社員</div><div style="font-weight:650;color:#0f172a;">${title}</div>
+                  <div style="color:#475569;font-weight:650;">勤務区分</div><div>${esc(kubunText)}</div>
                   <div style="color:#475569;font-weight:650;">現場</div><div>${esc(rep.site)}</div>
                   <div style="color:#475569;font-weight:650;">作業内容</div><div style="white-space:pre-wrap;">${esc(rep.work)}</div>
                 </div>
@@ -357,11 +416,12 @@ const boot = async () => {
           tr.appendChild(cell);
         }
         tdName.style.cursor = 'pointer';
-        tdName.addEventListener('click', async () => {
+        tdName.addEventListener('click', async (ev) => {
+          if (ev.target === jump) return;
           showSpinner();
           try {
             const rr = await fetchJSONAuth(`/api/admin/work-reports/month/${encodeURIComponent(uid)}?month=${encodeURIComponent(m)}`);
-            const arr = Array.isArray(rr?.items) ? rr.items : [];
+            const arr = (rr && Array.isArray(rr.items)) ? rr.items : [];
             const lines = arr
               .filter(x => x.status === 'checked_out')
               .map(x => {
@@ -378,8 +438,14 @@ const boot = async () => {
                 ${lines ? `<table class="dash-table"><thead><tr><th>日付</th><th>状態</th><th>現場</th><th>作業内容</th></tr></thead><tbody>${lines}</tbody></table>` : `<div style="color:#475569;font-weight:650;">データがありません</div>`}
               </div>
             `);
+            try {
+              document.querySelector('#wrOpenMonthly')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                openMonthly(uid, m);
+              });
+            } catch {}
           } catch (e) {
-            renderDetail(`<div class="dash-card"><div class="dash-card-title">月一覧</div><div style="color:#b00020;font-weight:650;">取得に失敗しました: ${esc(e?.message || 'unknown')}</div></div>`);
+            renderDetail(`<div class="dash-card"><div class="dash-card-title">月一覧</div><div style="color:#b00020;font-weight:650;">取得に失敗しました: ${esc((e && e.message) ? e.message : 'unknown')}</div></div>`);
           } finally {
             hideSpinner();
           }
@@ -392,13 +458,82 @@ const boot = async () => {
       wrap2.style.border = '1px solid #e5e7eb';
       wrap2.style.borderRadius = '12px';
       wrap2.style.background = '#fff';
+      wrap2.style.position = 'relative';
       wrap2.appendChild(table);
       tableHost.innerHTML = '';
       tableHost.appendChild(wrap2);
+      const applySticky = () => {
+        try {
+          const ths = Array.from(table.querySelectorAll('thead th'));
+          if (ths.length < 3) return;
+          const w0 = Math.max(0, Math.round(ths[0].getBoundingClientRect().width));
+          const w1 = Math.max(0, Math.round(ths[1].getBoundingClientRect().width));
+          const w2 = Math.max(0, Math.round(ths[2].getBoundingClientRect().width));
+          const left0 = 0;
+          const left1 = w0;
+          const left2 = w0 + w1;
+          ths[0].style.position = 'sticky'; ths[0].style.left = `${left0}px`; ths[0].style.zIndex = '2'; ths[0].style.background = '#f8fafc';
+          ths[1].style.position = 'sticky'; ths[1].style.left = `${left1}px`; ths[1].style.zIndex = '2'; ths[1].style.background = '#f8fafc';
+          ths[2].style.position = 'sticky'; ths[2].style.left = `${left2}px`; ths[2].style.zIndex = '2'; ths[2].style.background = '#f8fafc';
+          const rows = Array.from(table.querySelectorAll('tbody tr'));
+          for (const r of rows) {
+            const tds = Array.from(r.children);
+            if (tds.length < 3) continue;
+            tds[0].style.position = 'sticky'; tds[0].style.left = `${left0}px`; tds[0].style.zIndex = '1'; tds[0].style.background = '#fff';
+            tds[1].style.position = 'sticky'; tds[1].style.left = `${left1}px`; tds[1].style.zIndex = '1'; tds[1].style.background = '#fff';
+            tds[2].style.position = 'sticky'; tds[2].style.left = `${left2}px`; tds[2].style.zIndex = '1'; tds[2].style.background = '#fff';
+          }
+          const oldFrozen = wrap2.querySelector('.wr-frozen');
+          if (oldFrozen) oldFrozen.remove();
+          const frozenWrap = document.createElement('div');
+          frozenWrap.className = 'wr-frozen';
+          frozenWrap.style.position = 'absolute';
+          frozenWrap.style.left = '0';
+          frozenWrap.style.top = '0';
+          frozenWrap.style.bottom = '0';
+          frozenWrap.style.width = `${left2 + w2}px`;
+          frozenWrap.style.pointerEvents = 'none';
+          frozenWrap.style.background = 'transparent';
+          const frozenInner = document.createElement('div');
+          frozenInner.style.position = 'absolute';
+          frozenInner.style.left = '0';
+          frozenInner.style.top = '0';
+          const fTable = document.createElement('table');
+          fTable.className = 'dash-table';
+          fTable.style.tableLayout = 'fixed';
+          const fThead = document.createElement('thead');
+          const fTrh = document.createElement('tr');
+          const fth0 = document.createElement('th'); fth0.textContent = ths[0].textContent || ''; fth0.style.minWidth = `${w0}px`;
+          const fth1 = document.createElement('th'); fth1.textContent = ths[1].textContent || ''; fth1.style.minWidth = `${w1}px`;
+          const fth2 = document.createElement('th'); fth2.textContent = ths[2].textContent || ''; fth2.style.minWidth = `${w2}px`;
+          fTrh.appendChild(fth0); fTrh.appendChild(fth1); fTrh.appendChild(fth2);
+          fThead.appendChild(fTrh);
+          fTable.appendChild(fThead);
+          const fTbody = document.createElement('tbody');
+          for (const r of rows) {
+            const tr = document.createElement('tr');
+            const tds = Array.from(r.children);
+            const c0 = document.createElement('td'); c0.textContent = tds[0].textContent || ''; c0.style.width = `${w0}px`;
+            const c1 = document.createElement('td'); c1.textContent = tds[1].textContent || ''; c1.style.width = `${w1}px`;
+            const c2 = document.createElement('td'); c2.textContent = tds[2].textContent || ''; c2.style.width = `${w2}px`;
+            tr.appendChild(c0); tr.appendChild(c1); tr.appendChild(c2);
+            fTbody.appendChild(tr);
+          }
+          fTable.appendChild(fTbody);
+          frozenInner.appendChild(fTable);
+          frozenWrap.appendChild(frozenInner);
+          wrap2.appendChild(frozenWrap);
+          const sync = () => { frozenInner.style.transform = `translateY(${-wrap2.scrollTop}px)`; };
+          sync();
+          wrap2.addEventListener('scroll', sync, { passive: true });
+        } catch {}
+      };
+      applySticky();
+      try { window.addEventListener('resize', applySticky, { passive: true }); } catch {}
     } catch (e) {
       const tableHost = $('#wrTable');
       if (tableHost) {
-        tableHost.innerHTML = `<div class="empty-state"><div style="font-size:28px;">⚠️</div><div>読み込み失敗: ${esc(e?.message || 'unknown')}</div></div>`;
+        tableHost.innerHTML = `<div class="empty-state"><div style="font-size:28px;">⚠️</div><div>読み込み失敗: ${esc((e && e.message) ? e.message : 'unknown')}</div></div>`;
       }
     } finally {
       hideSpinner();
@@ -407,9 +542,13 @@ const boot = async () => {
   };
 
   const load = async () => {
-    const mode = $('#wrMode')?.querySelector?.('button.active')?.dataset?.mode || init.mode;
-    const monthVal = $('#wrMonth')?.value;
-    const dateVal = $('#wrDate')?.value;
+    const modeWrap = $('#wrMode');
+    const activeBtn = (modeWrap && modeWrap.querySelector) ? modeWrap.querySelector('button.active') : null;
+    const mode = (activeBtn && activeBtn.dataset && activeBtn.dataset.mode) ? activeBtn.dataset.mode : init.mode;
+    const monthEl = $('#wrMonth');
+    const dateEl = $('#wrDate');
+    const monthVal = monthEl && monthEl.value != null ? monthEl.value : '';
+    const dateVal = dateEl && dateEl.value != null ? dateEl.value : '';
     const month = isYM(monthVal) ? monthVal : init.month;
     const date = isISODate(dateVal) ? dateVal : init.date;
     setUrl({ mode, date, month });
@@ -450,24 +589,5 @@ const boot = async () => {
       await load();
     });
   }
-  const closeBtn = $('#wrCloseMonth');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', async () => {
-      const month = isYM($('#wrMonth')?.value) ? $('#wrMonth').value : init.month;
-      if (!month) return;
-      showSpinner();
-      armDetailWatchdog();
-      try {
-        await fetchJSONAuth('/api/admin/work-reports/close-month', { method: 'POST', body: JSON.stringify({ month }) });
-        await load();
-      } catch (e) {
-        renderDetail(`<div class="dash-card"><div class="dash-card-title">締め処理</div><div style="color:#b00020;font-weight:650;">失敗しました: ${esc(e?.message || 'unknown')}</div></div>`);
-      } finally {
-        hideSpinner();
-        disarmDetailWatchdog();
-      }
-    });
-  }
-};
-
-boot();
+  // removed close month button per request
+}

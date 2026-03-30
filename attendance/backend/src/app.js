@@ -37,6 +37,21 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  if (String(req.path || '').startsWith('/api/')) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  } else {
+    const p = String(req.path || '');
+    const accept = String(req.headers.accept || '');
+    const wantsHtml = accept.includes('text/html') || accept.includes('*/*');
+    const isHtmlRoute = p === '/' || p.startsWith('/admin') || p.startsWith('/ui') || p.endsWith('.html');
+    if (req.method === 'GET' && wantsHtml && isHtmlRoute) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
   const cspItems = [
     process.env.CSP_DEFAULT_SRC || "default-src 'self'",
     process.env.CSP_IMG_SRC || "img-src 'self' data:",
@@ -105,85 +120,9 @@ if (process.env.NODE_ENV !== 'production') {
 
 const routes = require('./routes');
 routes(app);
-const chatbotRoutes = require('./modules/chatbot/chatbot.routes');
-app.use('/api/chatbot', chatbotRoutes);
-const chatbotRepo = require('./modules/chatbot/chatbot.repository');
-app.get('/api/chatbot/categories', async (req, res) => {
-  try {
-    await chatbotRepo.init();
-    await chatbotRepo.ensureSeedCategories();
-    await chatbotRepo.ensureSeedFaqs();
-    const rows = await chatbotRepo.getCategories();
-    res.status(200).json(rows);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-app.get('/api/chatbot/questions', async (req, res) => {
-  try {
-    const categoryId = parseInt(String(req.query.categoryId || ''), 10);
-    if (!categoryId) return res.status(400).json({ message: 'Missing categoryId' });
-    const rows = await chatbotRepo.listQuestions(categoryId);
-    res.status(200).json(rows);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-app.get('/api/chatbot/answer/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (!id) return res.status(400).json({ message: 'Missing id' });
-    const row = await chatbotRepo.getAnswerById(id);
-    if (!row) return res.status(404).json({ message: 'Not found' });
-    res.status(200).json(row);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-app.post('/api/chatbot/search', async (req, res) => {
-  try {
-    const text = String((req.body?.text ?? req.query?.text) || '').trim();
-    if (!text) return res.status(400).json({ message: 'Missing text' });
-    const rows = await chatbotRepo.search(text);
-    res.status(200).json(rows);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-app.post('/api/chatbot/question', async (req, res) => {
-  try {
-    const categoryId = req.body?.categoryId ? parseInt(String(req.body.categoryId), 10) : null;
-    const question = String((req.body?.question ?? req.query?.question) || '').trim();
-    if (!question) return res.status(400).json({ message: 'Missing question' });
-    const userId = req.user?.id || null;
-    const r = await chatbotRepo.submitQuestion(userId, categoryId, question);
-    res.status(201).json(r);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-app.get('/api/chatbot/debug/faqs', async (req, res) => {
-  try {
-    const [rows] = await require('./core/database/mysql').query('SELECT id, category_id, question, popularity, status FROM chatbot_faq ORDER BY id ASC LIMIT 100');
-    res.status(200).json(rows);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-app.post('/api/chatbot/dev/seed', async (req, res) => {
-  try {
-    await chatbotRepo.init();
-    await chatbotRepo.ensureSeedCategories();
-    await chatbotRepo.seedFaqsForce();
-    res.status(200).json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+const uiRoutes = require('./routes/ui.routes');
+app.use('/', uiRoutes);
 app.get('/ping', (req, res) => {
-  res.status(200).json({ ok: true });
-});
-app.get('/api/chatbot-test', (req, res) => {
   res.status(200).json({ ok: true });
 });
 // Log mounted routes at startup to verify availability
@@ -213,47 +152,15 @@ app.use('/uploads/payslips', (req, res) => {
 // Serve other static uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store'); } }));
 app.use('/static', express.static(path.join(__dirname, 'static'), { setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store'); } }));
-app.use('/ui', express.static(path.join(__dirname, 'static', 'html'), { setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store'); } }));
-app.use('/', express.static(path.join(__dirname, 'static', 'html'), { setHeaders: (res) => { res.setHeader('Cache-Control', 'no-store'); } }));
-app.get('/ui/login', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'login.html')); });
-app.get('/login', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'login.html')); });
-app.get('/login.html', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'login.html')); });
-app.get('/ui-check', (req, res) => {
-  const fs = require('fs');
-  const file = path.join(__dirname, 'static', 'html', 'login.html');
-  res.status(200).json({ exists: fs.existsSync(file), file });
-});
 app.get('/static/css/base.css', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'css', 'base.css')); });
 app.get('/static/js/pages/login.page.js', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'js', 'pages', 'login.page.js')); });
 app.get('/static/js/api/auth.api.js', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'js', 'api', 'auth.api.js')); });
 app.get('/static/html/login.html', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'login.html')); });
 app.get('/static/css/login.css', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'css', 'login.css')); });
-app.get('/ui/dashboard', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'dashboard.html')); });
 app.get('/static/js/pages/dashboard.page.js', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'js', 'pages', 'dashboard.page.js')); });
 app.get('/static/css/portal.css', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'css', 'portal.css')); });
 app.get('/static/js/pages/portal.page.js', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'js', 'pages', 'portal.page.js')); });
 app.get('/static/js/pages/portal.debug.js', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'js', 'pages', 'portal.debug.js')); });
-app.get('/ui/portal', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'portal.html')); });
-app.get('/ui/portal/', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'portal.html')); });
-app.get('/ui/attendance', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'attendance.html')); });
-app.get('/ui/admin', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'admin.html')); });
-app.get('/ui/employees', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'admin.html')); });
-app.get('/ui/employees/', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'admin.html')); });
-app.get(/^\/admin(?:\/.*)?$/, (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'admin.html')); });
-app.get('/ui/overtime', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'overtime.html')); });
-app.get('/ui/leave', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'leave.html')); });
-app.get('/ui/salary', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'salary.html')); });
-app.get('/ui/chatbot', (req, res) => { res.sendFile(path.join(__dirname, 'static', 'html', 'chatbot.html')); });
-app.get('/ui/:page', (req, res) => {
-  const page = String(req.params.page || '').replace(/[^a-z0-9_-]/gi, '');
-  if (page === 'employees') {
-    return res.sendFile(path.join(__dirname, 'static', 'html', 'admin.html'));
-  }
-  const file = path.join(__dirname, 'static', 'html', `${page}.html`);
-  res.sendFile(file, (err) => {
-    if (err) res.status(404).json({ message: 'Not Found', path: req.path });
-  });
-});
 app.get('/api/metrics', (req, res) => {
   try {
     const m = require('./core/metrics').snapshot();

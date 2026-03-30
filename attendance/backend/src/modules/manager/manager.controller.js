@@ -41,9 +41,13 @@ exports.listMyDepartment = async (req, res) => {
   try {
     const me = await userRepo.getUserById(req.user.id);
     const deptId = me?.departmentId || null;
-    const all = await userRepo.listUsers();
-    const rows = deptId ? all.filter(u => String(u.departmentId) === String(deptId)) : [];
-    res.status(200).json(rows);
+    if (!deptId) return res.status(200).json({ rows: [], total: 0, limit: 0, offset: 0 });
+    const q = String(req.query.q || '').trim();
+    const limit = req.query.limit;
+    const offset = req.query.offset;
+    const employmentStatus = req.query.employmentStatus != null ? String(req.query.employmentStatus || '').trim() : 'active';
+    const r = await userRepo.listUsersPaged({ q, role: 'employee', departmentId: String(deptId), employmentStatus: employmentStatus || null, limit, offset });
+    res.status(200).json(r);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

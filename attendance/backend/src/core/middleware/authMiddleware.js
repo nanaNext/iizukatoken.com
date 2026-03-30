@@ -2,13 +2,24 @@ const jwt = require('jsonwebtoken');
 const userRepo = require('../../modules/users/user.repository');
 // Middleware xác thực và phân quyền dựa trên JWT
 
-// Xác thực token
-async function authenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
+const lastActiveTouch = new Map();
+const touchMinMs = Math.max(5_000, Number.parseInt(process.env.LAST_ACTIVE_TOUCH_MIN_MS || '60000', 10) || 60_000);
+
+function nextUrl(req) {
+  try {
+    return String(req.originalUrl || req.url || '/');
+  } catch {
+    return '/';
   }
-  const token = authHeader.split(' ')[1];
+}
+
+function redirectToLogin(req, res) {
+  const next = nextUrl(req);
+  const target = '/ui/login' + (next ? ('?next=' + encodeURIComponent(next)) : '');
+  return res.redirect(302, target);
+}
+
+async function authenticateToken(token) {
   const secrets = [
     process.env.JWT_SECRET_CURRENT || process.env.JWT_SECRET,
     process.env.JWT_SECRET_PREVIOUS || ''
@@ -21,20 +32,66 @@ async function authenticate(req, res, next) {
     } catch {}
   }
   if (!decoded) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
+    const err = new Error('Invalid or expired token');
+    err.status = 403;
+    throw err;
   }
+  const user = await userRepo.getUserById(decoded.id);
+  const dbVersion = user?.token_version || 1;
+  const tokenVersion = decoded?.v || 1;
+  if (!user || dbVersion !== tokenVersion) {
+    const err = new Error('Invalid token version');
+    err.status = 401;
+    throw err;
+  }
+  return {
+    id: user.id,
+    role: user.role || decoded.role,
+    v: dbVersion,
+    email: user.email,
+    username: user.username
+  };
+}
+
+async function attachUserActivity(req, fallbackDecoded) {
   try {
-    const user = await userRepo.getUserById(decoded.id);
-    const dbVersion = user?.token_version || 1;
-    const tokenVersion = decoded?.v || 1;
-    if (!user || dbVersion !== tokenVersion) {
-      return res.status(401).json({ message: 'Invalid token version' });
+    const uid = String(req.user?.id || fallbackDecoded?.id || '');
+    const now = Date.now();
+    const prev = lastActiveTouch.get(uid) || 0;
+    if (uid && (now - prev) >= touchMinMs) {
+      lastActiveTouch.set(uid, now);
+      void userRepo.touchLastActive(uid).catch(() => {});
     }
+  } catch {}
+}
+
+async function authenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    req.user = await authenticateToken(token);
   } catch (e) {
     try { console.error('auth_db_error', e && e.message ? e.message : e); } catch {}
-    return res.status(401).json({ message: 'Unauthorized' });
+    return res.status(Number(e?.status || 401)).json({ message: e?.message || 'Unauthorized' });
   }
-  req.user = decoded;
+  await attachUserActivity(req, req.user);
+  next();
+}
+
+async function authenticateFromCookie(req, res, next) {
+  const token = req.cookies?.session_token;
+  if (!token) {
+    return redirectToLogin(req, res);
+  }
+  try {
+    req.user = await authenticateToken(token);
+  } catch {
+    return redirectToLogin(req, res);
+  }
+  await attachUserActivity(req, req.user);
   next();
 }
 
@@ -49,4 +106,4 @@ function authorize(...allowedRoles) {
     };
 }
 
-module.exports = { authenticate, authorize };
+module.exports = { authenticate, authenticateFromCookie, authorize };

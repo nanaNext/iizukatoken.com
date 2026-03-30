@@ -12,6 +12,17 @@ const { payslipEncKey, payslipKeyVersion } = require('../../config/env');
 const settingsService = require('../settings/settings.service');
 const crypto = require('crypto');
 
+function rfc5987Encode(str) {
+  return encodeURIComponent(String(str || ''))
+    .replace(/['()]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+    .replace(/\*/g, '%2A');
+}
+
+function setAttachmentFilename(res, filename) {
+  const name = String(filename || 'payslip.pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="payslip.pdf"; filename*=UTF-8''${rfc5987Encode(name)}`);
+}
+
 router.post('/admin/upload', authenticate, authorize('admin','manager'), uploadPdf.single('file'), async (req, res) => {
   try {
     const t0 = Date.now();
@@ -255,6 +266,9 @@ router.delete('/admin/:id', authenticate, authorize('admin','manager'), async (r
 
 router.post('/admin/replace/:id', authenticate, authorize('admin','manager'), uploadPdf.single('file'), async (req, res) => {
   try {
+    const flags = await settingsService.getFlags();
+    const maintenanceMode = !!flags.maintenanceMode;
+    const disablePayslipUpload = !!flags.disablePayslipUpload;
     if (maintenanceMode || disablePayslipUpload) {
       return res.status(503).json({ message: 'Service temporarily disabled' });
     }
@@ -403,7 +417,9 @@ router.get('/me/file/:id',
       await auditRepo.writeLog({ userId: req.user.id, action: 'payslip_download', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify({ id: row.id, userId: row.userId }), afterData: null });
     } catch {}
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(row.original_name || row.filename)}"`);
+    setAttachmentFilename(res, row.original_name || row.filename);
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
     if (row.iv && row.auth_tag && payslipEncKey && String(row.filename || '').endsWith('.enc')) {
       const keyBuf = Buffer.from(payslipEncKey, payslipEncKey.startsWith('base64:') ? 'base64' : 'hex');
       const key = payslipEncKey.startsWith('base64:') ? keyBuf.slice(7) : keyBuf;
@@ -461,7 +477,7 @@ router.get('/admin/file/:id',
       await auditRepo.writeLog({ userId: req.user.id, action: 'payslip_download', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: JSON.stringify({ id: row.id, userId: row.userId }), afterData: null });
     } catch {}
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(row.original_name || row.filename)}"`);
+    setAttachmentFilename(res, row.original_name || row.filename);
     if (row.iv && row.auth_tag && payslipEncKey && String(row.filename || '').endsWith('.enc')) {
       const keyBuf = Buffer.from(payslipEncKey, payslipEncKey.startsWith('base64:') ? 'base64' : 'hex');
       const key = payslipEncKey.startsWith('base64:') ? keyBuf.slice(7) : keyBuf;

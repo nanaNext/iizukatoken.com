@@ -20,6 +20,12 @@ services:
         value: "false"
       - key: COMPANY_NAME
         value: Iizuka Token
+      - key: ACCESS_TOKEN_EXPIRES
+        value: "900"
+      - key: IDLE_TIMEOUT_SECONDS
+        value: "1500"
+      - key: REFRESH_TOKEN_EXPIRES_DAYS
+        value: "7"
       # CORS: thêm origin tĩnh nếu bạn chạy frontend ngoài Render
       # Ví dụ: https://nananext.github.io
       - key: ALLOWED_ORIGINS

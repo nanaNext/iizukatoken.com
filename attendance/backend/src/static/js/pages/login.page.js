@@ -2,6 +2,30 @@ import { login, me, refresh } from '../api/auth.api.js';
 
 const $ = (sel) => document.querySelector(sel);
 
+function hidePageSpinner() {
+  try {
+    const ps = document.querySelector('#pageSpinner');
+    if (!ps) return;
+    ps.setAttribute('hidden', '');
+    ps.style.display = 'none';
+  } catch {}
+}
+
+function showPageSpinner() {
+  try {
+    let ps = document.querySelector('#pageSpinner');
+    if (!ps) {
+      ps = document.createElement('div');
+      ps.id = 'pageSpinner';
+      ps.className = 'page-spinner';
+      ps.innerHTML = '<div class="lds-spinner" aria-hidden="true"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>';
+      document.body.appendChild(ps);
+    }
+    ps.removeAttribute('hidden');
+    ps.style.display = 'grid';
+  } catch {}
+}
+
 function setError(msg) {
   const el = $('#error'); el.textContent = msg || ''; el.style.display = msg ? 'block' : 'none';
 }
@@ -31,31 +55,20 @@ function getCookie(name) { return null; }
 
 function roleRedirect(role) {
   try { sessionStorage.setItem('navSpinner', '1'); } catch {}
-  try {
-    const ps = document.querySelector('#pageSpinner');
-    if (ps) { ps.removeAttribute('hidden'); }
-  } catch {}
+  showPageSpinner();
   const r = String(role || '').toLowerCase();
   if (r === 'admin' || r === 'manager') {
     window.location.href = '/admin/dashboard';
     return;
   }
-  window.location.href = '/ui/today-work';
+  window.location.href = '/ui/portal';
 }
 
 async function handleSubmit(e) {
   e.preventDefault();
   setError('');
   const statusEl = document.querySelector('#status');
-  let pageSpinner = document.querySelector('#pageSpinner');
-  if (!pageSpinner) {
-    pageSpinner = document.createElement('div');
-    pageSpinner.id = 'pageSpinner';
-    pageSpinner.className = 'page-spinner';
-    pageSpinner.innerHTML = '<div class="lds-spinner" aria-hidden="true"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>';
-    document.body.appendChild(pageSpinner);
-  }
-  try { pageSpinner.removeAttribute('hidden'); } catch {}
+  showPageSpinner();
   const email = $('#email').value.trim();
   const password = $('#password').value;
   const form = $('#loginForm');
@@ -78,6 +91,8 @@ async function handleSubmit(e) {
       setError('メールまたはパスワードが正しくありません');
     } else if (msg.includes('locked')) {
       setError('アカウントが一時的にロックされています。しばらくしてからお試しください');
+    } else if (msg.includes('abort') || msg.includes('timeout')) {
+      setError('サーバーが応答しません。しばらくしてからお試しください');
     } else if (msg.startsWith('http')) {
       setError('サーバーが応答しません ( ' + err.message + ' )');
     } else {
@@ -88,19 +103,15 @@ async function handleSubmit(e) {
     if (btn) { btn.disabled = false; btn.textContent = 'ログイン'; btn.removeAttribute('aria-busy'); }
     if (statusEl) { statusEl.textContent = ''; }
     try {
-      const ps = document.querySelector('#pageSpinner');
       const willNavigate = sessionStorage.getItem('navSpinner') === '1';
-      if (ps && !willNavigate) { ps.setAttribute('hidden', ''); }
+      if (!willNavigate) hidePageSpinner();
     } catch {}
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  try {
-    const ps = document.querySelector('#pageSpinner');
-    if (ps) { ps.setAttribute('hidden', ''); }
-    sessionStorage.removeItem('navSpinner');
-  } catch {}
+  try { sessionStorage.removeItem('navSpinner'); } catch {}
+  hidePageSpinner();
   try {
     sessionStorage.removeItem('accessToken');
     sessionStorage.removeItem('refreshToken');
@@ -126,9 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem('user');
       } catch {}
       try {
-        const ps = document.querySelector('#pageSpinner');
-        if (ps) { ps.setAttribute('hidden', ''); }
         sessionStorage.removeItem('navSpinner');
+        hidePageSpinner();
         const ref = document.referrer || '';
         void ref;
       } catch {}
@@ -147,7 +157,9 @@ document.addEventListener('DOMContentLoaded', () => {
   form.addEventListener('submit', handleSubmit);
   const btn = $('#loginBtn');
   const updateBtnState = () => {
-    const ok = !!(emailInput?.value.trim() && passwordInput?.value);
+    const email = emailInput && emailInput.value != null ? String(emailInput.value).trim() : '';
+    const pass = passwordInput && passwordInput.value != null ? String(passwordInput.value) : '';
+    const ok = !!(email && pass);
     if (btn) { btn.disabled = !ok; btn.setAttribute('aria-disabled', (!ok).toString()); }
   };
   updateBtnState();

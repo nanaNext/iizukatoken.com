@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticate, authorize } = require('../../core/middleware/authMiddleware');
 const repo = require('./workReports.repository');
 const db = require('../../core/database/mysql');
+const attendanceRepo = require('../attendance/attendance.repository');
 
 const isISODate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const todayJST = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
@@ -29,17 +30,14 @@ router.post('/', authorize('employee', 'manager', 'admin'), async (req, res) => 
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
     const body = req.body || {};
     const date = isISODate(body.date) ? String(body.date) : todayJST();
-    const month = date.slice(0, 7);
-    try {
-      if (await repo.isMonthClosed(month)) {
-        return res.status(409).json({ message: 'Month is closed' });
-      }
-    } catch {}
-    const site = String(body.site || '').trim();
+    const wt = String(body.workType || body.work_type || '').trim();
+    const workType = wt === 'onsite' || wt === 'remote' || wt === 'satellite' ? wt : null;
+    const siteRaw = String(body.site || '').trim();
     const work = String(body.work || '').trim();
-    if (!site || !work) {
-      return res.status(400).json({ message: 'Missing site/work' });
+    if (!work) {
+      return res.status(400).json({ message: 'Missing work' });
     }
+    const site = siteRaw || '飯塚塗研';
     const [attRows] = await db.query(`
       SELECT id, checkIn, checkOut
       FROM attendance
@@ -49,12 +47,11 @@ router.post('/', authorize('employee', 'manager', 'admin'), async (req, res) => 
       LIMIT 1
     `, [userId, date]);
     const att = attRows && attRows[0] ? attRows[0] : null;
-    if (!att || !att.checkOut) {
-      return res.status(409).json({ message: 'Must check-out before submitting report' });
-    }
-    await repo.upsert({ userId, date, attendanceId: att.id, site, work });
+    await repo.upsert({ userId, date, attendanceId: att?.id || null, workType, site, work });
+    await attendanceRepo.upsertDaily(userId, date, { location: site, memo: work });
     const saved = await repo.getByUserDate(userId, date);
-    res.status(201).json({ date, report: saved });
+    const daily = await attendanceRepo.getDaily(userId, date).catch(() => null);
+    res.status(201).json({ date, report: saved, daily });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

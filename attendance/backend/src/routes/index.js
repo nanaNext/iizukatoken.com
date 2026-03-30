@@ -17,6 +17,7 @@ const employeeRoutes = require('../modules/employee/employee.routes');
 const chatbotRoutes = require('../modules/chatbot/chatbot.routes');
 const workReportsRoutes = require('../modules/workReports/workReports.routes');
 const workReportsAdminRoutes = require('../modules/workReports/workReports.admin.routes');
+const noticesRoutes = require('../modules/notices/notices.routes');
 
 module.exports = function(app) {
   console.log('Mounting API routes...');
@@ -59,6 +60,10 @@ module.exports = function(app) {
   console.log('Registering routers: auth, attendance, leave, adjust, manager, admin, me, users, salary, payslips');
   app.use('/api/auth', authRoutes);
   app.use('/api/attendance', attendanceRoutes);
+  try {
+    const attendanceController = require('../modules/attendance/attendance.controller');
+    app.get('/api/attendance/month/export.xlsx', authenticate, authorize('employee','manager','admin','payroll'), attendanceController.exportMonthXlsx);
+  } catch {}
   app.use('/api/leave', leaveRoutes);
   app.use('/api/adjust', adjustRoutes);
   app.use('/api/manager', managerRoutes);
@@ -71,7 +76,8 @@ module.exports = function(app) {
   app.use('/api/chatbot', chatbotRoutes);
   app.use('/api/work-reports', workReportsRoutes);
   app.use('/api/admin/work-reports', workReportsAdminRoutes);
-  app.get('/api/debug/routes', (req, res) => {
+  app.use('/api/notices', noticesRoutes);
+  app.get('/api/debug/routes', authenticate, authorize('admin'), (req, res) => {
     try {
       const stack = (app._router?.stack || []);
       const list = [];
@@ -98,7 +104,7 @@ module.exports = function(app) {
       res.status(500).json({ message: err.message });
     }
   });
-  app.post('/api/debug/routes', (req, res) => {
+  app.post('/api/debug/routes', authenticate, authorize('admin'), (req, res) => {
     try {
       const stack = (app._router?.stack || []);
       const list = [];

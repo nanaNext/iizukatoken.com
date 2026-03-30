@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     profile = await ensureProfile();
   } catch (e) {
     const err = $('#error');
-    if (err) { err.style.display = 'block'; err.textContent = '認証エラー: ' + (e?.message || 'unknown'); }
+    if (err) { err.style.display = 'block'; err.textContent = '認証エラー: ' + ((e && e.message) ? e.message : 'unknown'); }
     await waitMinDelay();
     if (pageSpinner) { pageSpinner.setAttribute('hidden', ''); }
   }
@@ -164,7 +164,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch {}
   document.addEventListener('click', (e) => {
-    const a = e.target?.closest?.('a');
+    const t = e && e.target;
+    const a = (t && t.closest) ? t.closest('a') : null;
     if (!a) return;
     const href = a.getAttribute('href') || '';
     if (href.startsWith('/ui/portal')) {

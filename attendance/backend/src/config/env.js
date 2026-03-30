@@ -8,11 +8,12 @@ module.exports = {
   jwtSecretPrevious: process.env.JWT_SECRET_PREVIOUS || '',
   uploadDir: process.env.UPLOAD_DIR || 'uploads',
   bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || '12', 10),
-  accessTokenExpires: parseInt(process.env.ACCESS_TOKEN_EXPIRES || '1800', 10),
-  refreshTokenExpiresDays: parseInt(process.env.REFRESH_TOKEN_EXPIRES_DAYS || '30', 10),
+  accessTokenExpires: parseInt(process.env.ACCESS_TOKEN_EXPIRES || '900', 10),
+  refreshTokenExpiresDays: parseInt(process.env.REFRESH_TOKEN_EXPIRES_DAYS || '7', 10),
+  idleTimeoutSeconds: parseInt(process.env.IDLE_TIMEOUT_SECONDS || '1500', 10),
   resetTokenExpiresMinutes: parseInt(process.env.RESET_TOKEN_EXPIRES_MINUTES || '30', 10),
   timesheetMaxDays: parseInt(process.env.TIMESHEET_MAX_DAYS || '93', 10) || 0,
-  companyName: process.env.COMPANY_NAME || ''
+  companyName: process.env.COMPANY_NAME || '飯塚塗研株式会社'
   ,
   salaryBaseMonthly: parseInt(process.env.SALARY_BASE_MONTHLY || '0', 10),
   salaryEmploymentAllowance: parseInt(process.env.SALARY_EMPLOYMENT_ALLOWANCE || '0', 10),

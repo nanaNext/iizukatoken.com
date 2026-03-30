@@ -47,6 +47,44 @@ async function runMigrations() {
           try { await conn.query(`ALTER TABLE departments ADD COLUMN code VARCHAR(32) NULL`); } catch {}
           try { await conn.query(`ALTER TABLE departments ADD UNIQUE KEY uniq_departments_code (code)`); } catch {}
         }
+      },
+      {
+        id: '20260323_01_notices_target_user',
+        up: async () => {
+          await conn.query(`
+            CREATE TABLE IF NOT EXISTS notices (
+              id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+              target_user_id BIGINT UNSIGNED NULL,
+              target_date DATE NULL,
+              target_month CHAR(7) NULL,
+              message TEXT NOT NULL,
+              created_by BIGINT UNSIGNED NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              INDEX idx_target_user_id (target_user_id),
+              INDEX idx_target_date (target_date),
+              INDEX idx_target_month (target_month),
+              INDEX idx_created_at (created_at),
+              INDEX idx_created_by (created_by)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+          `);
+          try { await conn.query(`ALTER TABLE notices ADD COLUMN target_user_id BIGINT UNSIGNED NULL`); } catch {}
+          try { await conn.query(`CREATE INDEX idx_target_user_id ON notices (target_user_id)`); } catch {}
+        }
+      },
+      {
+        id: '20260323_02_notice_reads',
+        up: async () => {
+          await conn.query(`
+            CREATE TABLE IF NOT EXISTS notice_reads (
+              notice_id BIGINT UNSIGNED NOT NULL,
+              user_id BIGINT UNSIGNED NOT NULL,
+              read_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (notice_id, user_id),
+              INDEX idx_user_id (user_id),
+              INDEX idx_read_at (read_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+          `);
+        }
       }
     ];
     for (const m of migrations) {
@@ -122,6 +160,10 @@ async function ensureSuperAdmin() {
 async function init() {
   await ensureUsersTable();
   await runMigrations();
+  try {
+    const attendanceRepo = require('../modules/attendance/attendance.repository');
+    await attendanceRepo.ensureAttendanceTables();
+  } catch {}
   await ensureSuperAdmin();
 }
 

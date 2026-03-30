@@ -154,6 +154,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch {}
   try {
   } catch {}
+  if (role === 'employee' || role === 'manager') {
+    const tiles = document.querySelector('.tiles');
+    if (tiles) {
+      tiles.innerHTML = `
+        <a class="tile" href="/ui/attendance"><div class="icon">⏱</div><div class="title">出退勤打刻</div></a>
+        <a class="tile" href="/ui/profile"><div class="icon">👤</div><div class="title">プロフィール</div></a>
+        <a class="tile" href="/ui/salary"><div class="icon">💴</div><div class="title">給与明細など</div></a>
+        <a class="tile" href="/ui/calendar"><div class="icon">📅</div><div class="title">カレンダー</div></a>
+        <a class="tile" href="/ui/leave"><div class="icon">✈️</div><div class="title">休暇申請</div></a>
+      `;
+    }
+  }
+
   if (role === 'admin') {
     const tiles = document.querySelector('.tiles');
     if (tiles) {
@@ -215,12 +228,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="title">申請</div>
           </a>
           <a class="tile" href="/ui/attendance">
-            <div class="icon">⏱</div>
             <div class="title">勤怠入力</div>
           </a>
           <a class="tile" href="/ui/adjust">
             <div class="icon">💳</div>
-            <div class="title">経費精算</div>
+            <div class="title">調整申請</div>
           </a>
         </div>
         <div class="emp-tiles-2">
@@ -239,15 +251,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     const cfg = [
-      { key:'attendance_manage', title:'勤怠管理', icon:'⏱', href: (r) => (r==='admin'||r==='manager') ? '/admin/attendance' : '/ui/attendance', desc:(r)=> (r==='admin'||r==='manager')?'Team attendance (missing/late)':'Attendance overview', prio:10 },
+      { key:'attendance_manage', title:'勤怠管理', icon:'', href: (r) => (r==='admin'||r==='manager') ? '/admin/attendance' : '/ui/attendance', desc:(r)=> (r==='admin'||r==='manager')?'Team attendance (missing/late)':'Attendance overview', prio:10 },
       { key:'users', title:'ユーザー管理', icon:'👥', href:'/ui/admin?tab=users', desc:'User management', adminOnly:true, prio:12 },
       { key:'departments', title:'部門管理', icon:'🏢', href:'/admin/departments', desc:'Departments', adminOnly:true, prio:14 },
       { key:'admin', title:'社員管理', icon:'🛠', href:'/admin/employees', desc:'Admin portal', adminOnly:true, prio:16 },
-      { key:'attendance_in', title:'勤怠入力', icon:'⏱', href:'/ui/attendance', desc:'Daily time input', prio:20, hideForAdmin:true },
+      { key:'attendance_in', title:'勤怠入力', icon:'', href:'/ui/attendance', desc:'Daily time input', prio:20, hideForAdmin:true },
       { key:'paid_leave', title:'有給休暇', icon:'🏝', href:'/ui/leave?type=paid', desc:'Paid leave', prio:25 },
       { key:'paid_leave_manage', title:'有給休暇管理', icon:'🏝', href:'/admin/leave/balance', desc:'Paid leave admin', adminOnly:true, prio:22 },
       { key:'leave', title:'申請', icon:'📝', href:'/ui/leave', desc:'Leave & requests', prio:30, hideForAdmin:true },
-      { key:'overtime', title:'残業', icon:'⏲', href:'/ui/leave?type=overtime', desc:'Overtime requests', prio:32, hideForAdmin:true },
+      { key:'overtime', title:'残業申請', icon:'⏲', href:'/ui/adjust?type=overtime', desc:'Overtime / time correction request', prio:32, hideForAdmin:true },
       { key:'overtime_manage', title:'残業管理', icon:'⏲', href:'/admin/leave/requests', desc:'Overtime management', adminOnly:true, prio:18 },
       { key:'requests_manage', title:'申請管理', icon:'🗂', href:'/admin/leave/requests', desc:'Requests management', adminOnly:true, prio:19 },
       { key:'expenses', title:'経費精算', icon:'💳', href:'/ui/adjust', desc:'Expense claims', prio:34 },
@@ -267,14 +279,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     ];
     const items = cfg
       .filter(c => (isAdmin || !c.adminOnly) && !(isAdmin && c.hideForAdmin))
-      .sort((a,b) => (a.prio ?? 100) - (b.prio ?? 100));
+      .sort((a,b) => ((a.prio == null ? 100 : a.prio) - (b.prio == null ? 100 : b.prio)));
     tiles.innerHTML = items.map(c => {
       const link = typeof c.href === 'function' ? c.href(role) : c.href;
       const title = typeof c.title === 'function' ? c.title(role) : c.title;
       const desc = typeof c.desc === 'function' ? c.desc(role) : (c.desc || '');
       return `
       <a class="tile" href="${link}">
-        <div class="icon">${c.icon}</div>
+        ${c.icon ? `<div class="icon">${c.icon}</div>` : ''}
         <div class="title">${title}</div>
         <div class="desc">${desc}</div>
       </a>

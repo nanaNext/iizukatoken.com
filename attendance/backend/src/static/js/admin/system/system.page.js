@@ -5,11 +5,11 @@ const normalizePath = (p) => {
   return s.length > 1 ? s.replace(/\/+$/, '') : s;
 };
 
-const p = normalizePath(window.location.pathname);
-let tab = 'settings';
-let hash = '';
-
-if (p === '/admin/system/audit-logs') tab = 'audit';
-if (p === '/admin/system/settings') tab = 'settings';
-
-bootLegacyTab({ tab, hash });
+export async function mount() {
+  const p = normalizePath(window.location.pathname);
+  let tab = 'settings';
+  let hash = '';
+  if (p === '/admin/system/audit-logs') tab = 'audit';
+  if (p === '/admin/system/settings') tab = 'settings';
+  await bootLegacyTab({ tab, hash });
+}

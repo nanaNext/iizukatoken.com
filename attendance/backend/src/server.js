@@ -1,5 +1,11 @@
 const app = require('./app');
-try { require('./core/bootstrap').init(); } catch {}
+try {
+  Promise.resolve()
+    .then(() => require('./core/bootstrap').init())
+    .catch((e) => {
+      try { console.error('bootstrap_error', e && e.message ? e.message : e); } catch {}
+    });
+} catch {}
 
 const PORT = process.env.PORT || 3000;
 

@@ -4,8 +4,19 @@ const { bcryptRounds } = require('../../config/env');
 // Controller quản trị người dùng
 exports.list = async (req, res) => {
   try {
+    const q = String(req.query.q || '').trim();
+    const limit = req.query.limit;
+    const offset = req.query.offset;
+    const role = req.query.role != null ? String(req.query.role || '').trim() : null;
+    const departmentId = req.query.departmentId != null ? String(req.query.departmentId || '').trim() : null;
+    const employmentStatus = req.query.employmentStatus != null ? String(req.query.employmentStatus || '').trim() : null;
+    const usePaged = q || limit != null || offset != null || role || departmentId || employmentStatus;
+    if (usePaged) {
+      const r = await repo.listUsersPaged({ q, role: role || null, departmentId: departmentId || null, employmentStatus: employmentStatus || null, limit, offset });
+      return res.status(200).json(r);
+    }
     const rows = await repo.listUsers();
-    res.status(200).json(rows);
+    return res.status(200).json(rows);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

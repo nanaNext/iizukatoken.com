@@ -12,18 +12,18 @@ function ensureEmployeePillStyle() {
       const style = document.createElement('style');
       style.id = 'empPillStyle';
       style.textContent = `
-        .admin .card { --emp-pill-width: 260px; }
+        .admin .card { --emp-pill-width: max-content; }
         .admin .card table#list { width: 100%; }
-        .admin.employees-wide .card table#list:not(.emp-del-list) thead { position: sticky; top: var(--topbar-height); z-index: 19; }
-        .admin:not(.employees-wide) .card table#list:not(.emp-del-list) thead { position: sticky; top: calc(var(--topbar-height) + var(--subbar-height)); z-index: 19; }
-        .admin.employees-wide .card table#list:not(.emp-del-list) thead th { position: sticky; top: var(--topbar-height); z-index: 20; background: #f3f4f6; box-shadow: 0 1px 0 rgba(16,24,40,.06); }
-        .admin:not(.employees-wide) .card table#list:not(.emp-del-list) thead th { position: sticky; top: calc(var(--topbar-height) + var(--subbar-height)); z-index: 20; background: #f3f4f6; box-shadow: 0 1px 0 rgba(16,24,40,.06); }
-        .admin .card table#list.emp-del-list thead th { position: sticky; top: 0; z-index: 30; background: #f3f4f6; box-shadow: 0 1px 0 rgba(16,24,40,.06); }
+        .admin.employees-wide .card table#list:not(.emp-del-list) thead { position: static; }
+        .admin:not(.employees-wide) .card table#list:not(.emp-del-list) thead { position: static; }
+        .admin.employees-wide .card table#list:not(.emp-del-list) thead th { position: static; background: #f3f4f6; box-shadow: 0 1px 0 rgba(16,24,40,.06); }
+        .admin:not(.employees-wide) .card table#list:not(.emp-del-list) thead th { position: static; background: #f3f4f6; box-shadow: 0 1px 0 rgba(16,24,40,.06); }
+        .admin .card table#list.emp-del-list thead th { position: static; background: #f3f4f6; box-shadow: 0 1px 0 rgba(16,24,40,.06); }
         .admin .card table#list tbody td .text-pill,
         .admin .card table#list tbody td .status-pill,
         .admin .card table#list tbody td .role-pill,
         .admin .card table#list tbody td .type-pill { width: var(--emp-pill-width); box-sizing: border-box; }
-        .admin .card table#list tbody td.col-code .text-pill { width: 140px; }
+        .admin .card table#list tbody td.col-code .text-pill { width: max-content; }
         .admin .card table#list tbody td .status-pill { min-height: 32px; padding: 4px 14px; line-height: 1.2; }
         .admin .card table#list tbody td .role-pill { min-height: 32px; padding: 4px 14px; line-height: 1.2; }
         .admin .card table#list tbody td .type-pill { min-height: 32px; padding: 4px 14px; line-height: 1.2; }
@@ -32,9 +32,18 @@ function ensureEmployeePillStyle() {
         .admin .card table#list tbody tr.emp-row.inactive td { border-top-color: #fdba74; border-bottom-color: #fdba74; }
         .admin .card table#list tbody tr.emp-row.inactive td:first-child { border-left-color: #fb923c; }
         .admin .card table#list tbody tr.emp-row.inactive td:last-child { border-right-color: #fb923c; }
-        .admin .card table#list tbody tr.emp-row.inactive td .text-pill { background: #ffedd5; border-color: #fdba74; color: #7c2d12; }
+        .admin .card table#list tbody tr.emp-row.inactive td .text-pill { background: transparent; border-color: transparent; color: #7c2d12; }
         .admin .card table#list tbody tr.emp-row.inactive td .text-pill a { color: inherit; }
         .admin .card table#list tbody tr.emp-row.retired td { background: #f8fafc; color: #475569; }
+        @media (max-width: 640px) {
+          .admin.employees-wide .card table#list:not(.emp-del-list) thead,
+          .admin:not(.employees-wide) .card table#list:not(.emp-del-list) thead,
+          .admin.employees-wide .card table#list:not(.emp-del-list) thead th,
+          .admin:not(.employees-wide) .card table#list:not(.emp-del-list) thead th {
+            top: auto !important;
+            position: static !important;
+          }
+        }
       `;
       document.head.appendChild(style);
     }
@@ -42,24 +51,11 @@ function ensureEmployeePillStyle() {
 }
 
 const showNavSpinner = () => {
-  try {
-    let el = document.querySelector('#pageSpinner');
-    if (!el) return;
-    el.removeAttribute('hidden');
-    el.style.display = 'flex';
-    el.style.background = '#fff';
-    const c = document.querySelector('#adminContent');
-    if (c) c.style.visibility = 'hidden';
-  } catch {}
+  try { sessionStorage.removeItem('navSpinner'); } catch {}
 };
 
 const hideNavSpinner = () => {
   try {
-    const el = document.querySelector('#pageSpinner');
-    if (el) {
-      el.setAttribute('hidden', 'true');
-      el.style.display = 'none';
-    }
     const c = document.querySelector('#adminContent');
     if (c) c.style.visibility = '';
   } catch {}
@@ -67,8 +63,9 @@ const hideNavSpinner = () => {
 
 let employeesRenderSeq = 0;
 
-function getEmployeesMode(pathname, hash, detailId, editId, createFlag) {
+function getEmployeesMode(pathname, hash, detailId, editId, summaryId, createFlag) {
   if (editId) return 'edit';
+  if (summaryId) return 'summary';
   if (detailId) return 'detail';
   if (createFlag) return 'add';
   if (pathname === '/admin/employees/add') return 'add';
@@ -76,6 +73,7 @@ function getEmployeesMode(pathname, hash, detailId, editId, createFlag) {
   if (hash === '#add') return 'add';
   if (hash === '#delete') return 'delete';
   if (hash === '#edit') return 'edit';
+  if (hash === '#summary') return 'summary';
   return 'list';
 }
 
@@ -93,14 +91,15 @@ async function renderEmployees(profile) {
   const params = new URLSearchParams(location.search);
   const detailId = params.get('detail');
   const editId = params.get('edit');
+  const summaryId = params.get('summary');
   const createFlag = params.get('create');
   const role2 = String((profile && profile.role) || '').toLowerCase();
 
   const pathname = String(location.pathname || '');
   const hash = location.hash || '';
-  const mode = getEmployeesMode(pathname, hash, detailId, editId, createFlag);
+  const mode = getEmployeesMode(pathname, hash, detailId, editId, summaryId, createFlag);
   try {
-    if ((pathname === '/admin/employees' || pathname === '/admin/employees/') && !hash && !detailId && !editId && !createFlag) {
+    if ((pathname === '/admin/employees' || pathname === '/admin/employees/') && !hash && !detailId && !editId && !summaryId && !createFlag) {
       history.replaceState(null, '', '/admin/employees#list');
     }
   } catch {}
@@ -182,6 +181,7 @@ async function renderEmployees(profile) {
       <div class="detail-row"><div class="label">電話番号</div><div class="value">${u.phone || ''}</div></div>
       <div class="detail-row"><div class="label">生年月日</div><div class="value">${fmtDate2(u.birth_date)}</div></div>
       <div class="detail-row"><div class="label">部署</div><div class="value">${deptName2(u.departmentId)}</div></div>
+      <div class="detail-row" id="rowShift"><div class="label">シフト</div><div class="value">—</div></div>
       <div class="detail-row"><div class="label">直属マネージャー</div><div class="value">${mgrName3}</div></div>
       <div class="detail-row"><div class="label">レベル</div><div class="value">${u.level || ''}</div></div>
       <div class="detail-row"><div class="label">役割</div><div class="value"><span class="role-pill ${roleCls3}">${roleJa3}</span></div></div>
@@ -190,11 +190,57 @@ async function renderEmployees(profile) {
       <div class="detail-row"><div class="label">試用開始</div><div class="value">${fmtDate2(u.probation_date)}</div></div>
       <div class="detail-row"><div class="label">正社員化</div><div class="value">${fmtDate2(u.official_date)}</div></div>
       <div class="detail-row"><div class="label">契約終了</div><div class="value">${fmtDate2(u.contract_end)}</div></div>
-      <div class="detail-row"><div class="label">基本給</div><div class="value">${u.base_salary ?? ''}</div></div>
+      <div class="detail-row"><div class="label">基本給</div><div class="value">${u.base_salary == null ? '' : u.base_salary}</div></div>
       <div class="detail-row"><div class="label">状態</div><div class="value"><span class="status-pill ${statusCls3}">${statusJa2(u.employment_status)}</span></div></div>
-      <div class="detail-actions form-actions"><a class="btn" href="/admin/employees?edit=${u.id}">編集</a><a class="btn" href="/admin/employees#list">一覧へ</a></div>
+      <div class="detail-actions form-actions">
+        <a class="btn" id="btnDetailEdit" href="/admin/employees?edit=${u.id}">編集</a>
+        <a class="btn" id="btnDetailBack" href="/admin/employees#list">一覧へ</a>
+      </div>
     `;
     content.appendChild(panel);
+    try {
+      const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      const r = await fetchJSONAuth(`/api/attendance/shifts/assignments?userId=${encodeURIComponent(String(u.id))}&from=1900-01-01&to=2999-12-31`);
+      const items = (r && Array.isArray(r.items)) ? r.items : [];
+      const active = items.find(it => {
+        const sd = String(it.start_date || '').slice(0, 10);
+        const ed = String(it.end_date || '').slice(0, 10);
+        const okStart = !!sd && sd <= today;
+        const okEnd = !ed || ed >= today;
+        return okStart && okEnd;
+      }) || null;
+      let name = '—', st = '—', et = '—';
+      const range = `${String(active?.start_date || '—')}${active?.end_date ? ' 〜 ' + String(active.end_date) : ''}`;
+      if (active) {
+        let def = null;
+        if (active.shiftId) {
+          try {
+            const defs = await fetchJSONAuth('/api/attendance/shifts/definitions');
+            def = (defs || []).find(d => String(d.id) === String(active.shiftId)) || null;
+          } catch {}
+        }
+        if (active.shift && typeof active.shift === 'object') {
+          name = String(active.shift.name || '');
+          st = String(active.shift.start_time || '—');
+          et = String(active.shift.end_time || '—');
+          if ((!st || st === '—' || !et || et === '—') && def) {
+            st = String(def.start_time || st || '—');
+            et = String(def.end_time || et || '—');
+          }
+        } else {
+          name = def ? String(def.name || '') : String(active.shift || '');
+          st = def ? String(def.start_time || '—') : '—';
+          et = def ? String(def.end_time || '—') : '—';
+        }
+      }
+      const rowShift = panel.querySelector('#rowShift .value');
+      if (rowShift) {
+        const nm = name && name !== '—' ? name : '—';
+        const time = (st && st !== '—' && et && et !== '—') ? `${st}-${et}` : '—';
+        const rangeText = range && !range.startsWith('—') ? ` ${range}` : '';
+        rowShift.innerHTML = `<span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#eef5ff;color:#0b2c66;font-weight:700;margin-right:8px;">${nm}</span><span style="font-weight:700;color:#334155;margin-right:8px;">${time}</span><span style="color:#64748b;">${rangeText}</span>`;
+      }
+    } catch {}
     try {
       const listKeys = ['q','dept','role','status','hireFrom','hireTo','sortKey','sortDir','page'];
       const keep = new URLSearchParams();
@@ -202,13 +248,433 @@ async function renderEmployees(profile) {
       const qsKeep = keep.toString();
       const backHref = `/admin/employees${qsKeep ? '?' + qsKeep : ''}#list`;
       const editHref = `/admin/employees?edit=${u.id}${qsKeep ? '&' + qsKeep : ''}`;
-      const aEls = panel.querySelectorAll('a.btn');
-      if (aEls && aEls.length >= 2) {
-        aEls[0].setAttribute('href', editHref);
-        aEls[1].setAttribute('href', backHref);
-      }
+      const btnEdit = panel.querySelector('#btnDetailEdit');
+      if (btnEdit) btnEdit.setAttribute('href', editHref);
+      const btnBack = panel.querySelector('#btnDetailBack');
+      if (btnBack) btnBack.setAttribute('href', backHref);
     } catch {}
     hideNavSpinner();
+    return;
+  }
+
+  if (mode === 'summary' && summaryId) {
+    const u = await getEmployee(summaryId);
+    if (seq !== employeesRenderSeq) return;
+    content.innerHTML = ``;
+    const wrap = document.createElement('div');
+    const code = u.employee_code || ('EMP' + String(u.id).padStart(3,'0'));
+    wrap.innerHTML = `
+      <div style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <a class="btn" id="sumBack" href="/admin/employees#list">← 社員一覧へ戻る</a>
+        <a class="btn" id="sumToDetail" href="/admin/employees?detail=${u.id}">詳細</a>
+        <a class="btn" id="sumToEdit" href="/admin/employees?edit=${u.id}">社員編集</a>
+      </div>
+    `;
+    content.appendChild(wrap);
+    hideNavSpinner();
+    return;
+  }
+    content.appendChild(wrap);
+    hideNavSpinner();
+
+    const ymEl = wrap.querySelector('#sumMonth');
+    if (ymEl && !ymEl.value) ymEl.value = jstYM();
+    const stEl = wrap.querySelector('#sumStatus');
+    const status = (msg) => { if (stEl) stEl.textContent = msg || ''; };
+    const hmToMin = (s) => {
+      const t = String(s || '').trim();
+      if (!t) return 0;
+      const m = t.match(/^(\d+):(\d{2})$/);
+      if (!m) return null;
+      const h = parseInt(m[1], 10);
+      const mm = parseInt(m[2], 10);
+      if (!Number.isFinite(h) || !Number.isFinite(mm) || mm < 0 || mm >= 60) return null;
+      return Math.max(0, (h * 60) + mm);
+    };
+    const minToHm = (min) => {
+      const m = Math.max(0, Number(min || 0));
+      const h = Math.floor(m / 60);
+      const r = Math.floor(m % 60);
+      return `${h}:${String(r).padStart(2, '0')}`;
+    };
+    const num = (v) => {
+      const x = Number(v);
+      return Number.isFinite(x) ? x : 0;
+    };
+    const setAll = (obj) => {
+      const x = obj && typeof obj === 'object' ? obj : {};
+      wrap.querySelector('#sumAllPlannedDays').value = String(x.plannedDays == null ? '' : x.plannedDays);
+      wrap.querySelector('#sumAllAttendDays').value = String(x.attendDays == null ? '' : x.attendDays);
+      wrap.querySelector('#sumAllHolidayWorkDays').value = String(x.holidayWorkDays == null ? '' : x.holidayWorkDays);
+      wrap.querySelector('#sumAllStandbyDays').value = String(x.standbyDays == null ? '' : x.standbyDays);
+      wrap.querySelector('#sumAllTotalWork').value = minToHm(x.totalWorkMinutes == null ? 0 : x.totalWorkMinutes);
+      wrap.querySelector('#sumAllNight').value = minToHm(x.nightMinutes == null ? 0 : x.nightMinutes);
+      wrap.querySelector('#sumAllOvertime').value = minToHm(x.overtimeMinutes == null ? 0 : x.overtimeMinutes);
+      wrap.querySelector('#sumAllLegalOvertime').value = minToHm(x.legalOvertimeMinutes == null ? 0 : x.legalOvertimeMinutes);
+      wrap.querySelector('#sumAllPaidDays').value = String(x.paidDays == null ? '' : x.paidDays);
+      wrap.querySelector('#sumAllSubstituteDays').value = String(x.substituteDays == null ? '' : x.substituteDays);
+      wrap.querySelector('#sumAllUnpaidDays').value = String(x.unpaidDays == null ? '' : x.unpaidDays);
+      wrap.querySelector('#sumAllAbsentDays').value = String(x.absentDays == null ? '' : x.absentDays);
+      wrap.querySelector('#sumAllDeduction').value = minToHm(x.deductionMinutes == null ? 0 : x.deductionMinutes);
+      wrap.querySelector('#sumAllOnsiteDays').value = String(x.onsiteDays == null ? '' : x.onsiteDays);
+      wrap.querySelector('#sumAllRemoteDays').value = String(x.remoteDays == null ? '' : x.remoteDays);
+      wrap.querySelector('#sumAllSatelliteDays').value = String(x.satelliteDays == null ? '' : x.satelliteDays);
+    };
+    const setIh = (obj) => {
+      const x = obj && typeof obj === 'object' ? obj : {};
+      wrap.querySelector('#sumIhPlannedDays').value = String(x.plannedDays == null ? '' : x.plannedDays);
+      wrap.querySelector('#sumIhAttendDays').value = String(x.attendDays == null ? '' : x.attendDays);
+      wrap.querySelector('#sumIhHolidayWorkDays').value = String(x.holidayWorkDays == null ? '' : x.holidayWorkDays);
+      wrap.querySelector('#sumIhStandbyDays').value = String(x.standbyDays == null ? '' : x.standbyDays);
+      wrap.querySelector('#sumIhTotalWork').value = minToHm(x.totalWorkMinutes == null ? 0 : x.totalWorkMinutes);
+      wrap.querySelector('#sumIhNight').value = minToHm(x.nightMinutes == null ? 0 : x.nightMinutes);
+      wrap.querySelector('#sumIhOvertime').value = minToHm(x.overtimeMinutes == null ? 0 : x.overtimeMinutes);
+      wrap.querySelector('#sumIhLegalOvertime').value = minToHm(x.legalOvertimeMinutes == null ? 0 : x.legalOvertimeMinutes);
+      wrap.querySelector('#sumIhPaidDays').value = String(x.paidDays == null ? '' : x.paidDays);
+      wrap.querySelector('#sumIhSubstituteDays').value = String(x.substituteDays == null ? '' : x.substituteDays);
+      wrap.querySelector('#sumIhUnpaidDays').value = String(x.unpaidDays == null ? '' : x.unpaidDays);
+      wrap.querySelector('#sumIhAbsentDays').value = String(x.absentDays == null ? '' : x.absentDays);
+    };
+    const getAll = () => {
+      const totalWorkMinutes = hmToMin(wrap.querySelector('#sumAllTotalWork').value);
+      const nightMinutes = hmToMin(wrap.querySelector('#sumAllNight').value);
+      const overtimeMinutes = hmToMin(wrap.querySelector('#sumAllOvertime').value);
+      const legalOvertimeMinutes = hmToMin(wrap.querySelector('#sumAllLegalOvertime').value);
+      const deductionMinutes = hmToMin(wrap.querySelector('#sumAllDeduction').value);
+      if (totalWorkMinutes == null || nightMinutes == null || overtimeMinutes == null || legalOvertimeMinutes == null || deductionMinutes == null) return null;
+      return {
+        plannedDays: num(wrap.querySelector('#sumAllPlannedDays').value),
+        attendDays: num(wrap.querySelector('#sumAllAttendDays').value),
+        holidayWorkDays: num(wrap.querySelector('#sumAllHolidayWorkDays').value),
+        standbyDays: num(wrap.querySelector('#sumAllStandbyDays').value),
+        totalWorkMinutes,
+        nightMinutes,
+        overtimeMinutes,
+        legalOvertimeMinutes,
+        paidDays: num(wrap.querySelector('#sumAllPaidDays').value),
+        substituteDays: num(wrap.querySelector('#sumAllSubstituteDays').value),
+        unpaidDays: num(wrap.querySelector('#sumAllUnpaidDays').value),
+        absentDays: num(wrap.querySelector('#sumAllAbsentDays').value),
+        deductionMinutes,
+        onsiteDays: num(wrap.querySelector('#sumAllOnsiteDays').value),
+        remoteDays: num(wrap.querySelector('#sumAllRemoteDays').value),
+        satelliteDays: num(wrap.querySelector('#sumAllSatelliteDays').value)
+      };
+    };
+    const getIh = () => {
+      const totalWorkMinutes = hmToMin(wrap.querySelector('#sumIhTotalWork').value);
+      const nightMinutes = hmToMin(wrap.querySelector('#sumIhNight').value);
+      const overtimeMinutes = hmToMin(wrap.querySelector('#sumIhOvertime').value);
+      const legalOvertimeMinutes = hmToMin(wrap.querySelector('#sumIhLegalOvertime').value);
+      if (totalWorkMinutes == null || nightMinutes == null || overtimeMinutes == null || legalOvertimeMinutes == null) return null;
+      return {
+        plannedDays: num(wrap.querySelector('#sumIhPlannedDays').value),
+        attendDays: num(wrap.querySelector('#sumIhAttendDays').value),
+        holidayWorkDays: num(wrap.querySelector('#sumIhHolidayWorkDays').value),
+        standbyDays: num(wrap.querySelector('#sumIhStandbyDays').value),
+        totalWorkMinutes,
+        nightMinutes,
+        overtimeMinutes,
+        legalOvertimeMinutes,
+        paidDays: num(wrap.querySelector('#sumIhPaidDays').value),
+        substituteDays: num(wrap.querySelector('#sumIhSubstituteDays').value),
+        unpaidDays: num(wrap.querySelector('#sumIhUnpaidDays').value),
+        absentDays: num(wrap.querySelector('#sumIhAbsentDays').value)
+      };
+    };
+    const load = async () => {
+      const ym = String((ymEl && ymEl.value != null) ? ymEl.value : '').trim();
+      if (!/^\d{4}-\d{2}$/.test(ym)) return;
+      const y = parseInt(ym.slice(0, 4), 10);
+      const m = parseInt(ym.slice(5, 7), 10);
+      status('読込中...');
+      const r = await fetchJSONAuth(`/api/attendance/month/summary?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}&userId=${encodeURIComponent(String(u.id))}`);
+      setAll((r && r.all) ? r.all : {});
+      setIh((r && r.inhouse) ? r.inhouse : {});
+      status('読込完了');
+    };
+    const save = async () => {
+      const ym = String((ymEl && ymEl.value != null) ? ymEl.value : '').trim();
+      if (!/^\d{4}-\d{2}$/.test(ym)) return;
+      const y = parseInt(ym.slice(0, 4), 10);
+      const m = parseInt(ym.slice(5, 7), 10);
+      const all = getAll();
+      const inhouse = getIh();
+      if (!all || !inhouse) { status('時間はH:MMで入力してください'); return; }
+      status('保存中...');
+      await fetchJSONAuth(`/api/attendance/month/summary?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}&userId=${encodeURIComponent(String(u.id))}`, {
+        method: 'PUT',
+        body: JSON.stringify({ year: y, month: m, userId: u.id, all, inhouse })
+      });
+      status('保存しました');
+    };
+    const btnSumLoad = wrap.querySelector('#btnSumLoad');
+    if (btnSumLoad) btnSumLoad.addEventListener('click', () => { load().catch(e => status(String((e && e.message) ? e.message : '読込失敗'))); });
+    const btnSumSave = wrap.querySelector('#btnSumSave');
+    if (btnSumSave) btnSumSave.addEventListener('click', () => { save().catch(e => status(String((e && e.message) ? e.message : '保存失敗'))); });
+    load().catch(() => {});
+
+    try {
+      const saShift = wrap.querySelector('#saShift');
+      const saStart = wrap.querySelector('#saStart');
+      const saEnd = wrap.querySelector('#saEnd');
+      const saTable = wrap.querySelector('#saTable');
+      const saStatus = wrap.querySelector('#saStatus');
+      const setSaStatus = (msg) => { if (saStatus) saStatus.textContent = msg || ''; };
+      let defs = [];
+      try { defs = await fetchJSONAuth('/api/attendance/shifts/definitions'); } catch { defs = []; }
+      const opt = (defs || []).map(d => `<option value="${d.id}">${d.name} ${d.start_time}-${d.end_time}</option>`).join('');
+      if (saShift) saShift.innerHTML = `<option value="">シフト</option>${opt}`;
+      if (saStart && !saStart.value) {
+        const ym = String((ymEl && ymEl.value != null) ? ymEl.value : '').trim();
+        saStart.value = (/^\d{4}-\d{2}$/.test(ym) ? `${ym}-01` : '');
+      }
+      const fmtHm2 = (min) => {
+        const m = Math.max(0, Number(min || 0));
+        const h = Math.floor(m / 60);
+        const r = Math.floor(m % 60);
+        return `${h}:${String(r).padStart(2, '0')}`;
+      };
+      const renderSa = (items) => {
+        const rows = Array.isArray(items) ? items : [];
+        if (!saTable) return;
+        if (!rows.length) { saTable.innerHTML = ''; return; }
+        const table = document.createElement('table');
+        table.className = 'excel-table';
+        table.style.margin = '0';
+        table.innerHTML = `
+          <thead><tr>
+            <th style="width:50px;white-space:nowrap;">No</th>
+            <th style="min-width:140px;white-space:nowrap;">シフト</th>
+            <th style="width:90px;white-space:nowrap;">開始時刻</th>
+            <th style="width:90px;white-space:nowrap;">終了時刻</th>
+            <th style="width:90px;white-space:nowrap;">休憩時間</th>
+            <th style="width:130px;white-space:nowrap;">所定労働時間</th>
+            <th style="width:120px;white-space:nowrap;">適用開始日</th>
+            <th style="width:120px;white-space:nowrap;">適用終了日</th>
+            <th style="width:90px;white-space:nowrap;">操作</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map((r, i) => {
+              const s = (r && r.shift) ? r.shift : null;
+              const name = s ? (s.name || '') : ((r && r.shiftName) ? r.shiftName : '');
+              const st = s ? (s.start_time || '—') : '—';
+              const et = s ? (s.end_time || '—') : '—';
+              const br = s ? fmtHm2(s.break_minutes || 0) : '—';
+              const std = s ? fmtHm2(s.standard_minutes || 0) : '—';
+              const sd = (r && r.start_date) ? r.start_date : '—';
+              const ed = (r && r.end_date) ? r.end_date : '—';
+              return `<tr>
+                <td>${i + 1}</td>
+                <td>${name || '—'}</td>
+                <td>${st}</td>
+                <td>${et}</td>
+                <td>${br}</td>
+                <td>${std}</td>
+                <td>${sd}</td>
+                <td>${ed}</td>
+                <td><button type="button" class="btn" data-sa-del="${r.id}">削除</button></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        `;
+        saTable.innerHTML = '';
+        saTable.appendChild(table);
+        saTable.querySelectorAll('button[data-sa-del]').forEach((b) => {
+          b.addEventListener('click', async () => {
+            const id = b.getAttribute('data-sa-del');
+            if (!id) return;
+            if (!confirm('削除します。よろしいですか？')) return;
+            setSaStatus('削除中...');
+            try {
+              await fetchJSONAuth(`/api/attendance/shifts/assignments/${encodeURIComponent(String(id))}?userId=${encodeURIComponent(String(u.id))}`, { method: 'DELETE' });
+              await loadSa();
+              setSaStatus('削除しました');
+            } catch (e) {
+              setSaStatus(String((e && e.message) ? e.message : '削除失敗'));
+            }
+          });
+        });
+      };
+      const loadSa = async () => {
+        setSaStatus('読込中...');
+        try {
+          const r = await fetchJSONAuth(`/api/attendance/shifts/assignments?userId=${encodeURIComponent(String(u.id))}&from=1900-01-01&to=2999-12-31`);
+          renderSa((r && Array.isArray(r.items)) ? r.items : []);
+          setSaStatus('');
+        } catch (e) {
+          renderSa([]);
+          setSaStatus(String((e && e.message) ? e.message : '読込失敗'));
+        }
+      };
+      const btnSaReload = wrap.querySelector('#btnSaReload');
+      if (btnSaReload) btnSaReload.addEventListener('click', () => { loadSa().catch(e => setSaStatus(String((e && e.message) ? e.message : '読込失敗'))); });
+      const btnSaAdd = wrap.querySelector('#btnSaAdd');
+      if (btnSaAdd) btnSaAdd.addEventListener('click', async () => {
+        const shiftId = saShift && saShift.value != null ? saShift.value : '';
+        const startDate = String(saStart && saStart.value != null ? saStart.value : '').trim();
+        const endDate = String(saEnd && saEnd.value != null ? saEnd.value : '').trim();
+        if (!shiftId || !startDate) { setSaStatus('shift/start を入力'); return; }
+        setSaStatus('保存中...');
+        try {
+          await fetchJSONAuth(`/api/attendance/shifts/assign`, {
+            method: 'POST',
+            body: JSON.stringify({ userId: u.id, shiftId, startDate, endDate: endDate || null })
+          });
+          await loadSa();
+          setSaStatus('保存しました');
+        } catch (e) {
+          setSaStatus(String((e && e.message) ? e.message : '保存失敗'));
+        }
+      });
+      loadSa().catch(() => {});
+    } catch {}
+
+    try {
+      const wdStatus = wrap.querySelector('#wdStatus');
+      const setWdStatus = (msg) => { if (wdStatus) wdStatus.textContent = msg || ''; };
+      const wdTable = wrap.querySelector('#wdTable');
+      const val = (id) => {
+        const el = wrap.querySelector(id);
+        return String((el && el.value != null) ? el.value : '').trim();
+      };
+      const normDate = (s) => {
+        const t = String(s || '').trim();
+        if (!t) return '';
+        const m = t.match(/^(\d{4})[\/-](\d{2})[\/-](\d{2})/);
+        if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+        return t;
+      };
+      const isISODate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || '').slice(0, 10));
+      const clearWdForm = () => {
+        for (const id of ['#wdStart','#wdEnd','#wdCompany','#wdAddr','#wdWork','#wdRole','#wdResp']) {
+          const el = wrap.querySelector(id);
+          if (el) el.value = '';
+        }
+      };
+      const renderWd = (items) => {
+        const rows = Array.isArray(items) ? items : [];
+        if (!wdTable) return;
+        if (!rows.length) { wdTable.innerHTML = ''; return; }
+        const table = document.createElement('table');
+        table.className = 'excel-table';
+        table.style.margin = '0';
+        table.innerHTML = `
+          <thead><tr>
+            <th style="width:50px;white-space:nowrap;">No</th>
+            <th style="min-width:160px;white-space:nowrap;">企業名</th>
+            <th style="width:120px;white-space:nowrap;">適用開始日</th>
+            <th style="width:120px;white-space:nowrap;">適用終了日</th>
+            <th style="min-width:220px;white-space:nowrap;">就業先住所</th>
+            <th style="min-width:180px;white-space:nowrap;">業務内容</th>
+            <th style="width:120px;white-space:nowrap;">役職</th>
+            <th style="width:140px;white-space:nowrap;">責任の程度</th>
+            <th style="width:130px;white-space:nowrap;">操作</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map((r, i) => {
+              return `<tr>
+                <td>${i + 1}</td>
+                <td>${r.companyName || ''}</td>
+                <td>${r.startDate || '—'}</td>
+                <td>${r.endDate || '—'}</td>
+                <td>${r.workPlaceAddress || ''}</td>
+                <td>${r.workContent || ''}</td>
+                <td>${r.roleTitle || ''}</td>
+                <td>${r.responsibilityLevel || ''}</td>
+                <td>
+                  <button type="button" class="btn" data-wd-edit="${r.id}">編集</button>
+                  <button type="button" class="btn" data-wd-del="${r.id}">削除</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        `;
+        wdTable.innerHTML = '';
+        wdTable.appendChild(table);
+        table.querySelectorAll('button[data-wd-del]').forEach((b) => {
+          b.addEventListener('click', async () => {
+            const id = b.getAttribute('data-wd-del');
+            if (!id) return;
+            if (!confirm('削除します。よろしいですか？')) return;
+            setWdStatus('削除中...');
+            try {
+              await fetchJSONAuth(`/api/attendance/work-details/${encodeURIComponent(String(id))}`, { method: 'DELETE', body: JSON.stringify({ userId: u.id }) });
+              await loadWd();
+              setWdStatus('削除しました');
+            } catch (e) {
+              setWdStatus(String((e && e.message) ? e.message : '削除失敗'));
+            }
+          });
+        });
+        table.querySelectorAll('button[data-wd-edit]').forEach((b) => {
+          b.addEventListener('click', async () => {
+            const id = b.getAttribute('data-wd-edit');
+            const cur = rows.find(x => String(x.id) === String(id));
+            if (!cur) return;
+            wrap.querySelector('#wdStart').value = cur.startDate || '';
+            wrap.querySelector('#wdEnd').value = cur.endDate || '';
+            wrap.querySelector('#wdCompany').value = cur.companyName || '';
+            wrap.querySelector('#wdAddr').value = cur.workPlaceAddress || '';
+            wrap.querySelector('#wdWork').value = cur.workContent || '';
+            wrap.querySelector('#wdRole').value = cur.roleTitle || '';
+            wrap.querySelector('#wdResp').value = cur.responsibilityLevel || '';
+            wrap.querySelector('#btnWdAdd').textContent = '更新';
+            wrap.querySelector('#btnWdAdd').dataset.editing = String(id);
+          });
+        });
+      };
+      const loadWd = async () => {
+        setWdStatus('読込中...');
+        try {
+          const r = await fetchJSONAuth(`/api/attendance/work-details?userId=${encodeURIComponent(String(u.id))}&from=1900-01-01&to=2999-12-31`);
+          renderWd((r && Array.isArray(r.items)) ? r.items : []);
+          setWdStatus('');
+        } catch (e) {
+          renderWd([]);
+          setWdStatus(String((e && e.message) ? e.message : '読込失敗'));
+        }
+      };
+      const btnWdReload = wrap.querySelector('#btnWdReload');
+      if (btnWdReload) btnWdReload.addEventListener('click', () => { loadWd().catch(e => setWdStatus(String((e && e.message) ? e.message : '読込失敗'))); });
+      const btnWdAdd = wrap.querySelector('#btnWdAdd');
+      if (btnWdAdd) btnWdAdd.addEventListener('click', async () => {
+        const editing = btnWdAdd.dataset.editing || '';
+        const payload = {
+          userId: u.id,
+          startDate: normDate(val('#wdStart')),
+          endDate: normDate(val('#wdEnd')) || null,
+          companyName: val('#wdCompany'),
+          workPlaceAddress: val('#wdAddr'),
+          workContent: val('#wdWork'),
+          roleTitle: val('#wdRole'),
+          responsibilityLevel: val('#wdResp')
+        };
+        if (!payload.startDate) { setWdStatus('開始日を入力'); return; }
+        if (!isISODate(payload.startDate) || (payload.endDate && !isISODate(payload.endDate))) {
+          setWdStatus('日付はYYYY-MM-DD形式で入力してください');
+          return;
+        }
+        setWdStatus('保存中...');
+        try {
+          if (editing) {
+            await fetchJSONAuth(`/api/attendance/work-details/${encodeURIComponent(String(editing))}`, { method: 'PUT', body: JSON.stringify(payload) });
+            btnWdAdd.textContent = '追加';
+            delete btnWdAdd.dataset.editing;
+          } else {
+            await fetchJSONAuth('/api/attendance/work-details', { method: 'POST', body: JSON.stringify(payload) });
+          }
+          clearWdForm();
+          await loadWd();
+          setWdStatus('保存しました');
+        } catch (e) {
+          const m = String((e && e.message) ? e.message : '保存失敗');
+          if (m === 'Invalid payload') { setWdStatus('日付はYYYY-MM-DD形式で入力してください'); return; }
+          setWdStatus(m);
+        }
+      });
+      loadWd().catch(() => {});
+    } catch {}
     return;
   }
 
@@ -218,17 +684,17 @@ async function renderEmployees(profile) {
   let depts = [];
   let errMsgs = [];
   const isCountedUser = (u) => {
-    const role = String(u?.role || '').toLowerCase();
-    const st = String(u?.employment_status || 'active').toLowerCase();
+    const role = String((u && u.role) ? u.role : '').toLowerCase();
+    const st = String((u && u.employment_status) ? u.employment_status : 'active').toLowerCase();
     if (st === 'inactive' || st === 'retired') return false;
     return role === 'employee' || role === 'manager' || role === 'admin';
   };
   try {
     users = role2 === 'manager' ? await fetchJSONAuth('/api/manager/users') : await listEmployees();
   } catch (e1) {
-    errMsgs.push(`一覧: ${e1?.message || 'unknown'}`);
+    errMsgs.push(`一覧: ${(e1 && e1.message) ? e1.message : 'unknown'}`);
     if (role2 !== 'manager') {
-      try { users = await listUsers(); } catch (e2) { errMsgs.push(`一覧(予備): ${e2?.message || 'unknown'}`); users = []; }
+      try { users = await listUsers(); } catch (e2) { errMsgs.push(`一覧(予備): ${(e2 && e2.message) ? e2.message : 'unknown'}`); users = []; }
     } else {
       users = [];
     }
@@ -238,7 +704,7 @@ async function renderEmployees(profile) {
   try {
     depts = role2 === 'manager' ? await fetchJSONAuth('/api/manager/departments') : await listDepartments();
   } catch (e3) {
-    errMsgs.push(`部署: ${e3?.message || 'unknown'}`);
+    errMsgs.push(`部署: ${(e3 && e3.message) ? e3.message : 'unknown'}`);
     depts = [];
   }
   if (seq !== employeesRenderSeq) return;
@@ -300,7 +766,7 @@ async function renderEmployees(profile) {
           <tr><td>試用開始</td><td><input id="empProbDate" placeholder="YYYY-MM-DD" style="width:180px" value="${u.probation_date || ''}"></td></tr>
           <tr><td>正社員化</td><td><input id="empOfficialDate" placeholder="YYYY-MM-DD" style="width:180px" value="${u.official_date || ''}"></td></tr>
           <tr><td>契約終了</td><td><input id="empContractEnd" placeholder="YYYY-MM-DD" style="width:180px" value="${u.contract_end || ''}"></td></tr>
-          <tr><td>基本給</td><td><input id="empBaseSalary" type="number" step="0.01" style="width:180px" value="${u.base_salary ?? ''}" placeholder="円"></td></tr>
+          <tr><td>基本給</td><td><input id="empBaseSalary" type="number" step="0.01" style="width:180px" value="${u.base_salary == null ? '' : u.base_salary}" placeholder="円"></td></tr>
         </tbody>
       </table>
       <table class="excel-table" style="margin-bottom:12px;">
@@ -311,6 +777,64 @@ async function renderEmployees(profile) {
           <tr><td>電話番号</td><td><input id="empPhone" style="width:240px" value="${u.phone || ''}"></td></tr>
           <tr><td>住所</td><td><input id="empAddr" style="width:320px" value="${u.address || ''}"></td></tr>
           <tr><td>プロフィール写真（アップロード）</td><td><input id="empAvatarFile" type="file" accept="image/*"> <button type="button" id="btnAvatarUpload">アップロード</button> <span id="avatarUploadStatus" style="margin-left:8px;color:#334155;"></span></td></tr>
+        </tbody>
+      </table>
+      <table class="excel-table" style="margin-bottom:12px;">
+        <thead><tr><th colspan="2">月次サマリ（管理者入力）</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="width:180px;">対象年月</td>
+            <td>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <input id="msMonth" type="month" style="width:180px">
+                <button type="button" class="btn" id="btnMsLoad">読込</button>
+                <button type="button" class="btn-primary" id="btnMsSave">保存</button>
+                <span id="msStatus" style="margin-left:4px;color:#334155;font-weight:800;"></span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>全体</td>
+            <td>
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:8px;">
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">所定日数</span><input id="msAllPlannedDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">出勤日数</span><input id="msAllAttendDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">代出休出</span><input id="msAllHolidayWorkDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">待機日数</span><input id="msAllStandbyDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">総労働時間</span><input id="msAllTotalWork" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">深夜時間</span><input id="msAllNight" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">総残業時間</span><input id="msAllOvertime" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">法定外時間</span><input id="msAllLegalOvertime" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">有休日数</span><input id="msAllPaidDays" type="number" step="0.1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">代休日数</span><input id="msAllSubstituteDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">無給休暇</span><input id="msAllUnpaidDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">欠勤日数</span><input id="msAllAbsentDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">控除時間</span><input id="msAllDeduction" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">出社日数</span><input id="msAllOnsiteDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">在宅日数</span><input id="msAllRemoteDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">現場・出張</span><input id="msAllSatelliteDays" type="number" step="1" style="width:90px"></label>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>社内勤務</td>
+            <td>
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:8px;">
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">所定日数</span><input id="msIhPlannedDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">出勤日数</span><input id="msIhAttendDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">代出休出</span><input id="msIhHolidayWorkDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">待機日数</span><input id="msIhStandbyDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">総労働時間</span><input id="msIhTotalWork" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">深夜時間</span><input id="msIhNight" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">総残業時間</span><input id="msIhOvertime" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">法定外時間</span><input id="msIhLegalOvertime" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">有休日数</span><input id="msIhPaidDays" type="number" step="0.1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">代休日数</span><input id="msIhSubstituteDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">無給休暇</span><input id="msIhUnpaidDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">欠勤日数</span><input id="msIhAbsentDays" type="number" step="1" style="width:90px"></label>
+              </div>
+            </td>
+          </tr>
         </tbody>
       </table>
       <div class="form-actions" style="justify-content:flex-end;">
@@ -328,6 +852,127 @@ async function renderEmployees(profile) {
       const cancelA = formEdit.querySelector('#btnCancelEdit');
       if (backA) backA.setAttribute('href', backHref);
       if (cancelA) cancelA.setAttribute('href', backHref);
+    } catch {}
+    try {
+      const ymEl = formEdit.querySelector('#msMonth');
+      const btnLoad = formEdit.querySelector('#btnMsLoad');
+      const btnSave = formEdit.querySelector('#btnMsSave');
+      const stEl = formEdit.querySelector('#msStatus');
+      const jstYM = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+      if (ymEl && !ymEl.value) ymEl.value = jstYM();
+
+      const hmToMin = (s) => {
+        const t = String(s || '').trim();
+        if (!t) return 0;
+        const m = t.match(/^(\d+):(\d{2})$/);
+        if (!m) return 0;
+        const h = parseInt(m[1], 10);
+        const mm = parseInt(m[2], 10);
+        return Math.max(0, (h * 60) + mm);
+      };
+      const minToHm = (min) => {
+        const m = Math.max(0, Number(min || 0));
+        const h = Math.floor(m / 60);
+        const r = Math.floor(m % 60);
+        return `${h}:${String(r).padStart(2, '0')}`;
+      };
+      const n = (v) => {
+        const x = Number(v);
+        return Number.isFinite(x) ? x : 0;
+      };
+      const setAll = (obj) => {
+        if (!obj || typeof obj !== 'object') obj = {};
+        formEdit.querySelector('#msAllPlannedDays').value = String(obj.plannedDays == null ? '' : obj.plannedDays);
+        formEdit.querySelector('#msAllAttendDays').value = String(obj.attendDays == null ? '' : obj.attendDays);
+        formEdit.querySelector('#msAllHolidayWorkDays').value = String(obj.holidayWorkDays == null ? '' : obj.holidayWorkDays);
+        formEdit.querySelector('#msAllStandbyDays').value = String(obj.standbyDays == null ? '' : obj.standbyDays);
+        formEdit.querySelector('#msAllTotalWork').value = minToHm(obj.totalWorkMinutes == null ? 0 : obj.totalWorkMinutes);
+        formEdit.querySelector('#msAllNight').value = minToHm(obj.nightMinutes == null ? 0 : obj.nightMinutes);
+        formEdit.querySelector('#msAllOvertime').value = minToHm(obj.overtimeMinutes == null ? 0 : obj.overtimeMinutes);
+        formEdit.querySelector('#msAllLegalOvertime').value = minToHm(obj.legalOvertimeMinutes == null ? 0 : obj.legalOvertimeMinutes);
+        formEdit.querySelector('#msAllPaidDays').value = String(obj.paidDays == null ? '' : obj.paidDays);
+        formEdit.querySelector('#msAllSubstituteDays').value = String(obj.substituteDays == null ? '' : obj.substituteDays);
+        formEdit.querySelector('#msAllUnpaidDays').value = String(obj.unpaidDays == null ? '' : obj.unpaidDays);
+        formEdit.querySelector('#msAllAbsentDays').value = String(obj.absentDays == null ? '' : obj.absentDays);
+        formEdit.querySelector('#msAllDeduction').value = minToHm(obj.deductionMinutes == null ? 0 : obj.deductionMinutes);
+        formEdit.querySelector('#msAllOnsiteDays').value = String(obj.onsiteDays == null ? '' : obj.onsiteDays);
+        formEdit.querySelector('#msAllRemoteDays').value = String(obj.remoteDays == null ? '' : obj.remoteDays);
+        formEdit.querySelector('#msAllSatelliteDays').value = String(obj.satelliteDays == null ? '' : obj.satelliteDays);
+      };
+      const setIh = (obj) => {
+        if (!obj || typeof obj !== 'object') obj = {};
+        formEdit.querySelector('#msIhPlannedDays').value = String(obj.plannedDays == null ? '' : obj.plannedDays);
+        formEdit.querySelector('#msIhAttendDays').value = String(obj.attendDays == null ? '' : obj.attendDays);
+        formEdit.querySelector('#msIhHolidayWorkDays').value = String(obj.holidayWorkDays == null ? '' : obj.holidayWorkDays);
+        formEdit.querySelector('#msIhStandbyDays').value = String(obj.standbyDays == null ? '' : obj.standbyDays);
+        formEdit.querySelector('#msIhTotalWork').value = minToHm(obj.totalWorkMinutes == null ? 0 : obj.totalWorkMinutes);
+        formEdit.querySelector('#msIhNight').value = minToHm(obj.nightMinutes == null ? 0 : obj.nightMinutes);
+        formEdit.querySelector('#msIhOvertime').value = minToHm(obj.overtimeMinutes == null ? 0 : obj.overtimeMinutes);
+        formEdit.querySelector('#msIhLegalOvertime').value = minToHm(obj.legalOvertimeMinutes == null ? 0 : obj.legalOvertimeMinutes);
+        formEdit.querySelector('#msIhPaidDays').value = String(obj.paidDays == null ? '' : obj.paidDays);
+        formEdit.querySelector('#msIhSubstituteDays').value = String(obj.substituteDays == null ? '' : obj.substituteDays);
+        formEdit.querySelector('#msIhUnpaidDays').value = String(obj.unpaidDays == null ? '' : obj.unpaidDays);
+        formEdit.querySelector('#msIhAbsentDays').value = String(obj.absentDays == null ? '' : obj.absentDays);
+      };
+      const getAll = () => ({
+        plannedDays: n(formEdit.querySelector('#msAllPlannedDays').value),
+        attendDays: n(formEdit.querySelector('#msAllAttendDays').value),
+        holidayWorkDays: n(formEdit.querySelector('#msAllHolidayWorkDays').value),
+        standbyDays: n(formEdit.querySelector('#msAllStandbyDays').value),
+        totalWorkMinutes: hmToMin(formEdit.querySelector('#msAllTotalWork').value),
+        nightMinutes: hmToMin(formEdit.querySelector('#msAllNight').value),
+        overtimeMinutes: hmToMin(formEdit.querySelector('#msAllOvertime').value),
+        legalOvertimeMinutes: hmToMin(formEdit.querySelector('#msAllLegalOvertime').value),
+        paidDays: n(formEdit.querySelector('#msAllPaidDays').value),
+        substituteDays: n(formEdit.querySelector('#msAllSubstituteDays').value),
+        unpaidDays: n(formEdit.querySelector('#msAllUnpaidDays').value),
+        absentDays: n(formEdit.querySelector('#msAllAbsentDays').value),
+        deductionMinutes: hmToMin(formEdit.querySelector('#msAllDeduction').value),
+        onsiteDays: n(formEdit.querySelector('#msAllOnsiteDays').value),
+        remoteDays: n(formEdit.querySelector('#msAllRemoteDays').value),
+        satelliteDays: n(formEdit.querySelector('#msAllSatelliteDays').value)
+      });
+      const getIh = () => ({
+        plannedDays: n(formEdit.querySelector('#msIhPlannedDays').value),
+        attendDays: n(formEdit.querySelector('#msIhAttendDays').value),
+        holidayWorkDays: n(formEdit.querySelector('#msIhHolidayWorkDays').value),
+        standbyDays: n(formEdit.querySelector('#msIhStandbyDays').value),
+        totalWorkMinutes: hmToMin(formEdit.querySelector('#msIhTotalWork').value),
+        nightMinutes: hmToMin(formEdit.querySelector('#msIhNight').value),
+        overtimeMinutes: hmToMin(formEdit.querySelector('#msIhOvertime').value),
+        legalOvertimeMinutes: hmToMin(formEdit.querySelector('#msIhLegalOvertime').value),
+        paidDays: n(formEdit.querySelector('#msIhPaidDays').value),
+        substituteDays: n(formEdit.querySelector('#msIhSubstituteDays').value),
+        unpaidDays: n(formEdit.querySelector('#msIhUnpaidDays').value),
+        absentDays: n(formEdit.querySelector('#msIhAbsentDays').value)
+      });
+
+      const load = async () => {
+        const ym = String((ymEl && ymEl.value != null) ? ymEl.value : '').trim();
+        if (!/^\d{4}-\d{2}$/.test(ym)) return;
+        const y = parseInt(ym.slice(0, 4), 10);
+        const m = parseInt(ym.slice(5, 7), 10);
+        if (stEl) stEl.textContent = '読込中...';
+        const r = await fetchJSONAuth(`/api/attendance/month/summary?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}&userId=${encodeURIComponent(String(u.id))}`);
+        setAll((r && r.all) ? r.all : {});
+        setIh((r && r.inhouse) ? r.inhouse : {});
+        if (stEl) stEl.textContent = '読込完了';
+      };
+      const save = async () => {
+        const ym = String((ymEl && ymEl.value != null) ? ymEl.value : '').trim();
+        if (!/^\d{4}-\d{2}$/.test(ym)) return;
+        const y = parseInt(ym.slice(0, 4), 10);
+        const m = parseInt(ym.slice(5, 7), 10);
+        if (stEl) stEl.textContent = '保存中...';
+        await fetchJSONAuth(`/api/attendance/month/summary?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}&userId=${encodeURIComponent(String(u.id))}`, {
+          method: 'PUT',
+          body: JSON.stringify({ year: y, month: m, userId: u.id, all: getAll(), inhouse: getIh() })
+        });
+        if (stEl) stEl.textContent = '保存しました';
+      };
+
+      if (btnLoad) btnLoad.addEventListener('click', () => { load().catch(e => { if (stEl) stEl.textContent = String((e && e.message) ? e.message : '読込失敗'); }); });
+      if (btnSave) btnSave.addEventListener('click', () => { save().catch(e => { if (stEl) stEl.textContent = String((e && e.message) ? e.message : '保存失敗'); }); });
     } catch {}
     formEdit.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -438,7 +1083,7 @@ async function renderEmployees(profile) {
       const key = (document.querySelector('#editKey').value || '').trim();
       if (!key) {
         if (errEl) { errEl.style.display = 'block'; errEl.textContent = '社員番号を入力してください。'; }
-        try { document.querySelector('#editKey')?.focus(); } catch {}
+        try { const el = document.querySelector('#editKey'); if (el && el.focus) el.focus(); } catch {}
         return;
       }
       if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
@@ -459,7 +1104,7 @@ async function renderEmployees(profile) {
           });
           if (f) id = f.id;
         } catch (err) {
-          alert(String(err?.message || '読み込みエラー'));
+          alert(String((err && err.message) ? err.message : '読み込みエラー'));
         } finally {
           hideNavSpinner();
         }
@@ -468,7 +1113,7 @@ async function renderEmployees(profile) {
       window.location.href = `/admin/employees?edit=${id}`;
     });
     content.appendChild(prompt);
-    try { document.querySelector('#editKey')?.focus(); } catch {}
+    try { const el = document.querySelector('#editKey'); if (el && el.focus) el.focus(); } catch {}
     hideNavSpinner();
     return;
   }
@@ -597,16 +1242,16 @@ async function renderEmployees(profile) {
         try { sessionStorage.setItem('navSpinner', '1'); } catch {}
         setTimeout(() => { window.location.href = '/admin/employees#list'; }, 350);
       } catch (err) {
-        const m = String(err?.message || '');
+        const m = String((err && err.message) ? err.message : '');
         const low = m.toLowerCase();
         if (msgEl) {
           msgEl.style.color = '#b00020';
           if (m.includes('社員番号') || low.includes('uniq_employee_code') || low.includes('duplicate entry')) {
             msgEl.textContent = '社員番号が既に存在します。別の番号を入力してください。';
-            try { document.querySelector('#empCode')?.focus(); } catch {}
+            try { const el = document.querySelector('#empCode'); if (el && el.focus) el.focus(); } catch {}
           } else if (m.includes('Email') || low.includes('email')) {
             msgEl.textContent = m;
-            try { document.querySelector('#empEmail')?.focus(); } catch {}
+            try { const el = document.querySelector('#empEmail'); if (el && el.focus) el.focus(); } catch {}
           } else {
             msgEl.textContent = '保存失敗: ' + (m || 'error');
           }
@@ -767,7 +1412,7 @@ async function renderEmployees(profile) {
   table.className = 'excel-table' + (mode === 'delete' ? ' emp-del-list' : '');
   table.style.tableLayout = 'auto';
   table.style.width = '100%';
-  table.style.minWidth = mode === 'delete' ? '1320px' : '880px';
+  table.style.minWidth = mode === 'delete' ? '100%' : '100%';
   table.innerHTML = `
     <thead>
       <tr>
@@ -977,11 +1622,11 @@ async function renderEmployees(profile) {
       const setActive = () => {
         const has = state.showAll || state.searchVisible;
         if (state.showAll) {
-          tabSearch?.classList.remove('active');
-          tabShowAll?.classList.add('active');
+          if (tabSearch) tabSearch.classList.remove('active');
+          if (tabShowAll) tabShowAll.classList.add('active');
         } else {
-          tabSearch?.classList.add('active');
-          tabShowAll?.classList.remove('active');
+          if (tabSearch) tabSearch.classList.add('active');
+          if (tabShowAll) tabShowAll.classList.remove('active');
         }
         if (listBox) listBox.style.display = has ? '' : 'none';
         table.style.display = has ? '' : 'none';
@@ -990,14 +1635,14 @@ async function renderEmployees(profile) {
         if (formBody) formBody.style.display = '';
       };
       setActive();
-      tabSearch?.addEventListener('click', () => {
+      if (tabSearch) tabSearch.addEventListener('click', () => {
         state.showAll = false;
         state.searchVisible = false;
         try { searchHint.style.display = 'none'; } catch {}
         setActive();
         updateUrl('#delete');
       });
-      tabShowAll?.addEventListener('click', () => {
+      if (tabShowAll) tabShowAll.addEventListener('click', () => {
         state.showAll = true;
         state.searchVisible = false;
         state.page = 1;
@@ -1019,13 +1664,15 @@ async function renderEmployees(profile) {
   } catch {}
 
   filterWrap.querySelector('#btnEmpSearch').addEventListener('click', () => {
-    state.code = (filterWrap.querySelector('#empSearchCode')?.value || '').trim().toLowerCase();
-    state.q = (filterWrap.querySelector('#empSearchName')?.value || '').trim().toLowerCase();
+    const codeEl2 = filterWrap.querySelector('#empSearchCode');
+    const nameEl2 = filterWrap.querySelector('#empSearchName');
+    state.code = String((codeEl2 && codeEl2.value != null) ? codeEl2.value : '').trim().toLowerCase();
+    state.q = String((nameEl2 && nameEl2.value != null) ? nameEl2.value : '').trim().toLowerCase();
     state.page = 1;
     const hasAny = !!(state.code || state.q);
     if (!hasAny && !(mode === 'delete' && state.showAll)) {
       try { searchHint.style.display = 'block'; } catch {}
-      try { filterWrap.querySelector('#empSearchCode')?.focus(); } catch {}
+      try { const el = filterWrap.querySelector('#empSearchCode'); if (el && el.focus) el.focus(); } catch {}
       if (mode === 'delete') {
         try {
           const listBox = filterWrap.querySelector('#empListBox');
@@ -1086,11 +1733,12 @@ async function renderEmployees(profile) {
 
   if (mode === 'delete') {
     table.addEventListener('click', (e) => {
-      const td = e.target?.closest?.('td');
+      const t = e && e.target;
+      const td = (t && t.closest) ? t.closest('td') : null;
       if (!td) return;
-      if (e.target.closest('.emp-action-group')) return;
-      if (e.target.closest('a')) return;
-      if (e.target.matches('input, button, select, label')) return;
+      if (t && t.closest && t.closest('.emp-action-group')) return;
+      if (t && t.closest && t.closest('a')) return;
+      if (t && t.matches && t.matches('input, button, select, label')) return;
       const tr = td.closest('tr');
       const cb = tr ? tr.querySelector('.empSel') : null;
       if (cb) cb.checked = !cb.checked;
@@ -1106,9 +1754,9 @@ async function renderEmployees(profile) {
       modal.className = 'modal';
       const listRows = ids.map(id => {
         const u = users.find(x => String(x.id) === String(id));
-        const code = u?.employee_code || fmtEmpNo(id);
-        const name = u?.username || '';
-        const dept = deptName(u?.departmentId);
+        const code = (u && u.employee_code) ? u.employee_code : fmtEmpNo(id);
+        const name = (u && u.username) ? u.username : '';
+        const dept = deptName((u && u.departmentId) ? u.departmentId : null);
         return `<div class="row"><div>${code}</div><div>${name}　${dept}</div></div>`;
       }).join('');
       modal.innerHTML = `
@@ -1151,7 +1799,8 @@ async function renderEmployees(profile) {
   }
 
   content.addEventListener('click', async (e) => {
-    const a = e.target?.closest?.('a');
+    const t = e && e.target;
+    const a = (t && t.closest) ? t.closest('a') : null;
     if (a) {
       const href = a.getAttribute('href') || '';
       if (href.startsWith('/admin/employees?detail=') || href.startsWith('/admin/employees?edit=')) {
@@ -1166,7 +1815,8 @@ async function renderEmployees(profile) {
         return;
       }
     }
-    const delId = e.target?.getAttribute?.('data-delete');
+    const t2 = e && e.target;
+    const delId = (t2 && t2.getAttribute) ? t2.getAttribute('data-delete') : null;
     if (delId) {
       if (confirm('この社員を無効化しますか？')) {
         try {
@@ -1176,7 +1826,7 @@ async function renderEmployees(profile) {
           alert('無効化しました（状態: 無効/休職）');
           renderRows();
         } catch (err) {
-          alert(String(err?.message || '無効化に失敗しました'));
+          alert(String((err && err.message) ? err.message : '無効化に失敗しました'));
         }
       }
     }
@@ -1185,8 +1835,14 @@ async function renderEmployees(profile) {
   hideNavSpinner();
 }
 
-async function boot() {
-  const profile = await requireAdmin();
+let mounted = false;
+let cachedProfile = null;
+
+export async function mount() {
+  if (!cachedProfile) {
+    cachedProfile = await requireAdmin();
+  }
+  const profile = cachedProfile;
   if (!profile) return;
   try {
     const userName = document.querySelector('#userName');
@@ -1201,8 +1857,9 @@ async function boot() {
 
   await renderEmployees(profile);
 
-  window.addEventListener('hashchange', () => { renderEmployees(profile); });
-  window.addEventListener('popstate', () => { renderEmployees(profile); });
+  if (!mounted) {
+    mounted = true;
+    window.addEventListener('hashchange', () => { renderEmployees(profile); });
+    window.addEventListener('popstate', () => { renderEmployees(profile); });
+  }
 }
-
-boot();

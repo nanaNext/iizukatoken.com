@@ -21,7 +21,25 @@ export async function bootLegacyTab({ tab, hash }) {
     history.replaceState(null, '', url.pathname + url.search + url.hash);
   } catch {}
 
-  await import('../../pages/admin.page.js');
+  if (tab === 'payroll_editor') {
+    const mod = await import('../payroll/editor.page.js');
+    await mod.mount();
+    return;
+  }
+
+  let p = '../../pages/admin.page.js';
+  try {
+    let v = '';
+    try {
+      const meta = document.querySelector('meta[name="asset-v"]');
+      v = meta ? (meta.getAttribute('content') || '') : '';
+    } catch {}
+    if (!v) {
+      try { v = window.__assetV ? String(window.__assetV) : ''; } catch {}
+    }
+    if (v) p = p + '?v=' + encodeURIComponent(String(v));
+  } catch {}
+  await import(p);
   try {
     if (document.readyState !== 'loading') {
       document.dispatchEvent(new Event('DOMContentLoaded'));

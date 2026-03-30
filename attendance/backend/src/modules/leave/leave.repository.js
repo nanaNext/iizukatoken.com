@@ -19,6 +19,20 @@ async function ensureSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
   try {
+    const [idx] = await db.query(`
+      SELECT index_name
+      FROM information_schema.statistics
+      WHERE table_schema = DATABASE() AND table_name = 'leave_requests'
+    `);
+    const idxSet = new Set((idx || []).map(i => String(i.index_name)));
+    if (!idxSet.has('idx_user_status')) {
+      try { await db.query(`ALTER TABLE leave_requests ADD INDEX idx_user_status (userId, status)`); } catch {}
+    }
+    if (!idxSet.has('idx_status_period')) {
+      try { await db.query(`ALTER TABLE leave_requests ADD INDEX idx_status_period (status, startDate, endDate)`); } catch {}
+    }
+  } catch {}
+  try {
     const [tbls] = await db.query(`
       SELECT table_name AS name
       FROM information_schema.tables

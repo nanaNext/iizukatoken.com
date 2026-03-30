@@ -87,18 +87,18 @@ const renderDashboard = async (profile) => {
   };
   // deltas: backend may not provide -> only show when available
   const deltas = stats && typeof stats === 'object' ? {
-    users: stats.usersDelta ?? null,
-    work: stats.todayCheckinDelta ?? null,
-    leave: stats.leaveDelta ?? null,
-    pending: stats.pendingDelta ?? null
+    users: stats.usersDelta == null ? null : stats.usersDelta,
+    work: stats.todayCheckinDelta == null ? null : stats.todayCheckinDelta,
+    leave: stats.leaveDelta == null ? null : stats.leaveDelta,
+    pending: stats.pendingDelta == null ? null : stats.pendingDelta
   } : {};
   const activeUsers = (users || []).filter(u => {
-    const role = String(u?.role || '').toLowerCase();
-    const st = String(u?.employment_status || 'active').toLowerCase();
+    const role = String((u && u.role) ? u.role : '').toLowerCase();
+    const st = String((u && u.employment_status) ? u.employment_status : 'active').toLowerCase();
     if (st === 'inactive' || st === 'retired') return false;
     return role === 'employee' || role === 'manager' || role === 'admin';
   });
-  const usersCard = make('kpi-users', 'ユーザー', fmtInt(activeUsers.length), 'Users', deltas.users ?? null);
+  const usersCard = make('kpi-users', 'ユーザー', fmtInt(activeUsers.length), 'Users', deltas.users == null ? null : deltas.users);
   usersCard.classList.add('clickable');
   usersCard.setAttribute('role', 'button');
   usersCard.setAttribute('tabindex', '0');
@@ -110,7 +110,7 @@ const renderDashboard = async (profile) => {
     }
   });
   kpi.appendChild(usersCard);
-  const workCard = make('kpi-work', '本日の出勤', fmtInt(stats.todayCheckin), 'Today work', deltas.work ?? null);
+  const workCard = make('kpi-work', '本日の出勤', fmtInt(stats.todayCheckin), 'Today work', deltas.work == null ? null : deltas.work);
   workCard.classList.add('clickable');
   workCard.setAttribute('role', 'button');
   workCard.setAttribute('tabindex', '0');
@@ -122,8 +122,8 @@ const renderDashboard = async (profile) => {
     }
   });
   kpi.appendChild(workCard);
-  kpi.appendChild(make('kpi-leave', '休暇', fmtInt(stats.leaveCount), 'Leave', deltas.leave ?? null));
-  kpi.appendChild(make('kpi-pending', '未承認', fmtInt(stats.pendingCount), 'Pending', deltas.pending ?? null));
+  kpi.appendChild(make('kpi-leave', '休暇', fmtInt(stats.leaveCount), 'Leave', deltas.leave == null ? null : deltas.leave));
+  kpi.appendChild(make('kpi-pending', '未承認', fmtInt(stats.pendingCount), 'Pending', deltas.pending == null ? null : deltas.pending));
   wrap.appendChild(kpi);
 
   const grid = document.createElement('div');
@@ -214,10 +214,10 @@ const renderDashboard = async (profile) => {
 
   const rows = [];
   for (const r of pendingLeave.slice(0, 6)) {
-    rows.push({ user: r.userId ?? '', type: r.type ?? 'Leave', status: r.status ?? 'pending' });
+    rows.push({ user: r.userId == null ? '' : r.userId, type: r.type == null ? 'Leave' : r.type, status: r.status == null ? 'pending' : r.status });
   }
   for (const r of pendingProfile.slice(0, 6)) {
-    rows.push({ user: (r.userId ?? '') + (r.username ? ` ${r.username}` : ''), type: 'Profile', status: r.status ?? 'pending' });
+    rows.push({ user: (r.userId == null ? '' : r.userId) + (r.username ? ` ${r.username}` : ''), type: 'Profile', status: r.status == null ? 'pending' : r.status });
   }
   for (const it of rows.slice(0, 8)) {
     const tr = document.createElement('tr');
@@ -254,8 +254,8 @@ const renderDashboard = async (profile) => {
   workTitle2.textContent = '作業報告';
   workCard2.appendChild(workTitle2);
   try {
-    const sum = workReports?.summary || {};
-    const dayStr = String(workReports?.date || '');
+    const sum = (workReports && workReports.summary) ? workReports.summary : {};
+    const dayStr = String((workReports && workReports.date) ? workReports.date : '');
     const monthStr = dayStr && dayStr.length >= 7 ? dayStr.slice(0, 7) : '';
     const monthHref = monthStr ? `/admin/work-reports?mode=month&month=${encodeURIComponent(monthStr)}` : '/admin/work-reports';
     workCard2.style.cursor = 'pointer';
@@ -270,7 +270,8 @@ const renderDashboard = async (profile) => {
       window.location.href = monthHref;
     };
     workCard2.addEventListener('click', (e) => {
-      const a = e.target?.closest?.('a');
+      const t = e && e.target;
+      const a = (t && t.closest) ? t.closest('a') : null;
       if (a) return;
       openMonth();
     });
@@ -284,7 +285,7 @@ const renderDashboard = async (profile) => {
     top.style.color = '#475569';
     top.style.fontWeight = '650';
     top.style.marginBottom = '10px';
-    top.textContent = `必要(退勤済): ${fmtInt(sum.required ?? 0)} / 提出: ${fmtInt(sum.submitted ?? 0)} / 未提出: ${fmtInt(sum.missing ?? 0)}`;
+    top.textContent = `必要(退勤済): ${fmtInt(sum.required == null ? 0 : sum.required)} / 提出: ${fmtInt(sum.submitted == null ? 0 : sum.submitted)} / 未提出: ${fmtInt(sum.missing == null ? 0 : sum.missing)}`;
     workCard2.appendChild(top);
     const hint = document.createElement('div');
     hint.style.color = '#64748b';
@@ -332,10 +333,8 @@ const renderDashboard = async (profile) => {
   } catch {}
 };
 
-const boot = async () => {
+export async function mount() {
   const profile = await requireAdmin();
   if (!profile) return;
   await renderDashboard(profile);
-};
-
-boot();
+}

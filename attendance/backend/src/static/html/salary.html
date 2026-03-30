@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>給与明細など</title>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260314">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260314">
+  <link rel="icon" href="data:,">
+  <script src="/static/js/pages/session-idle.js?v=navy-20260324-1" defer></script>
+  <script type="module" src="/static/js/pages/salary.page.js"></script>
+</head>
+<body>
+  <div id="pageSpinner" class="page-spinner" hidden>
+    <div class="lds-spinner" aria-hidden="true">
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+    </div>
+  </div>
+  <header class="topbar">
+    <button id="mobileMenuBtn" class="mobile-btn" aria-label="menu" aria-expanded="false" aria-controls="mobileDrawer">☰</button>
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="/static/images/logo1.png" alt="logo" class="icon">
+        <span class="logo">IIZUKA</span>
+      </div>
+      <div class="user">
+        <div class="user-menu">
+          <button class="user-btn" aria-haspopup="true" aria-expanded="false">
+            <img src="/static/images/logoten.png" alt="user" class="user-icon">
+            <span id="userName"></span>
+            <span class="caret">▾</span>
+          </button>
+          <div class="dropdown" id="userDropdown" hidden>
+            <a href="/ui/portal" class="item">ホーム</a>
+            <a href="/ui/dashboard" class="item">現在の登録情報</a>
+            <button class="item" id="btnLogout" type="button">ログアウト</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+  <div id="mobileDrawer" class="mobile-drawer" hidden>
+    <div class="drawer-header">
+      <button id="mobileClose" class="mobile-close" aria-label="close">✕</button>
+    </div>
+    <a href="/ui/portal" class="drawer-item">ホーム</a>
+    <a href="/ui/leave" class="drawer-item">申請</a>
+    <a href="/ui/today-work" class="drawer-item">勤怠入力</a>
+  </div>
+  <div class="subbar">
+    <nav class="subnav">
+      <a href="/ui/portal">ホーム</a>
+      <a href="/ui/leave">申請</a>
+      <a href="/ui/today-work">勤怠入力</a>
+    </nav>
+  </div>
+  <main class="content">
+    <div id="error" style="display:none;color:#b00020;font-weight:600;"></div>
+    <section class="card" style="max-width:980px;margin:0 auto;">
+      <h3 style="margin:0 0 12px;">給与明細など</h3>
+      <div id="salaryHost"></div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,153 @@
+.admin-monthly-error {
+  display: none;
+  color: #b00020;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.admin-monthly-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-monthly-title {
+  margin: 0;
+}
+
+.admin-monthly-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-monthly-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0b2c66;
+}
+
+.admin-monthly-month {
+  height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0 10px;
+  font-weight: 800;
+  color: #0b2c66;
+}
+
+.admin-monthly-hint {
+  margin-top: 10px;
+  color: #334155;
+  font-weight: 700;
+}
+
+.admin-monthly-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.admin-monthly-frame-wrap {
+  position: relative;
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  min-height: 520px;
+  height: calc(100dvh - var(--topbar-height) - 160px);
+}
+
+.admin-monthly-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.admin-monthly-frame-spinner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, .82);
+  z-index: 5;
+}
+
+.admin-monthly-frame-spinner[hidden] {
+  display: none;
+}
+
+.admin-monthly-table {
+  width: 100%;
+}
+
+.admin-monthly-user-link {
+  font-weight: 900;
+  color: #0b2c66;
+  text-decoration: none;
+}
+
+.admin-monthly-status-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #fff;
+  text-align: center;
+  min-width: 70px;
+}
+
+.admin-monthly-status-pill.draft {
+  background-color: #94a3b8;
+}
+
+.admin-monthly-status-pill.submitted {
+  background-color: #f59e0b;
+}
+
+.admin-monthly-status-pill.approved {
+  background-color: #10b981;
+}
+ .admin-monthly-status-pill.ready {
+   background-color: #0ea5e9;
+ }
+
+.admin-monthly-btn-approve {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #10b981;
+  background: #10b981;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.admin-monthly-btn-approve:hover {
+  background: #059669;
+}
+
+.admin-monthly-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0b2c66;
+  font-weight: 900;
+  text-decoration: none;
+}

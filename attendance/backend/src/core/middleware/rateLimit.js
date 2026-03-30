@@ -1,7 +1,11 @@
 const buckets = new Map();
 function key(req) {
-  const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-  return `login:${ip}`;
+  const xf = String(req.headers['x-forwarded-for'] || '').split(',')[0]?.trim();
+  const ip = String(req.ip || xf || 'unknown');
+  const rawPath = String(req.originalUrl || req.baseUrl || req.url || '');
+  const path = rawPath.split('?')[0] || '';
+  const method = String(req.method || 'GET').toUpperCase();
+  return `${method}:${path}:${ip}`;
 }
 function rateLimit({ windowMs = 60_000, max = 10 } = {}) {
   return (req, res, next) => {
