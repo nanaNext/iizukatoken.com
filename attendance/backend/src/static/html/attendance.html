@@ -4,14 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>勤怠入力</title>
-  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260317">
-  <link rel="stylesheet" href="/static/css/attendance.css?v=navy-20260323-11">
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260408-1">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=navy-20260408-1">
+  <link rel="stylesheet" href="/static/css/attendance-monthly.css?v=navy-20260408-1">
   <link rel="icon" href="data:,">
+  <style>
+    .layout-contents .kintai-grid { margin: 8px 0 0 0; }
+  </style>
   <script src="/static/js/pages/session-idle.js?v=navy-20260324-1" defer></script>
-  <script src="/static/js/pages/kintai-topbar-links.js?v=navy-20260330-1" defer></script>
+  <script src="/static/js/pages/kintai-topbar-links.js?v=navy-20260408-2" defer></script>
   <script type="module" src="/static/js/pages/attendance.page.js?v=navy-20260323-12"></script>
 </head>
-<body>
+<body class="nav-js">
   <div id="pageSpinner" class="kintai-spinner" hidden>
     <div class="lds-spinner" aria-hidden="true">
       <div></div><div></div><div></div><div></div><div></div><div></div>
@@ -40,7 +44,7 @@
             有休管理 <span class="kintai-caret">▾</span>
           </button>
           <div class="kintai-dd" data-dd-panel="leave" hidden>
-            <a href="/ui/leave">休暇及び勤怠帳画面</a>
+            <a href="/ui/leave-ledger">休暇欠勤台帳</a>
           </div>
         </div>
         <div class="kintai-nav-dd">
@@ -48,7 +52,7 @@
             共通機能 <span class="kintai-caret">▾</span>
           </button>
           <div class="kintai-dd" data-dd-panel="common" hidden>
-            <a href="/ui/dashboard">パスワード変更画面</a>
+            <a href="/ui/change-password">パスワード変更画面</a>
           </div>
         </div>
       </nav>
@@ -63,17 +67,28 @@
   </header>
 
   <main class="kintai-main">
+    <div class="layout-container">
+      <div class="layout-main">
+        <div class="layout-header"></div>
+        <div class="layout-contents">
+          <div class="se-page-head">
+            <div class="se-page-title">個人カレンダー登録画面</div>
+            <a class="kintai-monthly-link" href="/ui/portal" style="margin-left:auto;">ホームへ</a>
+          </div>
+          <section class="kintai-grid">
+            <div class="kintai-card">
+              <div class="kintai-card-title">お知らせ</div>
+              <div id="noticeHost"></div>
+            </div>
+            <div class="kintai-card">
+              <div class="kintai-card-title">勤怠入力</div>
+              <div id="attendanceHost"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
     <div id="error" class="kintai-error" style="display:none;"></div>
-    <section class="kintai-grid">
-      <div class="kintai-card">
-        <div class="kintai-card-title">お知らせ</div>
-        <div id="noticeHost"></div>
-      </div>
-      <div class="kintai-card">
-        <div class="kintai-card-title">勤怠入力</div>
-        <div id="attendanceHost"></div>
-      </div>
-    </section>
   </main>
 </body>
 </html>

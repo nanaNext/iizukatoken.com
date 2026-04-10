@@ -1,7 +1,7 @@
 import { requireAdmin } from '../_shared/require-admin.js';
 import { listEmployees, getEmployee, createEmployee, updateEmployee, deleteEmployee } from '../../api/employees.api.js';
 import { listDepartments } from '../../api/departments.api.js';
-import { listUsers } from '../../api/users.api.js';
+import { listUsers, deleteUser as deleteUserHard } from '../../api/users.api.js';
 import { fetchJSONAuth } from '../../api/http.api.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -94,6 +94,8 @@ async function renderEmployees(profile) {
   const summaryId = params.get('summary');
   const createFlag = params.get('create');
   const role2 = String((profile && profile.role) || '').toLowerCase();
+  const isSuper = false;
+  const superEmail = '';
 
   const pathname = String(location.pathname || '');
   const hash = location.hash || '';
@@ -263,19 +265,124 @@ async function renderEmployees(profile) {
     content.innerHTML = ``;
     const wrap = document.createElement('div');
     const code = u.employee_code || ('EMP' + String(u.id).padStart(3,'0'));
+    const jstYM = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
     wrap.innerHTML = `
       <div style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <a class="btn" id="sumBack" href="/admin/employees#list">← 社員一覧へ戻る</a>
         <a class="btn" id="sumToDetail" href="/admin/employees?detail=${u.id}">詳細</a>
         <a class="btn" id="sumToEdit" href="/admin/employees?edit=${u.id}">社員編集</a>
       </div>
+      <h4 style="margin:0 0 12px;">社員月次サマリ（${code} / ${u.username || u.email || ''}）</h4>
+      <table class="excel-table" style="margin-bottom:12px;">
+        <thead><tr><th colspan="2">月次サマリ</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="width:180px;">対象年月</td>
+            <td>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <input id="sumMonth" type="month" style="width:180px">
+                <button type="button" class="btn" id="btnSumLoad">読込</button>
+                <button type="button" class="btn-primary" id="btnSumSave">保存</button>
+                <span id="sumStatus" style="margin-left:4px;color:#334155;font-weight:800;"></span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>全体</td>
+            <td>
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:8px;">
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">所定日数</span><input id="sumAllPlannedDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">出勤日数</span><input id="sumAllAttendDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">代出休出</span><input id="sumAllHolidayWorkDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">待機日数</span><input id="sumAllStandbyDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">総労働時間</span><input id="sumAllTotalWork" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">深夜時間</span><input id="sumAllNight" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">総残業時間</span><input id="sumAllOvertime" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">法定外時間</span><input id="sumAllLegalOvertime" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">有休日数</span><input id="sumAllPaidDays" type="number" step="0.1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">代休日数</span><input id="sumAllSubstituteDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">無給休暇</span><input id="sumAllUnpaidDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">欠勤日数</span><input id="sumAllAbsentDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">控除時間</span><input id="sumAllDeduction" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">出社日数</span><input id="sumAllOnsiteDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">在宅日数</span><input id="sumAllRemoteDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">現場・出張</span><input id="sumAllSatelliteDays" type="number" step="1" style="width:90px"></label>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>社内勤務</td>
+            <td>
+              <div style="display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:8px;">
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">所定日数</span><input id="sumIhPlannedDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">出勤日数</span><input id="sumIhAttendDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">代出休出</span><input id="sumIhHolidayWorkDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">待機日数</span><input id="sumIhStandbyDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">総労働時間</span><input id="sumIhTotalWork" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">深夜時間</span><input id="sumIhNight" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">総残業時間</span><input id="sumIhOvertime" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">法定外時間</span><input id="sumIhLegalOvertime" placeholder="0:00" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">有休日数</span><input id="sumIhPaidDays" type="number" step="0.1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">代休日数</span><input id="sumIhSubstituteDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">無給休暇</span><input id="sumIhUnpaidDays" type="number" step="1" style="width:90px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:86px;">欠勤日数</span><input id="sumIhAbsentDays" type="number" step="1" style="width:90px"></label>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <table class="excel-table" style="margin-bottom:12px;">
+        <thead><tr><th colspan="2">シフト割当</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="width:180px;">新規割当</td>
+            <td>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <select id="saShift" style="min-width:220px;"><option value="">シフト</option></select>
+                <input id="saStart" type="date">
+                <input id="saEnd" type="date">
+                <button type="button" class="btn-primary" id="btnSaAdd">追加</button>
+                <button type="button" class="btn" id="btnSaReload">再読込</button>
+                <span id="saStatus" style="color:#334155;font-weight:700;"></span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>一覧</td>
+            <td><div id="saTable"></div></td>
+          </tr>
+        </tbody>
+      </table>
+      <table class="excel-table" style="margin-bottom:12px;">
+        <thead><tr><th colspan="2">就業条件明示</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="width:180px;">入力</td>
+            <td>
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:8px;">
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:92px;">開始日</span><input id="wdStart" type="date" style="width:180px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:92px;">終了日</span><input id="wdEnd" type="date" style="width:180px"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:92px;">企業名</span><input id="wdCompany" style="width:100%;"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:92px;">就業先住所</span><input id="wdAddr" style="width:100%;"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:92px;">業務内容</span><input id="wdWork" style="width:100%;"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:92px;">役職</span><input id="wdRole" style="width:100%;"></label>
+                <label style="display:flex;gap:6px;align-items:center;"><span style="min-width:92px;">責任の程度</span><input id="wdResp" style="width:100%;"></label>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+                <button type="button" class="btn-primary" id="btnWdAdd">追加</button>
+                <button type="button" class="btn" id="btnWdReload">再読込</button>
+                <span id="wdStatus" style="color:#334155;font-weight:700;"></span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>一覧</td>
+            <td><div id="wdTable"></div></td>
+          </tr>
+        </tbody>
+      </table>
     `;
     content.appendChild(wrap);
-    hideNavSpinner();
-    return;
-  }
-    content.appendChild(wrap);
-    hideNavSpinner();
 
     const ymEl = wrap.querySelector('#sumMonth');
     if (ymEl && !ymEl.value) ymEl.value = jstYM();
@@ -675,6 +782,7 @@ async function renderEmployees(profile) {
       });
       loadWd().catch(() => {});
     } catch {}
+    hideNavSpinner();
     return;
   }
 
@@ -687,10 +795,16 @@ async function renderEmployees(profile) {
     const role = String((u && u.role) ? u.role : '').toLowerCase();
     const st = String((u && u.employment_status) ? u.employment_status : 'active').toLowerCase();
     if (st === 'inactive' || st === 'retired') return false;
+    if (role2 === 'manager') return role === 'employee';
     return role === 'employee' || role === 'manager' || role === 'admin';
   };
   try {
-    users = role2 === 'manager' ? await fetchJSONAuth('/api/manager/users') : await listEmployees();
+    if (role2 === 'manager') {
+      const res = await fetchJSONAuth('/api/manager/users');
+      users = Array.isArray(res) ? res : (res && Array.isArray(res.rows) ? res.rows : []);
+    } else {
+      users = await listEmployees();
+    }
   } catch (e1) {
     errMsgs.push(`一覧: ${(e1 && e1.message) ? e1.message : 'unknown'}`);
     if (role2 !== 'manager') {
@@ -701,6 +815,7 @@ async function renderEmployees(profile) {
   }
   if (seq !== employeesRenderSeq) return;
   try { users = (users || []).filter(isCountedUser); } catch { users = []; }
+  
   try {
     depts = role2 === 'manager' ? await fetchJSONAuth('/api/manager/departments') : await listDepartments();
   } catch (e3) {
@@ -708,6 +823,16 @@ async function renderEmployees(profile) {
     depts = [];
   }
   if (seq !== employeesRenderSeq) return;
+  if (role2 === 'manager' && (!users || users.length === 0)) {
+    try {
+      const note = document.createElement('div');
+      note.style.color = '#0b2c66';
+      note.style.margin = '8px 0';
+      note.style.fontWeight = '700';
+      note.textContent = '従業員が見つかりません。従業員が未登録か、表示条件に一致しません。';
+      content.appendChild(note);
+    } catch {}
+  }
   if (errMsgs.length) {
     const msg = document.createElement('div');
     msg.style.color = '#b00020';
@@ -1122,9 +1247,11 @@ async function renderEmployees(profile) {
     const form = document.createElement('form');
     form.id = 'add';
     let managers = [];
-    try { managers = await listUsers(); } catch { managers = []; }
+    if (role2 !== 'manager') {
+      try { managers = await listUsers(); } catch { managers = []; }
+    }
     if (seq !== employeesRenderSeq) return;
-    const managerOptions = managers.filter(m => String(m.role) === 'manager').map(m => `<option value="${m.id}">${m.username || m.email}</option>`).join('');
+    const managerOptions = (role2 !== 'manager' ? managers.filter(m => String(m.role) === 'manager') : []).map(m => `<option value="${m.id}">${m.username || m.email}</option>`).join('');
     form.innerHTML = `
       <div class="form-title">【新規社員】</div>
       <table class="excel-table" style="margin-bottom:12px;">
@@ -1567,8 +1694,10 @@ async function renderEmployees(profile) {
       const deptVal = normText(deptName(u.departmentId));
       const detailBtn = `<a class="emp-action" href="/admin/employees?detail=${u.id}">👁 詳細</a>`;
       const editBtn = `<a class="emp-action" href="/admin/employees?edit=${u.id}">✏️ 編集</a>`;
-      const disableBtn = role2 === 'admin' ? `<button type="button" class="emp-action danger" data-delete="${u.id}">🚫 無効化</button>` : ``;
-      const ops = mode === 'delete' ? `${detailBtn}${disableBtn}` : `${detailBtn}${editBtn}${disableBtn}`;
+      const canManageThis = role2 === 'admin';
+      const disableBtn = canManageThis ? `<button type="button" class="emp-action danger" data-delete="${u.id}">🚫 無効化</button>` : ``;
+      const hardDeleteBtn = canManageThis ? `<button type="button" class="emp-action danger" data-hard-delete="${u.id}">🗑️ 削除</button>` : ``;
+      const ops = mode === 'delete' ? `${detailBtn}${disableBtn}${hardDeleteBtn}` : `${detailBtn}${editBtn}${disableBtn}${hardDeleteBtn}`;
       tr.innerHTML = `
         ${mode==='delete' ? `<td class="sel-col"><input type="checkbox" class="empSel" value="${u.id}"></td>` : ''}
         <td class="col-code"><span class="text-pill neutral">${u.employee_code || fmtEmpNo(u.id)}</span></td>
@@ -1827,6 +1956,19 @@ async function renderEmployees(profile) {
           renderRows();
         } catch (err) {
           alert(String((err && err.message) ? err.message : '無効化に失敗しました'));
+        }
+      }
+      return;
+    }
+    const hardId = (t2 && t2.getAttribute) ? t2.getAttribute('data-hard-delete') : null;
+    if (hardId) {
+      if (confirm('この社員を完全に削除しますか？この操作は取り消せません。')) {
+        try {
+          await deleteUserHard(hardId);
+          users = users.filter(x => String(x.id) !== String(hardId));
+          renderRows();
+        } catch (err) {
+          alert(String((err && err.message) ? err.message : '削除に失敗しました'));
         }
       }
     }

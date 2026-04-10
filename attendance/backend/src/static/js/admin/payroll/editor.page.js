@@ -969,7 +969,36 @@ export async function mount() {
     try { localStorage.setItem('payroll.lastMonth', String(monthEl.value || '').trim()); } catch {}
   }, { signal });
 
+  const autoFillKintaiCounts = async () => {
+    const userId = String(sel.value || '').trim();
+    const ym = String(monthEl.value || '').trim();
+    if (!userId || !/^\d{4}-\d{2}$/.test(ym)) return;
+    const y = ym.slice(0, 4);
+    const m = ym.slice(5, 7);
+    try {
+      const r = await fetchJSONAuth(`/api/attendance/month/summary?userId=${encodeURIComponent(userId)}&year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}`);
+      const src = (r && r.all) ? r.all : (r && r.inhouse) ? r.inhouse : null;
+      if (!src || typeof src !== 'object') return;
+      const kWork = Number(src['出勤日数'] || 0);
+      const kHoliday = Number(src['休日出勤日数'] || 0);
+      const kHalf = Number(src['半日出勤日数'] || 0);
+      const kAbsent = Number(src['欠勤日数'] || 0);
+      const setVal = (id, val) => {
+        const el = document.querySelector(id);
+        if (el) el.value = String(Math.max(0, Math.round(val || 0)));
+      };
+      setVal('#payrollKWork', kWork);
+      setVal('#payrollKHoliday', kHoliday);
+      setVal('#payrollKHalf', kHalf);
+      setVal('#payrollKAbsent', kAbsent);
+    } catch {}
+  };
+
+  sel.addEventListener('change', () => { autoFillKintaiCounts().catch(() => {}); }, { signal });
+  monthEl.addEventListener('change', () => { autoFillKintaiCounts().catch(() => {}); }, { signal });
+
   updateAutoCalcState();
   msg('');
   await refreshDeliveries().catch(() => {});
+  await autoFillKintaiCounts().catch(() => {});
 }

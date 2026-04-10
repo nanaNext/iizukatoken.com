@@ -1,4 +1,21 @@
-import { refresh } from './auth.api.js';
+import { refresh } from '/static/js/api/auth.api.js';
+function getApiBase() {
+  try {
+    const h = String(window.location.hostname || '').toLowerCase();
+    if (!h || h === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(h)) return '';
+    if (h.startsWith('app-stg.') || h.startsWith('stg.') || h.includes('-stg.')) return 'https://api-stg.iizukatoken.com';
+    if (h.startsWith('dev.') || h.includes('.dev.')) return 'https://api-dev.iizukatoken.com';
+    if (h.endsWith('.iizukatoken.com')) return 'https://api.iizukatoken.com';
+  } catch {}
+  return '';
+}
+function resolveUrl(u) {
+  const url = String(u || '');
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = getApiBase();
+  if (url.startsWith('/')) return base ? (base + url) : url;
+  return url;
+}
 const getCookie = (name) => {
   const m = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
   return m ? decodeURIComponent(m[2]) : null;
@@ -6,14 +23,13 @@ const getCookie = (name) => {
 
 let refreshInFlight = null;
 let refreshCooldownUntil = 0;
-async function refreshCached(refreshToken) {
+async function refreshCached() {
   const now = Date.now();
   if (now < refreshCooldownUntil) throw new Error('Too many requests');
   if (refreshInFlight) return refreshInFlight;
-  const rt = String(refreshToken || '').trim();
   refreshInFlight = (async () => {
     try {
-      return await refresh(rt || undefined);
+      return await refresh();
     } catch (e) {
       const msg = String((e && e.message) ? e.message : '');
       if (msg.includes('HTTP 429') || msg.toLowerCase().includes('too many requests')) {
@@ -52,13 +68,18 @@ function redirectToLoginOnce() {
         return '';
       }
     })();
-    const url = '/ui/login' + (next ? ('?next=' + encodeURIComponent(next)) : '');
+    const cur = String(window.location && window.location.pathname || '');
+    const isExpensesFlow = cur.includes('/ui/expenses') || cur.includes('/expenses-login');
+    const url = isExpensesFlow
+      ? ('/expenses-login' + (next ? ('?next=' + encodeURIComponent(next)) : ''))
+      : ('/ui/login' + (next ? ('?next=' + encodeURIComponent(next)) : ''));
     try { window.location.replace(url); return; } catch {}
     try { window.location.href = url; return; } catch {}
   } catch {}
   try {
     const a = document.createElement('a');
-    a.href = '/ui/login';
+    const cur = String(window.location && window.location.pathname || '');
+    a.href = (cur.includes('/ui/expenses') || cur.includes('/expenses-login')) ? '/expenses-login' : '/ui/login';
     a.textContent = 'ログイン画面へ';
     a.style.cssText = 'position:fixed;top:12px;right:12px;z-index:99999;background:#fff1f2;color:#7f1d1d;border:1px solid #fecaca;border-radius:10px;padding:10px 12px;font-weight:900;';
     document.body.appendChild(a);
@@ -77,7 +98,7 @@ async function doFetchAuth(url, options, accessToken) {
     baseHeaders['Content-Type'] = 'application/json';
   }
   const mergedHeaders = { ...baseHeaders, ...(opt.headers || {}) };
-  return fetch(url, {
+  return fetch(resolveUrl(url), {
     credentials: 'include',
     cache: 'no-store',
     ...opt,
@@ -89,19 +110,10 @@ async function fetchAuthResponse(url, options) {
   let tok = sessionStorage.getItem('accessToken') || '';
   if (!tok) {
     try {
-      const rt0 = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-      if (rt0) {
-        const r0 = await refreshCached(rt0 || undefined);
-        tok = r0.accessToken || '';
-        if (tok) {
-          sessionStorage.setItem('accessToken', tok);
-          try {
-            if (r0.refreshToken) {
-              sessionStorage.setItem('refreshToken', r0.refreshToken);
-              localStorage.setItem('refreshToken', r0.refreshToken);
-            }
-          } catch {}
-        }
+      const r0 = await refreshCached();
+      tok = r0.accessToken || '';
+      if (tok) {
+        sessionStorage.setItem('accessToken', tok);
       }
     } catch {}
   }
@@ -122,18 +134,8 @@ async function fetchAuthResponse(url, options) {
     }
 
     try {
-      const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-      const r = await refreshCached(rt || undefined);
+      const r = await refreshCached();
       sessionStorage.setItem('accessToken', r.accessToken);
-      try {
-        if (r.refreshToken) {
-          sessionStorage.setItem('refreshToken', r.refreshToken);
-          localStorage.setItem('refreshToken', r.refreshToken);
-        } else if (rt) {
-          sessionStorage.setItem('refreshToken', rt);
-          localStorage.setItem('refreshToken', rt);
-        }
-      } catch {}
       res = await doFetchAuth(url, options, r.accessToken);
     } catch {
       redirectToLoginOnce();

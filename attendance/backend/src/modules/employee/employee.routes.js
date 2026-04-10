@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, authorize } = require('../../core/middleware/authMiddleware');
+const { rateLimit, rateLimitNamed } = require('../../core/middleware/rateLimit');
 const payslipRepo = require('../payslip/payslip.repository');
 const userRepo = require('../users/user.repository');
 const auditRepo = require('../audit/audit.repository');
@@ -69,7 +70,10 @@ router.get('/documents/:id', authorize('employee','manager','admin'), async (req
     res.status(500).json({ message: err.message });
   }
 });
-router.get('/documents/:id/download', authorize('employee','manager','admin'), async (req, res) => {
+router.get('/documents/:id/download',
+  rateLimitNamed('employee_documents_download', { windowMs: 60_000, max: 20 }),
+  authorize('employee','manager','admin'),
+  async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const row = await docRepo.getById(id);
@@ -128,7 +132,10 @@ router.get('/payslips/:id', authorize('employee','manager','admin'), async (req,
     res.status(500).json({ message: err.message });
   }
 });
-router.get('/payslips/:id/download', authorize('employee','manager','admin'), async (req, res) => {
+router.get('/payslips/:id/download',
+  rateLimitNamed('employee_payslips_download', { windowMs: 60_000, max: 20 }),
+  authorize('employee','manager','admin'),
+  async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const row = await payslipRepo.getById(id);
@@ -151,7 +158,10 @@ router.get('/payslips/:id/download', authorize('employee','manager','admin'), as
   }
 });
 // Nhân viên gửi yêu cầu cập nhật hồ sơ -> vào hàng đợi phê duyệt
-router.post('/profile-change', authorize('employee','manager','admin'), async (req, res) => {
+router.post('/profile-change',
+  rateLimitNamed('employee_profile_change', { windowMs: 60_000, max: 5 }),
+  authorize('employee','manager','admin'),
+  async (req, res) => {
   try {
     const userId = req.user.id;
     const b = req.body || {};

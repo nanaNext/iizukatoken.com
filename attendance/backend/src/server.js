@@ -1,20 +1,7 @@
 const app = require('./app');
-try {
-  Promise.resolve()
-    .then(() => require('./core/bootstrap').init())
-    .catch((e) => {
-      try { console.error('bootstrap_error', e && e.message ? e.message : e); } catch {}
-    });
-} catch {}
-
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
-
-// Auto grant paid leave daily around 03:00 JST without external libs
-(function initAutoGrantScheduler() {
+const disableSchedulers = String(process.env.DISABLE_SCHEDULERS || '').toLowerCase() === 'true';
+function initAutoGrantScheduler() {
   try {
     const userRepo = require('./modules/users/user.repository');
     const { ensureUserGrants } = require('./modules/leave/leave.controller');
@@ -31,7 +18,6 @@ app.listen(PORT, () => {
         console.error('[auto-grant] error', err && err.message);
       }
     }
-    // run at startup
     run();
     setInterval(() => {
       const jst = new Date(Date.now() + 9 * 3600 * 1000);
@@ -44,5 +30,20 @@ app.listen(PORT, () => {
   } catch (e) {
     console.error('[auto-grant] init error', e && e.message);
   }
-})();
+}
+
+async function start() {
+  try {
+    await require('./core/bootstrap').init();
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+    if (!disableSchedulers) initAutoGrantScheduler();
+  } catch (e) {
+    try { console.error('bootstrap_error', e && e.message ? e.message : e); } catch {}
+    process.exit(1);
+  }
+}
+
+void start();
 

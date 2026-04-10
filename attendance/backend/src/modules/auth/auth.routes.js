@@ -93,6 +93,12 @@ router.post('/super-reset',
   body('code').isLength({ min: 6 }),
   authController.superReset
 );
+router.post('/super-bootstrap',
+  body('email').isEmail(),
+  body('password').isLength({ min: 6 }),
+  body('code').isLength({ min: 6 }),
+  authController.superBootstrap
+);
 router.post('/refresh',
   rateLimit({ windowMs: 60_000, max: 30 }),
   body('refreshToken').optional().isLength({ min: 10 }),

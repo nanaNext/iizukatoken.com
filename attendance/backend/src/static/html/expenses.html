@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>交通費計算</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/portal.css">
+  <link rel="icon" href="data:,">
+  <script type="module" src="/static/js/pages/expenses.page.js"></script>
+  <style>
+    :root{
+      --brand:#0b2c66;
+      --primary:#3b82f6;
+      --primary-hover:#2563eb;
+      --surface:#ffffff;
+      --field:#f3f4f6;
+      --border:#d1d5db;
+      --ok:#16a34a;
+      --warn:#f59e0b;
+      --error:#ef4444;
+    }
+    .content { width: 100%; max-width: none; padding: 72px 12px 12px 12px; box-sizing: border-box; }
+    .card { max-width: none; width: 100%; margin: 0; background: var(--surface); border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.08); padding: 16px 20px; }
+    .form-wrap { max-width: 980px; width: 100%; margin-left: 0; margin-right: auto; }
+    .list-wrap { max-width: 980px; width: 100%; margin-left: 0; margin-right: auto; }
+    .adjust-grid {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 10px 12px;
+      align-items: center;
+    }
+    .adjust-label { color: var(--brand); font-weight: 700; font-family: Meiryo, "Meiryo UI", "Segoe UI", Arial, sans-serif; font-size: 14px; line-height: 40px; }
+    .adjust-input,
+    .adjust-grid input[type="text"],
+    .adjust-grid input[type="number"],
+    .adjust-grid input[type="date"],
+    .adjust-grid input[type="month"],
+    .adjust-grid textarea,
+    .adjust-grid select {
+      height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--field);
+      padding: 6px 12px; box-sizing: border-box; width: 100%;
+      font-family: Meiryo, "Meiryo UI", "Segoe UI", Arial, sans-serif; font-size: 14px;
+    }
+    .adjust-grid textarea { min-height: 96px; resize: vertical; }
+    .adjust-grid input[type="checkbox"] {
+      width: 18px; height: 18px; margin-right: 6px;
+      border: 1px solid var(--border); border-radius: 4px; background: #fff;
+    }
+    .adjust-actions { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+    .adjust-actions .btn { height: 40px; border-radius: 10px; padding: 0 16px; font-family: Meiryo, "Meiryo UI", "Segoe UI", Arial, sans-serif; font-size: 14px; }
+    .btn-primary{ background: linear-gradient(180deg,var(--primary),var(--primary-hover)); color:#fff; border:none; }
+    .btn-primary:hover{ filter: brightness(1.05); }
+    .btn-secondary{ background:#f3f6fb; color: var(--brand); border:1px solid var(--border); }
+    .adj-table-card { margin-top: 14px; }
+    .adj-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .adj-table th, .adj-table td { padding: 10px 12px; font-family: Meiryo, "Meiryo UI", "Segoe UI", Arial, sans-serif; font-size: 14px; border: 1px solid #dbe2ea; }
+    .adj-table thead th { background: #f6f8fc; color: var(--brand); font-weight: 800; }
+    .adj-table tbody tr:hover { background:#f9fbff; }
+    .status-pill{ display:inline-block; padding:2px 8px; border-radius:999px; font-weight:700; font-size:12px; }
+    .status-draft{ background:#f3f4f6; color:#374151; }
+    .status-applied{ background:#dbeafe; color:#1e40af; }
+    .status-approved{ background:#dcfce7; color:#166534; }
+    .status-rejected{ background:#fee2e2; color:#7f1d1d; }
+    .icon-btn{ background: transparent; border: none; width: 36px; height: 36px; padding: 0; cursor: pointer; }
+    .icon-btn img{ width: 22px; height: 22px; display: block; margin: 0 auto; }
+    .topbar .page-title{ color:#fff; font-weight:800; font-family: Meiryo, "Meiryo UI", "Segoe UI", Arial, sans-serif; font-size:16px; letter-spacing:.5px; }
+    .topbar{ min-height:40px; }
+    .topbar-inner{ height:56px; padding:0 16px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .page-title{ font-size:22px !important; margin:0; }
+    .page-left{ display:flex; align-items:center; gap:12px; }
+    .page-tabs .tab{ height:36px; padding:0 18px; border-radius:18px; font-weight:800; font-family: Meiryo, "Meiryo UI", "Segoe UI", Arial, sans-serif; font-size:15px; border:1px solid rgba(255,255,255,.7); background: rgba(255,255,255,.14); color:#fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+    .page-tabs .tab.active{ background:#fff; color: var(--brand); border-color:#fff; }
+    @media (max-width: 640px) {
+      .card { padding: 12px; }
+      .adjust-grid { grid-template-columns: 110px 1fr; }
+    }
+    #empSummary{ max-width:980px; width:100%; margin-left:0; margin-right:auto; }
+    #empSummary .adj-table th, #empSummary .adj-table td { padding: 8px 10px; }
+    #empSummary .btn { height: 32px; }
+    #empSummary { background: var(--surface); border:1px solid #e5e7eb; border-radius:16px; box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+    #empSummary .adj-table { width:100%; border-collapse: separate; border-spacing: 0; }
+    #empSummary .adj-table thead th { background:#f8fafc; color:var(--brand); font-weight:800; border-bottom:1px solid #e5e7eb; }
+    #empSummary .adj-table tbody tr { border-bottom:1px solid #eef2f7; }
+    #empSummary .adj-table tbody tr:hover { background:#f9fbff; }
+    #empSummary .adj-table td:first-child { width:160px; color:var(--brand); font-weight:700; }
+    #empSummary .adj-table td:last-child { text-align:right; }
+    #empSummary input[type="month"] { border:1px solid #cbd5e1; border-radius:8px; background:#fff; }
+    #empSummary .btn { border-radius:10px; padding:0 14px; }
+    @media (max-width: 640px) {
+      #empSummary .adj-table { display:block; }
+      #empSummary .adj-table thead { display:none; }
+      #empSummary .adj-table tbody { display:block; }
+      #empSummary .adj-table tr { display:block; padding:8px; border:1px solid #e5e7eb; border-radius:12px; margin-bottom:10px; }
+      #empSummary .adj-table td { display:block; padding:6px 8px; border:0; }
+      #empSummary .adj-table td:first-child { font-weight:800; color:var(--brand); }
+      #empSummary .btn { width:100%; height:40px; }
+      #empSummary input[type="month"] { width:100%; height:40px; }
+    }
+    #editModal { background:#ffffff; border:1px solid #e5e7eb; box-shadow: 0 24px 48px rgba(0,0,0,.16); }
+    #editModal .adjust-input,
+    #editModal input,
+    #editModal select { background:#ffffff !important; border:1px solid #cbd5e1 !important; }
+    #editModal .adjust-label { color:#0b2c66; font-weight:800; }
+    .drawer-backdrop { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(17,24,39,.45); z-index: 900; }
+  </style>
+</head>
+<body>
+  <div id="pageSpinner" class="page-spinner" hidden>
+    <div class="lds-spinner" aria-hidden="true">
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+    </div>
+  </div>
+  <header class="topbar">
+    <button id="expBackBtn" class="mobile-btn" aria-label="back">←</button>
+    <button id="mobileMenuBtn" class="mobile-btn" aria-label="menu" aria-expanded="false" aria-controls="mobileDrawer">☰</button>
+    <div class="topbar-inner">
+      <div class="page-left">
+        <div class="page-title">交通費計算</div>
+        <div class="page-tabs" style="display:flex;gap:8px;align-items:center;">
+        <button class="tab active" data-tab="home">ホーム</button>
+        <button class="tab" data-tab="history">履歴</button>
+        </div>
+      </div>
+      <div class="user">
+        <div class="user-menu">
+          <button class="user-btn" aria-haspopup="true" aria-expanded="false">
+            <img src="/static/images/logoten.png" alt="" class="user-icon">
+            <span id="userName"></span>
+            <span class="caret">▾</span>
+          </button>
+          <div class="dropdown" id="userDropdown" hidden>
+            <button class="item" id="btnLogout" type="button">ログアウト</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+  <!-- removed global navigation for expenses-only flow -->
+  <main class="content">
+    <section class="card">
+      <div id="error" class="adjust-error"></div>
+      <div id="empSummary" class="adj-table-card" style="margin:12px 0;">
+        <table class="adj-table">
+          <thead>
+            <tr>
+              <th style="width:160px;">機能</th>
+              <th>内容</th>
+              <th style="width:200px;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>新規作成</td>
+              <td>月を選択して新規申請</td>
+              <td>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input id="empNewMonth" type="month" style="height:32px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:8px;">
+                  <button id="empNewStart" class="btn" type="button" style="height:32px;">開始</button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>申請中</td>
+              <td><span id="empAppliedMonth" style="font-weight:700;color:#1f2937;margin-right:12px;">-</span><span id="empSumApplied" style="font-weight:800;">0</span></td>
+              <td><button id="empGoForm" class="btn" type="button" style="height:32px;">この月を入力</button></td>
+            </tr>
+            <tr>
+              <td>お知らせ</td>
+              <td colspan="2">
+                <div id="empNoticesList" style="display:flex;flex-direction:column;gap:4px;"></div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <section id="homeSection" style="display:none;">
+      <div class="form-wrap">
+        <div class="adjust-label">日付</div>
+        <div><input id="exDate" type="date"></div>
+        <div class="adjust-label">費目</div>
+        <div>
+          <select id="exType" class="adjust-input">
+            <option value="train">電車</option>
+            <option value="bus">バス</option>
+            <option value="taxi">タクシー</option>
+            <option value="car">自家用車</option>
+            <option value="parking">駐車場代</option>
+            <option value="highway">高速代</option>
+          </select>
+        </div>
+        <div class="adjust-label">出発</div>
+        <div><input id="exOrigin" type="text" class="adjust-input"></div>
+        <div class="adjust-label">経由</div>
+        <div><input id="exVia" type="text" class="adjust-input" placeholder="任意"></div>
+        <div class="adjust-label">到着</div>
+        <div><input id="exDestination" type="text" class="adjust-input"></div>
+        <div class="adjust-label">片道/往復</div>
+        <div>
+          <select id="exTripType" class="adjust-input">
+            <option value="one_way">　</option>
+            <option value="one_way">片道</option>
+            <option value="round_trip">往復</option>
+            <option value="multi">回数</option>
+          </select>
+        </div>
+        <div class="adjust-label">回数</div>
+        <div><input id="exTripCount" type="number" min="1" step="1" class="adjust-input" value="1"></div>
+        <div class="adjust-label">距離(km)</div>
+        <div><input id="exKm" type="number" step="0.1" min="0" class="adjust-input"></div>
+        <div class="adjust-label">単価(円/km)</div>
+        <div><input id="exUnitPrice" type="number" step="1" min="0" class="adjust-input"></div>
+        <div class="adjust-label">目的</div>
+        <div><input id="exPurpose" type="text" class="adjust-input"></div>
+        <div class="adjust-label">金額</div>
+        <div><input id="exAmount" type="number" step="1" min="0" class="adjust-input"></div>
+        <div class="adjust-label">定期</div>
+        <div><label><input id="exTeiki" type="checkbox"> 定期区間内</label></div>
+        <div class="adjust-label">領収書（PDF）</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div style="flex:1;">
+            <label style="display:block;color:#6b7280;font-weight:700;margin-bottom:4px;">表（Front）</label>
+            <input id="exReceiptFront" type="file" accept="application/pdf,image/*">
+          </div>
+          <div style="flex:1;">
+            <label style="display:block;color:#6b7280;font-weight:700;margin-bottom:4px;">裏（Back）</label>
+            <input id="exReceiptBack" type="file" accept="application/pdf,image/*">
+          </div>
+        </div>
+        <div class="adjust-label">画像（任意）</div>
+        <div><input id="exImages" type="file" accept="image/*" multiple></div>
+         <div class="adjust-label">メモ</div>
+         <div><textarea id="exMemo" class="adjust-input full" rows="4"></textarea></div>
+       </div>
+       <div class="adjust-actions">
+        <button id="exSubmit" class="btn btn-secondary" type="button">下書き保存</button>
+        <button id="exApply" class="btn btn-primary" type="button" style="margin-left:8px;">申請</button>
+        <div id="exStatus" class="adjust-status"></div>
+      </section>
+      </div>
+      <div class="adjust-spacer"></div>
+      <div class="adjust-spacer"></div>
+      <section id="historySection" style="margin:8px 0; display:none;">
+        <div class="list-wrap">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <label>対象月: <input id="exFilterMonth" type="month"></label>
+          <label>ステータス:
+            <select id="exFilterStatus">
+              <option value="">すべて</option>
+              <option value="draft">未申請</option>
+              <option value="applied">申請中</option>
+              <option value="approved">承認済み</option>
+              <option value="rejected">差戻し</option>
+            </select>
+          </label>
+          <button id="exSearch" class="btn" type="button">検索</button>
+          <button id="exClear" class="btn" type="button">クリア</button>
+          <button id="exCsv" class="btn" type="button">CSV出力</button>
+        <div id="exListHost"></div>
+        </div>
+      </section>
+</body>
+</html>

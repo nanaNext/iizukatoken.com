@@ -55,8 +55,8 @@ function hashToken(token) {
 }
 
 module.exports = {
+  ensureTable,
   async createToken({ userId, token, expiresAt, userAgent, ip }) {
-    await ensureTable();
     const tokenHash = hashToken(token);
     const sql = `
       INSERT INTO refresh_tokens (userId, token_hash, expires_at, user_agent, ip)
@@ -68,7 +68,6 @@ module.exports = {
   },
 
   async findToken(token) {
-    await ensureTable();
     const tokenHash = hashToken(token);
     const sql = `
       SELECT id, userId, expires_at, revoked_at
@@ -81,7 +80,6 @@ module.exports = {
   },
 
   async findAnyToken(token) {
-    await ensureTable();
     const tokenHash = hashToken(token);
     const sql = `
       SELECT id, userId, expires_at, revoked_at
@@ -94,7 +92,6 @@ module.exports = {
   },
 
   async revokeToken(token) {
-    await ensureTable();
     const tokenHash = hashToken(token);
     const sql = `
       UPDATE refresh_tokens
@@ -105,27 +102,23 @@ module.exports = {
   },
 
   async deleteUserTokens(userId) {
-    await ensureTable();
     const sql = `DELETE FROM refresh_tokens WHERE userId = ?`;
     await db.query(sql, [userId]);
   },
  
   async cleanupExpired() {
-    await ensureTable();
     const sql = `DELETE FROM refresh_tokens WHERE expires_at < NOW()`;
     const [result] = await db.query(sql);
     return { deleted: result?.affectedRows || 0 };
   },
  
    async deleteAllTokens() {
-     await ensureTable();
      const sql = `DELETE FROM refresh_tokens`;
      const [result] = await db.query(sql);
      return { deleted: result?.affectedRows || 0 };
    },
 
   async listByUser(userId, { page = 1, pageSize = 20 } = {}) {
-    await ensureTable();
     const p = Math.max(1, parseInt(page, 10) || 1);
     const ps = Math.max(1, parseInt(pageSize, 10) || 20);
     const offset = (p - 1) * ps;

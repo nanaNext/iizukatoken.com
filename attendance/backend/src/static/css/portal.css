@@ -86,10 +86,19 @@
   border: 2px solid transparent;
   transition: background .18s ease, border-color .18s ease;
   outline: none;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+  position: relative;
+  box-shadow: inset 0 -0px 0 transparent;
+}
+.subbar .subnav a::after {
+  display: none !important;
 }
 .subbar .subnav a:hover {
   background: rgba(255,255,255,0.12);
   border-color: rgba(255,255,255,0.2);
+  text-decoration: none;
+  box-shadow: inset 0 -2px 0 #fff;
 }
 .subbar .subnav a:focus,
 .subbar .subnav a:focus-visible,
@@ -97,6 +106,11 @@
   outline: none;
   border-color: transparent;
   background: transparent;
+  text-decoration: none;
+  box-shadow: inset 0 -2px 0 #fff;
+}
+.subbar .subnav a[aria-current="page"] {
+  box-shadow: inset 0 -2px 0 #fff;
 }
 
 .subbar + .content {
@@ -222,6 +236,13 @@
   transform: none;
 }
 
+.admin .brand .logo {
+  font-size: 32px;
+  font-weight: 800;
+  height: 44px;
+  line-height: 44px;
+}
+
 .brand {
   display: flex;
   flex-direction: row;
@@ -241,6 +262,11 @@
   border: none;
   border-radius: 0;
   box-shadow: none;
+}
+
+.admin .brand .icon {
+  height: 44px;
+  width: auto;
 }
 
 .brand .sub {
@@ -292,7 +318,7 @@
 }
 @media (max-width: 480px) {
   .topbar { padding: 6px 12px; min-height: 48px; }
-  .brand .icon { height: 24px; padding: 0; border-radius: 0; }
+  .brand .icon { height: 24px; padding: 0; border-radius: 0; display: none !important; }
   .brand .sub { display: none; }
   .brand .logo { display: none; }
   .mobile-btn { display: block; }
@@ -343,6 +369,13 @@ body.drawer-open .content {
   height: 56px;
   width: 56px;
   vertical-align: middle;
+}
+
+@media (min-width: 481px) {
+  .admin .user .user-icon {
+    height: 64px;
+    width: 64px;
+  }
 }
 
 .user .user-menu {
@@ -485,8 +518,8 @@ body.drawer-open .content {
   line-height: 1.6;
 }
 .card.wide {
-  max-width: none;
-  margin: 0;
+  max-width: 1600px;
+  margin: 0 auto;
   width: 100%;
 }
 .card .two-cols {
@@ -1392,6 +1425,37 @@ body.drawer-open .content {
   border: 1px solid #cfe0f5;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+/* Ledger tables with monthly-style dark header */
+.ledger-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.ledger-table thead th {
+  background: #0b2c66;
+  color: #fff;
+  font-weight: 900;
+  border-top: 1px solid rgba(255,255,255,.14);
+  border-right: 1px solid rgba(255,255,255,.14);
+  border-left: 1px solid rgba(255,255,255,.14);
+  text-align: center;
+  vertical-align: middle;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .15);
+  position: sticky;
+  top: var(--topbar-height);
+  z-index: 40;
+}
+.ledger-table tbody td {
+  color: #0f172a;
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+.ledger-table tr > :first-child {
+  border-left: 1px solid #e5e7eb;
 }
 .admin .detail-card .head {
   display: flex;

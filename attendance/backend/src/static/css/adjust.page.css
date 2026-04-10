@@ -1,0 +1,262 @@
+/* Style cho trang điều chỉnh chấm công - dùng class riêng để không bị admin.css override */
+
+/* ── Month navigator ── */
+.adj-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.adj-month-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #0b2c66;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.adj-month-btn:hover { background: #f1f5f9; }
+.adj-month-label {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0b2c66;
+  min-width: 120px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.adj-pending-badge {
+  display: inline-block;
+  background: #dc2626;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.adj-month-today {
+  margin-left: 4px;
+  padding: 4px 12px;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  cursor: pointer;
+}
+.adj-month-today:hover { background: #e2e8f0; }
+
+/* ── Table wrapper (dùng chung nhân viên + admin) ── */
+.adj-table-card {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.adj-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.adj-table thead tr {
+  background: #0b2c66;
+}
+
+.adj-table th {
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  text-align: left;
+  border: none;
+  white-space: nowrap;
+}
+
+.adj-table tbody tr {
+  background: #fff;
+  transition: background .1s;
+}
+.adj-table tbody tr:hover { background: #f6f9ff; }
+
+.adj-table td {
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #1e293b;
+  border-bottom: 1px solid #eef2f7;
+  vertical-align: middle;
+}
+.adj-table tbody tr:last-child td { border-bottom: none; }
+
+/* Status badge trong bảng */
+.adj-status-pending  { color: #0b2c66; font-weight: 650; }
+.adj-status-approved { color: #166534; font-weight: 650; }
+.adj-status-rejected { color: #991b1b; font-weight: 650; }
+
+/* ── Header hàng tiêu đề + input tháng ── */
+.adjust-list-header-row, .adj-list-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.adj-list-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0b2c66;
+  letter-spacing: .5px;
+}
+.adj-month-input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0b2c66;
+  outline: none;
+}
+.adj-month-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+}
+
+/* ── Adjust table wrapper (cũ — giữ alias) ── */
+.adjust-table-wrap { width:100%; overflow-x:auto; border-radius:10px; border:1px solid #e2e8f0; background:#fff; }
+.adjust-table { width:100%; border-collapse:collapse; table-layout:fixed; min-width:820px; }
+.adjust-table thead tr { background:#f1f5f9; }
+.adjust-table th, .adjust-table td { padding:10px 14px; text-align:left!important; vertical-align:middle; font-size:14px; border-bottom:1px solid #eef2f7; }
+.adjust-table th { color:#0b2c66; font-weight:700; border-bottom:2px solid #dde3ee; }
+.adjust-table td { color:#1e293b; background:#fff; }
+.adjust-table tbody tr:last-child td { border-bottom:none; }
+.adjust-table tbody tr:hover td { background:#f6f9ff; }
+
+/* ── Nút 承認 / 却下 ── */
+.btn-approve,
+.btn-reject {
+  display: inline-block;
+  padding: 4px 13px;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1.6;
+  vertical-align: middle;
+}
+.btn-approve,
+.btn-reject {
+  background: #fff;
+  color: #0b2c66;
+  border: 1px solid #cbd5e1;
+  margin-right: 6px;
+}
+.btn-approve:hover,
+.btn-reject:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* ── Nút 削除 ── */
+.btn-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0b2c66;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.6;
+}
+.btn-delete:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0b2c66;
+}
+
+/* ── Nút 編集 ── */
+.btn-edit {
+  display: inline-block;
+  padding: 4px 12px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0b2c66;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.6;
+  margin-right: 6px;
+}
+.btn-edit:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* ── Thanh công cụ tìm kiếm + nút ở phần “申請” ── */
+.adj-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.adj-search-input { height: 36px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 10px; }
+.btn-neutral { display: inline-block; padding: 4px 12px; border: 1px solid #cbd5e1; background: #fff; color: #0b2c66; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; }
+.btn-neutral:hover { background: #f1f5f9; border-color: #94a3b8; }
+
+/* ── Bố cục cột bảng kiểu “申請” ── */
+.adj-table.adj-wide .adj-col-id { width: 16%; }
+.adj-table.adj-wide .adj-col-status { width: 12%; }
+.adj-table.adj-wide .adj-col-type { width: 18%; }
+.adj-table.adj-wide .adj-col-detail { width: 26%; }
+.adj-table.adj-wide .adj-col-staff { width: 12%; }
+.adj-table.adj-wide .adj-col-office { width: 12%; }
+.adj-table.adj-wide .adj-col-created { width: 14%; }
+.adj-table.adj-wide .adj-col-actions { width: 15%; white-space: nowrap; }
+
+/* Căn hàng hành động gọn và đẹp hơn */
+.adj-table td:last-child {
+  white-space: nowrap;
+}
+
+/* Compact table style toggle for requests */
+.req-table.compact th,
+.req-table.compact td {
+  padding: 6px;
+}
+.adj-table td:last-child .btn-approve,
+.adj-table td:last-child .btn-reject,
+.adj-table td:last-child .btn-delete {
+  margin-right: 6px;
+}
+.adj-table td:last-child .btn-delete:last-child {
+  margin-right: 0;
+}
+
+/* ── Trạng thái ── */
+.status-pending  { color: #0b2c66; font-weight: 650; }
+.status-approved { color: #166534; font-weight: 650; }
+.status-rejected { color: #991b1b; font-weight: 650; }
+
+/* ── Ngày / Giờ tách dòng ── */
+.dt-date {
+  display: block;
+  font-size: 13px;
+  color: #1e293b;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.dt-time {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.3;
+}

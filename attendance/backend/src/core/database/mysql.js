@@ -15,37 +15,38 @@ const pool = mysql.createPool({
   charset: 'utf8mb4'
 });
 
-// Kiểm tra kết nối DB khi khởi động server
-(async () => {
-  try {
-    const connection = await pool.getConnection();
-    // Ping để đảm bảo DB sẵn sàng
-    await connection.ping();
+// Kiểm tra kết nối DB khi khởi động server (bỏ qua khi NODE_ENV=test để tránh log async trong môi trường test)
+if (String(process.env.NODE_ENV || '').toLowerCase() !== 'test') {
+  (async () => {
     try {
-      const dbName = process.env.DB_NAME;
-      if (dbName) {
-        try { await connection.query(`ALTER DATABASE \`${dbName}\` CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci`); } catch {}
-        const [rows] = await connection.query(`
-          SELECT TABLE_NAME AS t, TABLE_COLLATION AS c
-          FROM information_schema.TABLES
-          WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'
-        `, [dbName]);
-        for (const r of rows || []) {
-          const coll = String(r.c || '');
-          if (!coll.startsWith('utf8mb4')) {
-            const t = String(r.t);
-            try { await connection.query(`ALTER TABLE \`${dbName}\`.\`${t}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci`); } catch {}
+      const connection = await pool.getConnection();
+      await connection.ping();
+      try {
+        const dbName = process.env.DB_NAME;
+        if (dbName) {
+          try { await connection.query(`ALTER DATABASE \`${dbName}\` CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci`); } catch {}
+          const [rows] = await connection.query(`
+            SELECT TABLE_NAME AS t, TABLE_COLLATION AS c
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'
+          `, [dbName]);
+          for (const r of rows || []) {
+            const coll = String(r.c || '');
+            if (!coll.startsWith('utf8mb4')) {
+              const t = String(r.t);
+              try { await connection.query(`ALTER TABLE \`${dbName}\`.\`${t}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci`); } catch {}
+            }
           }
         }
-      }
-    } catch {}
-    console.log('✅ Kết nối MySQL thành công!');
-    connection.release();
-  } catch (err) {
-    console.error('❌ Kết nối MySQL thất bại:', err.message);
-    console.error('Kiểm tra biến môi trường DB_HOST/DB_USER/DB_PASS/DB_NAME');
-  }
-})();
+      } catch {}
+      console.log('✅ Kết nối MySQL thành công!');
+      connection.release();
+    } catch (err) {
+      console.error('❌ Kết nối MySQL thất bại:', err.message);
+      console.error('Kiểm tra biến môi trường DB_HOST/DB_USER/DB_PASS/DB_NAME');
+    }
+  })();
+}
 
 const origPoolQuery = pool.query.bind(pool);
 pool.query = async function(...args) {

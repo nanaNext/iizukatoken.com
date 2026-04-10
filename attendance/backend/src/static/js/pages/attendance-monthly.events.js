@@ -17,7 +17,8 @@
       const now = Date.now();
       if (now - lastAutoReloadAt < 2000) return;
       lastAutoReloadAt = now;
-      try { await controller.reloadMonth(); } catch {}
+      // Disabled auto-reload to prevent flicker
+      // try { await controller.reloadMonth(); } catch {}
     };
     window.addEventListener('pageshow', (e) => {
       if (e && e.persisted) void maybeReload();
@@ -128,11 +129,6 @@
   };
 
   const bindTargetDateSelect = () => {
-    let revTargetYM = null;
-    document.addEventListener('click', (e) => {
-      const sel = e.target?.closest?.('#targetDateSelect');
-      if (sel) revTargetYM = sel.value;
-    });
     document.addEventListener('change', async (e) => {
       const sel = e.target?.closest?.('#targetDateSelect');
       if (!sel) return;
@@ -140,7 +136,6 @@
       if (/^\\d{6}$/.test(v)) {
         const ym = `${v.slice(0, 4)}-${v.slice(4, 6)}`;
         await controller.setMonth(ym);
-        if (revTargetYM) sel.value = revTargetYM;
       }
     });
   };
@@ -148,15 +143,25 @@
   const bindMonthNav = () => {
     $('#btnPrevMonth')?.addEventListener('click', async () => { await controller.nextMonth(-1); });
     $('#btnNextMonth')?.addEventListener('click', async () => { await controller.nextMonth(1); });
+    const handlePick = async (v) => {
+      if (!/^\d{4}-\d{2}$/.test(v)) return;
+      await controller.setMonth(v);
+    };
+    controller.ctx.picker1?.addEventListener('input', async () => {
+      const v = controller.ctx.picker1.value;
+      await handlePick(v);
+    });
     controller.ctx.picker1?.addEventListener('change', async () => {
       const v = controller.ctx.picker1.value;
-      if (!/^\\d{4}-\\d{2}$/.test(v)) return;
-      await controller.setMonth(v);
+      await handlePick(v);
+    });
+    controller.ctx.picker2?.addEventListener('input', async () => {
+      const v = controller.ctx.picker2.value;
+      await handlePick(v);
     });
     controller.ctx.picker2?.addEventListener('change', async () => {
       const v = controller.ctx.picker2.value;
-      if (!/^\\d{4}-\\d{2}$/.test(v)) return;
-      await controller.setMonth(v);
+      await handlePick(v);
     });
     $('#btnReload')?.addEventListener('click', async (e) => { e.preventDefault(); await controller.reloadMonth(); });
   };
@@ -184,6 +189,15 @@
         if (!confirm('ファイルを取込します。よろしいですか？')) return;
         alert('取込処理は未実装です。');
       });
+    });
+    document.querySelector('#btnBackBottom')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      try {
+        if (window.history.length > 1) window.history.back();
+        else window.location.href = '/ui/attendance';
+      } catch {
+        window.location.href = '/ui/attendance';
+      }
     });
   };
 
@@ -355,6 +369,72 @@
     if (tableHost.dataset.boundMonthlyHost === '1') return;
     tableHost.dataset.boundMonthlyHost = '1';
 
+    const applyHolidayLock = (row) => {
+      if (!row) return;
+      const sel = row.querySelector('select[data-field="classification"]');
+      const v = String(sel?.value || '').trim();
+      const dateStr = String(row.dataset.date || '').slice(0, 10);
+      const dow = (() => {
+        try { return core?.dowJa?.(dateStr) || ''; } catch { return ''; }
+      })();
+      const offDay = String(row.dataset.baseOff || '') === '1' || row.classList.contains('off') || dow === '土' || dow === '日';
+      const plannedKubun = offDay ? '休日' : '出勤';
+      const effective = v || plannedKubun;
+      const isHoliday = effective === '休日' || effective === '代替休日';
+      const ctrls = Array.from(row.querySelectorAll('input, select, textarea, button')).filter(el => !el.matches('select[data-field="classification"], button[data-action="history"]'));
+      for (const el of ctrls) {
+        if (isHoliday) {
+          el.setAttribute('disabled', '');
+          el.setAttribute('data-row-disabled', '1');
+        } else {
+          el.removeAttribute('data-row-disabled');
+          if (state.editableMonth && !el.hasAttribute('data-fixed-disabled')) el.removeAttribute('disabled');
+        }
+      }
+      if (!isHoliday) return;
+      const ckOn = row.querySelector('input[data-field="ckOnsite"]');
+      const ckRe = row.querySelector('input[data-field="ckRemote"]');
+      const ckSa = row.querySelector('input[data-field="ckSatellite"]');
+      if (ckOn) ckOn.checked = false;
+      if (ckRe) ckRe.checked = false;
+      if (ckSa) ckSa.checked = false;
+      try { row.dataset.workType = ''; } catch {}
+      const loc = row.querySelector('input[data-field="location"]');
+      const memo = row.querySelector('input[data-field="memo"]');
+      const notes = row.querySelector('input[data-field="notes"]');
+      const inEl = row.querySelector('input.se-time[data-field="checkIn"]');
+      const outEl = row.querySelector('input.se-time[data-field="checkOut"]');
+      if (loc) loc.value = '';
+      if (memo) memo.value = '';
+      if (notes) notes.value = '';
+      if (inEl) inEl.value = '';
+      if (outEl) outEl.value = '';
+      try { inEl?.classList?.remove('invalid'); } catch {}
+      try { outEl?.classList?.remove('invalid'); } catch {}
+      const br = row.querySelector('select[data-field="break"]');
+      const nb = row.querySelector('select[data-field="nightBreak"]');
+      if (br) br.value = '0:00';
+      if (nb) nb.value = '0:00';
+      const idRaw = String(row.dataset.id || '').trim();
+      if (idRaw) {
+        row.dataset.clear = '1';
+      }
+    };
+
+    const applyHolidayLockAll = () => {
+      try {
+        const rows = Array.from(tableHost.querySelectorAll('[data-row="1"][data-date]'));
+        for (const r of rows) applyHolidayLock(r);
+      } catch {}
+    };
+
+    applyHolidayLockAll();
+    try {
+      const obs = new MutationObserver(() => { applyHolidayLockAll(); });
+      obs.observe(tableHost, { childList: true, subtree: true });
+      tableHost._monthlyHolidayObs = obs;
+    } catch {}
+
     tableHost.addEventListener('change', async (e) => {
       const row = e.target?.closest?.('[data-row="1"][data-date]');
       if (row) { 
@@ -377,6 +457,7 @@
           if (kubunSel) {
             const v = String(kubunSel.value || '').trim();
             row.dataset.kubunConfirmed = v ? '1' : '';
+            applyHolidayLock(row);
           }
           
           // QUAN TRỌNG: Lưu ngay lập tức khi người dùng thay đổi bất kỳ giá trị nào (Kubun, Giờ, Ghi chú...)

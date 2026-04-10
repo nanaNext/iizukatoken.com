@@ -150,7 +150,7 @@ async function mountEmployeesImpl({
       contentEl.style.marginTop = mode === 'delete' ? '-12px' : '';
     }
     const subbarEl = document.querySelector('.subbar');
-    if (subbarEl) subbarEl.style.display = mode === 'delete' ? 'none' : '';
+    if (subbarEl) subbarEl.style.display = mode === 'delete' ? 'none' : 'flex';
     try {
       if (mode === 'delete') {
         document.body.classList.add('emp-delete-mode');
@@ -529,9 +529,11 @@ async function mountEmployeesImpl({
     const form = document.createElement('form');
     form.id = 'add';
     let managers = [];
-    try { managers = await listUsers({ signal }); } catch (e) { if (e && e.name === 'AbortError') return done; managers = []; }
+    if (role2 !== 'manager') {
+      try { managers = await listUsers({ signal }); } catch (e) { if (e && e.name === 'AbortError') return done; managers = []; }
+    }
     if (!isCurrent || seq !== employeesRenderSeq) return done;
-    const managerOptions = managers.filter(m => String(m.role) === 'manager').map(m => `<option value="${m.id}">${m.username || m.email}</option>`).join('');
+    const managerOptions = (role2 !== 'manager' ? managers.filter(m => String(m.role) === 'manager') : []).map(m => `<option value="${m.id}">${m.username || m.email}</option>`).join('');
     form.innerHTML = `
       <div class="form-title">【新規社員】</div>
       <table class="excel-table" style="margin-bottom:12px;">
@@ -600,6 +602,42 @@ async function mountEmployeesImpl({
       </div>
       <div id="empCreateMsg" style="margin-top:10px;color:#0f172a;font-weight:600;"></div>
     `;
+    try {
+      const subnav = document.querySelector('.subbar .subnav');
+      if (subnav) {
+        subnav.style.display = 'flex';
+        const params = new URLSearchParams(location.search);
+        const qInit = params.get('q') || '';
+        subnav.innerHTML = `
+          <div class="fi" style="display:flex;align-items:center;gap:8px;">
+            <input id="topEmpQ" placeholder="名前/メール" value="${qInit.replace(/"/g,'&quot;')}" style="height:32px;border:1px solid #cbd5e1;border-radius:8px;padding:0 10px;">
+            <button id="topEmpGoList" class="btn" type="button">一覧</button>
+            <button id="topEmpGoSearch" class="btn" type="button">検索</button>
+          </div>
+        `;
+        const goList = subnav.querySelector('#topEmpGoList');
+        const goSearch = subnav.querySelector('#topEmpGoSearch');
+        const qEl = subnav.querySelector('#topEmpQ');
+        if (goList) {
+          goList.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try { history.pushState(null, '', `/ui/admin?tab=employees#list`); } catch { window.location.href = `/ui/admin?tab=employees#list`; return; }
+            await renderEmployees();
+          });
+        }
+        if (goSearch) {
+          goSearch.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const qv = (qEl && qEl.value) ? qEl.value.trim() : '';
+            const sp = new URLSearchParams(location.search);
+            if (qv) sp.set('q', qv);
+            else sp.delete('q');
+            try { history.pushState(null, '', `/ui/admin?tab=employees&${sp.toString()}#list`); } catch { window.location.href = `/ui/admin?tab=employees&${sp.toString()}#list`; return; }
+            await renderEmployees();
+          });
+        }
+      }
+    } catch {}
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const msgEl = form.querySelector('#empCreateMsg');

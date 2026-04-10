@@ -8,7 +8,11 @@ const normalizePath = (p) => {
 export async function mount() {
   const p = normalizePath(window.location.pathname);
   if (p === '/admin/payroll/payslips') {
-    try { window.location.href = '/admin/payroll/salary?tab=payroll_editor'; } catch {}
+    await bootLegacyTab({ tab: 'salary_send', hash: '' });
+    return;
+  }
+  if (p === '/admin/payroll/salary') {
+    await bootLegacyTab({ tab: 'payroll_editor', hash: '' });
     return;
   }
   await bootLegacyTab({ tab: 'payroll_editor', hash: '' });

@@ -35,8 +35,8 @@ async function ensureTable() {
 }
 
 module.exports = {
+  ensureTable,
   async createReset({ userId, token, expiresAt, userAgent, ip }) {
-    await ensureTable();
     const tokenHash = hashToken(token);
     const sql = `
       INSERT INTO password_reset_tokens (userId, token_hash, expires_at, user_agent, ip)
@@ -47,12 +47,10 @@ module.exports = {
     return { ok: true };
   },
   async revokeUnsedForUser(userId) {
-    await ensureTable();
     const sql = `DELETE FROM password_reset_tokens WHERE userId = ? AND used_at IS NULL`;
     await db.query(sql, [userId]);
   },
   async findValid(token) {
-    await ensureTable();
     const tokenHash = hashToken(token);
     const sql = `
       SELECT id, userId, expires_at, used_at
@@ -64,7 +62,6 @@ module.exports = {
     return rows[0];
   },
   async consume(token) {
-    await ensureTable();
     const tokenHash = hashToken(token);
     const sql = `
       UPDATE password_reset_tokens
@@ -75,7 +72,6 @@ module.exports = {
     return res?.affectedRows > 0;
   },
   async cleanupExpired() {
-    await ensureTable();
     const sql = `DELETE FROM password_reset_tokens WHERE expires_at < NOW() OR used_at IS NOT NULL`;
     const [result] = await db.query(sql);
     return { deleted: result?.affectedRows || 0 };

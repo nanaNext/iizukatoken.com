@@ -36,17 +36,14 @@ exports.assignShift = async (req, res) => {
   }
 };
 
-// Liệt kê nhân viên cùng phòng ban của manager
+// Liệt kê toàn bộ nhân viên (manager xem toàn công ty)
 exports.listMyDepartment = async (req, res) => {
   try {
-    const me = await userRepo.getUserById(req.user.id);
-    const deptId = me?.departmentId || null;
-    if (!deptId) return res.status(200).json({ rows: [], total: 0, limit: 0, offset: 0 });
     const q = String(req.query.q || '').trim();
     const limit = req.query.limit;
     const offset = req.query.offset;
     const employmentStatus = req.query.employmentStatus != null ? String(req.query.employmentStatus || '').trim() : 'active';
-    const r = await userRepo.listUsersPaged({ q, role: 'employee', departmentId: String(deptId), employmentStatus: employmentStatus || null, limit, offset });
+    const r = await userRepo.listUsersPaged({ q, role: 'employee', departmentId: null, employmentStatus: employmentStatus || null, limit, offset });
     res.status(200).json(r);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -63,21 +60,21 @@ exports.listDepartments = async (req, res) => {
   }
 };
 
-// Cập nhật thông tin nhân viên trong cùng phòng ban
+// Cập nhật thông tin nhân viên (manager quản lý toàn công ty, chỉ với employee)
 exports.updateEmployeeInfo = async (req, res) => {
   try {
     const targetId = parseInt(req.params.id, 10);
     if (!targetId) return res.status(400).json({ message: 'Missing id' });
-    const me = await userRepo.getUserById(req.user.id);
     const target = await userRepo.getUserById(targetId);
-    if (!me?.departmentId || String(me.departmentId) !== String(target?.departmentId)) {
-      return res.status(403).json({ message: 'Forbidden: cross-department access' });
+    if (!target) return res.status(404).json({ message: 'User not found' });
+    if (String(target.role).toLowerCase() !== 'employee') {
+      return res.status(403).json({ message: 'Managers can only update employees' });
     }
     const b = req.body || {};
     await userRepo.updateUser(targetId, {
       username: b.username,
       email: b.email,
-      departmentId: target.departmentId,
+      departmentId: b.departmentId ?? target.departmentId,
       employmentType: b.employmentType,
       lang: b.lang,
       region: b.region,
@@ -95,16 +92,13 @@ exports.updateEmployeeInfo = async (req, res) => {
   }
 };
 
-// Xem trước bảng lương cho phòng ban của manager
+// Xem trước bảng lương cho toàn bộ nhân viên (manager)
 exports.salaryPreviewDepartment = async (req, res) => {
   try {
     const month = String(req.query.month || '').trim();
     if (!month) return res.status(400).json({ message: 'Missing month' });
-    const me = await userRepo.getUserById(req.user.id);
-    const deptId = me?.departmentId || null;
-    if (!deptId) return res.status(400).json({ message: 'No department set for manager' });
     const all = await userRepo.listUsers();
-    const ids = all.filter(u => String(u.departmentId) === String(deptId)).map(u => u.id);
+    const ids = all.filter(u => String(u.role).toLowerCase() === 'employee').map(u => u.id);
     const { employees } = await salaryService.computePayslips(ids, month);
     res.status(200).json({ month, employees });
   } catch (err) {
@@ -112,15 +106,15 @@ exports.salaryPreviewDepartment = async (req, res) => {
   }
 };
 
-// Xử lý nghỉ việc: chuyển trạng thái và revoke tokens
+// Xử lý nghỉ việc: chuyển trạng thái và revoke tokens (manager toàn công ty, chỉ employee)
 exports.resignEmployee = async (req, res) => {
   try {
     const targetId = parseInt(req.params.id, 10);
     if (!targetId) return res.status(400).json({ message: 'Missing id' });
-    const me = await userRepo.getUserById(req.user.id);
     const target = await userRepo.getUserById(targetId);
-    if (!me?.departmentId || String(me.departmentId) !== String(target?.departmentId)) {
-      return res.status(403).json({ message: 'Forbidden: cross-department access' });
+    if (!target) return res.status(404).json({ message: 'User not found' });
+    if (String(target.role).toLowerCase() !== 'employee') {
+      return res.status(403).json({ message: 'Managers can only deactivate employees' });
     }
     await userRepo.updateUser(targetId, { employmentStatus: 'inactive' });
     await refreshRepo.deleteUserTokens(targetId);
@@ -147,27 +141,22 @@ async function ensureProfileChangeTable() {
 exports.listProfileChangePending = async (req, res) => {
   try {
     await ensureProfileChangeTable();
-    const me = await userRepo.getUserById(req.user.id);
-    const deptId = me?.departmentId || null;
-    if (!deptId) return res.status(200).json([]);
     const [rows] = await db.query(`SELECT * FROM user_change_requests WHERE status='pending' ORDER BY created_at DESC`);
     const cache = new Map();
     const result = [];
     for (const r of rows) {
       if (!cache.has(r.user_id)) cache.set(r.user_id, await userRepo.getUserById(r.user_id));
       const target = cache.get(r.user_id);
-      if (String(target?.departmentId) === String(deptId)) {
-        result.push({
-          id: r.id,
-          userId: r.user_id,
-          username: target?.username || '',
-          email: target?.email || '',
-          departmentId: target?.departmentId || null,
-          status: r.status,
-          createdAt: r.created_at,
-          fields: (() => { try { return JSON.parse(r.fields_json); } catch { return {}; } })()
-        });
-      }
+      result.push({
+        id: r.id,
+        userId: r.user_id,
+        username: target?.username || '',
+        email: target?.email || '',
+        departmentId: target?.departmentId || null,
+        status: r.status,
+        createdAt: r.created_at,
+        fields: (() => { try { return JSON.parse(r.fields_json); } catch { return {}; } })()
+      });
     }
     res.status(200).json(result);
   } catch (err) {
@@ -182,11 +171,7 @@ exports.getProfileChange = async (req, res) => {
     const [rows] = await db.query(`SELECT * FROM user_change_requests WHERE id=? LIMIT 1`, [id]);
     const row = rows[0];
     if (!row) return res.status(404).json({ message: 'Not found' });
-    const me = await userRepo.getUserById(req.user.id);
     const target = await userRepo.getUserById(row.user_id);
-    if (!me?.departmentId || String(me.departmentId) !== String(target?.departmentId)) {
-      return res.status(403).json({ message: 'Forbidden: cross-department access' });
-    }
     res.status(200).json({
       id: row.id,
       userId: row.user_id,
@@ -211,11 +196,7 @@ exports.approveProfileChange = async (req, res) => {
     const row = rows[0];
     if (!row) return res.status(404).json({ message: 'Not found' });
     if (row.status !== 'pending') return res.status(409).json({ message: 'Already processed' });
-    const me = await userRepo.getUserById(req.user.id);
     const target = await userRepo.getUserById(row.user_id);
-    if (!me?.departmentId || String(me.departmentId) !== String(target?.departmentId)) {
-      return res.status(403).json({ message: 'Forbidden: cross-department access' });
-    }
     if (String(status).toLowerCase() === 'approved') {
       let fields = {};
       try { fields = JSON.parse(row.fields_json) || {}; } catch {}

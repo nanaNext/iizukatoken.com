@@ -112,25 +112,27 @@ async function mountAttendanceImpl({
         const name = it.username || '';
         const dept = it.departmentName || '—';
         const st = it.status || '';
+        const kubun = String(it.dailyKubun || '').trim();
+        const leaveSet = new Set(['欠勤','有給休暇','半休','無給休暇']);
         const stLabel = st === 'checked_out' ? '退勤済'
           : (st === 'working' ? '出勤中'
             : (st === 'holiday_work' || st === 'holiday_working' ? '休日出勤'
-              : (st === 'off' ? '休日' : '未出勤')));
+              : (st === 'leave' && leaveSet.has(kubun) ? kubun : (st === 'off' ? '休日' : '未出勤'))));
         const stClass = st === 'checked_out' ? 'attrec-pill ok'
           : (st === 'working' ? 'attrec-pill warn'
             : (st === 'holiday_work' || st === 'holiday_working' ? 'attrec-pill warn'
-              : (st === 'off' ? 'attrec-pill neutral' : 'attrec-pill neutral')));
+              : (st === 'leave' && leaveSet.has(kubun) ? 'attrec-pill neutral' : (st === 'off' ? 'attrec-pill neutral' : 'attrec-pill neutral'))));
         const cin = fmtTime(it.attendance ? it.attendance.checkIn : undefined);
         const cout = fmtTime(it.attendance ? it.attendance.checkOut : undefined);
         const site = (it.report && it.report.site) ? it.report.site : '';
         const work = (it.report && it.report.work) ? it.report.work : '';
         const wt = String(it.workType || ((it.report && it.report.workType) ? it.report.workType : '') || '').trim();
-        const wtLabel = wt === 'onsite' ? '出社' : wt === 'remote' ? '在宅' : wt === 'satellite' ? '現場/出張' : '—';
+        const wtLabel = leaveSet.has(kubun) ? kubun : (wt === 'onsite' ? '出社' : wt === 'remote' ? '在宅' : wt === 'satellite' ? '現場/出張' : (st === 'off' ? '休日' : '—'));
         const tr = document.createElement('tr');
         tr.className = st === 'checked_out' ? 'attrec-row checkedout'
           : (st === 'working' ? 'attrec-row working'
             : (st === 'holiday_work' || st === 'holiday_working' ? 'attrec-row working'
-              : (st === 'off' ? 'attrec-row absent' : 'attrec-row absent')));
+              : (st === 'leave' && leaveSet.has(kubun) ? 'attrec-row absent' : (st === 'off' ? 'attrec-row absent' : 'attrec-row absent'))));
         tr.innerHTML = `
           <td>${esc(code)}</td>
           <td>${esc(name)}</td>

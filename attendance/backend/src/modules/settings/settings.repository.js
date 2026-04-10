@@ -39,14 +39,12 @@ module.exports = {
     } catch {}
   },
   async getSettings() {
-    await this.ensureFlagsSchema();
     const sql = `SELECT * FROM settings LIMIT 1`;
     const [rows] = await db.query(sql);
     return rows[0];
   },
 
   async updateSettings(data) {
-    await this.ensureFlagsSchema();
     const sql = `
       UPDATE settings 
       SET workStart = ?, workEnd = ?, breakMinutes = ?, rounding = ?
@@ -60,7 +58,6 @@ module.exports = {
     ]);
   },
   async getFlags() {
-    await this.ensureFlagsSchema();
     const [rows] = await db.query(`
       SELECT MAINTENANCE_MODE, DISABLE_PAYSLIP_UPLOAD, DISABLE_PAYSLIP_DOWNLOAD, LOCK_LOGIN_EXCEPT_SUPER,
              REMOTE_POLICY, REQUIRE_GPS, MIN_ACCURACY_METERS, REQUIRE_NOTE_ON_REMOTE, COUNTRY_WHITELIST, MAX_DEVICES_PER_USER
@@ -81,7 +78,6 @@ module.exports = {
     };
   },
   async updateFlags({ maintenanceMode, disablePayslipUpload, disablePayslipDownload, lockLoginExceptSuper, remotePolicy, requireGPS, minAccuracyMeters, requireNoteOnRemote, countryWhitelist, maxDevicesPerUser }) {
-    await this.ensureFlagsSchema();
     const m = maintenanceMode ? 1 : 0;
     const u = disablePayslipUpload ? 1 : 0;
     const d = disablePayslipDownload ? 1 : 0;

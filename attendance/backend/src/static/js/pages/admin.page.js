@@ -47,24 +47,18 @@ async function ensureAdmin() {
   }
   if (!profile) {
     try {
-      const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-      const r = await refresh(rt || undefined);
+      const r = await refresh();
       sessionStorage.setItem('accessToken', r.accessToken);
-      try { sessionStorage.setItem('refreshToken', r.refreshToken || rt); localStorage.setItem('refreshToken', r.refreshToken || rt); } catch { }
       token = r.accessToken;
       profile = await me(token);
     } catch { }
   }
   if (!profile) {
     try {
-      const rt2 = localStorage.getItem('refreshToken') || '';
-      if (rt2) {
-        const r2 = await refresh(rt2);
-        sessionStorage.setItem('accessToken', r2.accessToken);
-        try { sessionStorage.setItem('refreshToken', r2.refreshToken || rt2); } catch { }
-        token = r2.accessToken;
-        profile = await me(token);
-      }
+      const r2 = await refresh();
+      sessionStorage.setItem('accessToken', r2.accessToken);
+      token = r2.accessToken;
+      profile = await me(token);
     } catch { }
   }
   if (!profile) {
@@ -74,12 +68,8 @@ async function ensureAdmin() {
       if (user && user.role && (String(user.role).toLowerCase() === 'admin' || String(user.role).toLowerCase() === 'manager')) {
         profile = user;
         try {
-          const rt3 = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-          if (rt3) {
-            const r3 = await refresh(rt3);
-            sessionStorage.setItem('accessToken', r3.accessToken);
-            try { sessionStorage.setItem('refreshToken', r3.refreshToken || rt3); localStorage.setItem('refreshToken', r3.refreshToken || rt3); } catch { }
-          }
+          const r3 = await refresh();
+          sessionStorage.setItem('accessToken', r3.accessToken);
         } catch { }
       }
     } catch { }
@@ -149,7 +139,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   let tab = getCurrentTab();
-  if (content) content.className = tab === 'employees' ? 'card wide' : 'card';
+  if (content) content.className = 'card';
   setSidebarActive(tab);
 
   try {
@@ -188,7 +178,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         else document.body.classList.remove('employees-wide');
       } catch { }
       const contentEl2 = document.querySelector('#adminContent');
-      if (contentEl2) contentEl2.className = tab === 'employees' ? 'card wide' : 'card';
+      if (contentEl2) contentEl2.className = 'card';
       const tilesSection = document.querySelector('.tiles');
       if (tilesSection) tilesSection.style.display = tab ? 'none' : '';
       const subBrand = document.querySelector('.brand .sub');

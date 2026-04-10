@@ -92,13 +92,12 @@ const renderDashboard = async (profile) => {
     leave: stats.leaveDelta == null ? null : stats.leaveDelta,
     pending: stats.pendingDelta == null ? null : stats.pendingDelta
   } : {};
-  const activeUsers = (users || []).filter(u => {
+  const employeesOnly = (users || []).filter(u => {
     const role = String((u && u.role) ? u.role : '').toLowerCase();
     const st = String((u && u.employment_status) ? u.employment_status : 'active').toLowerCase();
-    if (st === 'inactive' || st === 'retired') return false;
-    return role === 'employee' || role === 'manager' || role === 'admin';
+    return role === 'employee' && st !== 'inactive' && st !== 'retired';
   });
-  const usersCard = make('kpi-users', 'ユーザー', fmtInt(activeUsers.length), 'Users', deltas.users == null ? null : deltas.users);
+  const usersCard = make('kpi-users', 'ユーザー', fmtInt(employeesOnly.length), '', deltas.users == null ? null : deltas.users);
   usersCard.classList.add('clickable');
   usersCard.setAttribute('role', 'button');
   usersCard.setAttribute('tabindex', '0');
@@ -109,143 +108,332 @@ const renderDashboard = async (profile) => {
       window.location.href = '/admin/employees#list';
     }
   });
+  try {
+    const listWrap = document.createElement('div');
+    listWrap.style.marginTop = '8px';
+    listWrap.style.maxHeight = '54px';
+    listWrap.style.overflow = 'auto';
+    listWrap.style.fontSize = '12px';
+    listWrap.style.lineHeight = '1.4';
+    listWrap.style.color = '#334155';
+    const ul = document.createElement('ul');
+    ul.style.listStyle = 'none';
+    ul.style.margin = '0';
+    ul.style.padding = '0';
+    const names = employeesOnly
+      .map(u => (u.username || u.email || '').trim())
+      .filter(Boolean)
+      .slice(0, 8);
+    for (const n of names) {
+      const li = document.createElement('li');
+      li.textContent = n;
+      ul.appendChild(li);
+    }
+    if (employeesOnly.length > names.length) {
+      const more = document.createElement('div');
+      more.style.color = '#64748b';
+      more.style.fontSize = '11px';
+      more.style.marginTop = '4px';
+      more.textContent = `他 ${employeesOnly.length - names.length} 名`;
+      listWrap.appendChild(more);
+    }
+    listWrap.appendChild(ul);
+    usersCard.appendChild(listWrap);
+  } catch {}
   kpi.appendChild(usersCard);
-  const workCard = make('kpi-work', '本日の出勤', fmtInt(stats.todayCheckin), 'Today work', deltas.work == null ? null : deltas.work);
+  let plannedCount = 0;
+  let plannedNames = [];
+  try {
+    const rosterForWork = await fetchJSONAuth('/api/attendance/today-roster');
+    const plannedArr = Array.isArray(rosterForWork?.planned) ? rosterForWork.planned : [];
+    const onlyWork = plannedArr.filter(it => it?.planned?.status === 'work' && String(it?.role || '').toLowerCase() === 'employee');
+    plannedCount = onlyWork.length;
+    plannedNames = onlyWork
+      .map(it => `${it.employeeCode || `EMP${String(it.userId).padStart(3,'0')}`} ${it.username || ''}`.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+  } catch {}
+  const workCard = make('kpi-work', '本日の出勤（予定）', fmtInt(plannedCount || stats.todayCheckin), '', deltas.work == null ? null : deltas.work);
   workCard.classList.add('clickable');
   workCard.setAttribute('role', 'button');
   workCard.setAttribute('tabindex', '0');
-  workCard.addEventListener('click', () => { window.location.href = '/ui/today-work'; });
+  workCard.addEventListener('click', () => { window.location.href = '/admin/attendance'; });
   workCard.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      window.location.href = '/ui/today-work';
+      window.location.href = '/admin/attendance';
     }
   });
+  try {
+    if (plannedNames.length) {
+      const listWrap = document.createElement('div');
+      listWrap.style.marginTop = '8px';
+      listWrap.style.maxHeight = '54px';
+      listWrap.style.overflow = 'auto';
+      listWrap.style.fontSize = '12px';
+      listWrap.style.lineHeight = '1.4';
+      listWrap.style.color = '#334155';
+      const ul = document.createElement('ul');
+      ul.style.listStyle = 'none';
+      ul.style.margin = '0';
+      ul.style.padding = '0';
+      for (const n of plannedNames) {
+        const li = document.createElement('li');
+        li.textContent = n;
+        ul.appendChild(li);
+      }
+      listWrap.appendChild(ul);
+      workCard.appendChild(listWrap);
+    }
+  } catch {}
   kpi.appendChild(workCard);
-  kpi.appendChild(make('kpi-leave', '休暇', fmtInt(stats.leaveCount), 'Leave', deltas.leave == null ? null : deltas.leave));
-  kpi.appendChild(make('kpi-pending', '未承認', fmtInt(stats.pendingCount), 'Pending', deltas.pending == null ? null : deltas.pending));
+  const showLeaveCard = false;
+  if (showLeaveCard) {
+    kpi.appendChild(make('kpi-leave', '休暇', fmtInt(stats.leaveCount), 'Leave', deltas.leave == null ? null : deltas.leave));
+  }
+  const showPendingCard = false;
+  if (showPendingCard) {
+    kpi.appendChild(make('kpi-pending', '未承認', fmtInt(stats.pendingCount), 'Pending', deltas.pending == null ? null : deltas.pending));
+  }
   wrap.appendChild(kpi);
 
   const grid = document.createElement('div');
   grid.className = 'dash-grid';
 
-  const chartCard = document.createElement('div');
-  chartCard.className = 'dash-card';
-  const chartTitle = document.createElement('div');
-  chartTitle.className = 'dash-card-title';
-  chartTitle.textContent = 'Attendance Chart';
-  chartCard.appendChild(chartTitle);
-  const seg = document.createElement('div');
-  seg.className = 'seg';
-  seg.innerHTML = '<button data-range="day" class="active">Today</button><button data-range="week">This week</button><button data-range="month">This month</button>';
-  chartCard.appendChild(seg);
-  const chart = document.createElement('div');
-  chart.className = 'dash-chart';
-  const tooltip = document.createElement('div');
-  tooltip.className = 'tooltip';
-  chart.appendChild(tooltip);
-  const renderBars = (arr, labels) => {
-    chart.querySelectorAll('.bar').forEach(b => b.remove());
-    const vals = arr.map(v => Math.max(0, Number(v) || 0));
-    const max = Math.max(1, ...vals);
-    vals.forEach((v,i) => {
-      const bar = document.createElement('div');
-      bar.className = 'bar';
-      bar.style.setProperty('--h', `${Math.max(10, Math.round((v / max) * 100))}%`);
-      bar.addEventListener('mousemove', (e) => {
-        tooltip.style.display = 'block';
-        tooltip.textContent = `${labels[i]}: ${fmtInt(arr[i])}`;
-        const rect = chart.getBoundingClientRect();
-        tooltip.style.left = `${e.clientX - rect.left}px`;
-        tooltip.style.top = `${e.clientY - rect.top}px`;
-      });
-      bar.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
-      chart.appendChild(bar);
+  try {
+    const roster = await fetchJSONAuth('/api/attendance/today-roster');
+    const absentCard = document.createElement('div');
+    absentCard.className = 'dash-card';
+    const absentTitle = document.createElement('div');
+    absentTitle.className = 'dash-card-title';
+    absentTitle.textContent = '欠勤（本日）';
+    absentCard.appendChild(absentTitle);
+    const listWrap = document.createElement('div');
+    listWrap.style.padding = '8px 0';
+    const items = Array.isArray(roster?.items) ? roster.items : [];
+    const planned = new Map((Array.isArray(roster?.planned) ? roster.planned : []).map(r => [r.userId, r]));
+    const absentees = items.filter(it => {
+      const p = planned.get(it.userId);
+      const role = String((p?.role || it?.role || '')).toLowerCase();
+      const plannedWork = p && p.planned?.status === 'work';
+      const kubunAbsent = String(it?.dailyKubun || '').trim() === '欠勤';
+      return role === 'employee' && (kubunAbsent || (it?.status === 'not_checked_in' && plannedWork));
     });
-  };
-  const dayData = [stats.todayCheckin, stats.lateCount, stats.leaveCount, stats.pendingCount];
-  renderBars(dayData, ['Work','Late','Leave','Pending']);
-  const tryFetchSummary = async (range) => {
-    // try several conventional endpoints; fallback if not available
-    const candidates = [
-      `/api/admin/attendance/summary?range=${range}`,
-      `/api/admin/attendance/summary/${range}`
-    ];
-    for (const url of candidates) {
-      try {
-        const r = await fetchJSONAuth(url);
-        if (r && Array.isArray(r.values)) return r;
-      } catch {}
-    }
-    return null;
-  };
-  seg.addEventListener('click', async (e) => {
-    const btn = e.target.closest('button[data-range]');
-    if (!btn) return;
-    seg.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const range = btn.dataset.range;
-    if (range === 'day') {
-      renderBars(dayData, ['Work','Late','Leave','Pending']);
-      return;
-    }
-    const res = await tryFetchSummary(range);
-    if (res && Array.isArray(res.values) && res.labels) {
-      renderBars(res.values, res.labels);
+    if (!absentees.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '<div style="font-size:28px;">✅</div><div>本日の欠勤者はいません</div>';
+      absentCard.appendChild(empty);
     } else {
-      // graceful fallback: reuse day data
-      renderBars(dayData, ['Work','Late','Leave','Pending']);
+      const ul = document.createElement('ul');
+      ul.style.listStyle = 'none';
+      ul.style.padding = '0';
+      ul.style.margin = '0';
+      for (const it of absentees.slice(0, 12)) {
+        const li = document.createElement('li');
+        li.style.padding = '8px 0';
+        li.style.display = 'flex';
+        li.style.justifyContent = 'space-between';
+        const left = document.createElement('span');
+        left.textContent = `${it.employeeCode || `EMP${String(it.userId).padStart(3,'0')}`} ${it.username || ''}`.trim();
+        const right = document.createElement('span');
+        right.style.color = '#991b1b';
+        right.style.fontWeight = '800';
+        right.textContent = '欠勤';
+        li.appendChild(left);
+        li.appendChild(right);
+        ul.appendChild(li);
+      }
+      if (absentees.length > 12) {
+        const more = document.createElement('div');
+        more.style.color = '#64748b';
+        more.style.fontSize = '12px';
+        more.style.fontWeight = '700';
+        more.style.marginTop = '6px';
+        more.textContent = `他 ${absentees.length - 12} 件`;
+        listWrap.appendChild(more);
+      }
+      listWrap.appendChild(ul);
+      absentCard.appendChild(listWrap);
     }
-  });
-  chartCard.appendChild(chart);
-  grid.appendChild(chartCard);
+    grid.appendChild(absentCard);
+  } catch {}
 
-  const recentCard = document.createElement('div');
-  recentCard.className = 'dash-card';
-  const recentTitle = document.createElement('div');
-  recentTitle.className = 'dash-card-title';
-  recentTitle.textContent = 'Recent Requests';
-  recentCard.appendChild(recentTitle);
+  try {
+    const roster = await fetchJSONAuth('/api/attendance/today-roster');
+    const paidLeaveCard = document.createElement('div');
+    paidLeaveCard.className = 'dash-card';
+    const title = document.createElement('div');
+    title.className = 'dash-card-title';
+    title.textContent = '休暇（有給・本日）';
+    paidLeaveCard.appendChild(title);
+    const listWrap = document.createElement('div');
+    listWrap.style.padding = '8px 0';
+    const paid = [];
+    for (const it of Array.isArray(roster?.planned) ? roster.planned : []) {
+      const p = it?.planned || {};
+      if (p.status === 'leave' && String(p.leaveType || '') === '有給休暇') {
+        paid.push(it);
+      }
+    }
+    if (!paid.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '<div style="font-size:28px;">🗓️</div><div>本日の有給休暇はありません</div>';
+      paidLeaveCard.appendChild(empty);
+    } else {
+      const ul = document.createElement('ul');
+      ul.style.listStyle = 'none';
+      ul.style.padding = '0';
+      ul.style.margin = '0';
+      for (const it of paid.slice(0, 12)) {
+        const li = document.createElement('li');
+        li.style.padding = '8px 0';
+        li.style.display = 'flex';
+        li.style.justifyContent = 'space-between';
+        const left = document.createElement('span');
+        left.textContent = `${it.employeeCode || `EMP${String(it.userId).padStart(3,'0')}`} ${it.username || ''}`.trim();
+        const right = document.createElement('span');
+        right.style.color = '#0b2c66';
+        right.style.fontWeight = '800';
+        right.textContent = '有給休暇';
+        li.appendChild(left);
+        li.appendChild(right);
+        ul.appendChild(li);
+      }
+      if (paid.length > 12) {
+        const more = document.createElement('div');
+        more.style.color = '#64748b';
+        more.style.fontSize = '12px';
+        more.style.fontWeight = '700';
+        more.style.marginTop = '6px';
+        more.textContent = `他 ${paid.length - 12} 件`;
+        listWrap.appendChild(more);
+      }
+      listWrap.appendChild(ul);
+      paidLeaveCard.appendChild(listWrap);
+    }
+    grid.appendChild(paidLeaveCard);
+  } catch {}
 
-  const table = document.createElement('table');
-  table.className = 'dash-table';
-  table.innerHTML = '<thead><tr><th>User</th><th>Type</th><th>Status</th></tr></thead>';
-  const tbody = document.createElement('tbody');
+  const showChart = false;
+  if (showChart) {
+    const chartCard = document.createElement('div');
+    chartCard.className = 'dash-card';
+    const chartTitle = document.createElement('div');
+    chartTitle.className = 'dash-card-title';
+    chartTitle.textContent = 'Attendance Chart';
+    chartCard.appendChild(chartTitle);
+    const seg = document.createElement('div');
+    seg.className = 'seg';
+    seg.innerHTML = '<button data-range="day" class="active">Today</button><button data-range="week">This week</button><button data-range="month">This month</button>';
+    chartCard.appendChild(seg);
+    const chart = document.createElement('div');
+    chart.className = 'dash-chart';
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    chart.appendChild(tooltip);
+    const renderBars = (arr, labels) => {
+      chart.querySelectorAll('.bar').forEach(b => b.remove());
+      const vals = arr.map(v => Math.max(0, Number(v) || 0));
+      const max = Math.max(1, ...vals);
+      vals.forEach((v,i) => {
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.style.setProperty('--h', `${Math.max(10, Math.round((v / max) * 100))}%`);
+        bar.addEventListener('mousemove', (e) => {
+          tooltip.style.display = 'block';
+          tooltip.textContent = `${labels[i]}: ${fmtInt(arr[i])}`;
+          const rect = chart.getBoundingClientRect();
+          tooltip.style.left = `${e.clientX - rect.left}px`;
+          tooltip.style.top = `${e.clientY - rect.top}px`;
+        });
+        bar.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+        chart.appendChild(bar);
+      });
+    };
+    const dayData = [stats.todayCheckin, stats.lateCount, stats.leaveCount, stats.pendingCount];
+    renderBars(dayData, ['Work','Late','Leave','Pending']);
+    const tryFetchSummary = async (range) => {
+      const candidates = [
+        `/api/admin/attendance/summary?range=${range}`,
+        `/api/admin/attendance/summary/${range}`
+      ];
+      for (const url of candidates) {
+        try {
+          const r = await fetchJSONAuth(url);
+          if (r && Array.isArray(r.values)) return r;
+        } catch {}
+      }
+      return null;
+    };
+    seg.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-range]');
+      if (!btn) return;
+      seg.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const range = btn.dataset.range;
+      if (range === 'day') {
+        renderBars(dayData, ['Work','Late','Leave','Pending']);
+        return;
+      }
+      const res = await tryFetchSummary(range);
+      if (res && Array.isArray(res.values) && res.labels) {
+        renderBars(res.values, res.labels);
+      } else {
+        renderBars(dayData, ['Work','Late','Leave','Pending']);
+      }
+    });
+    chartCard.appendChild(chart);
+    grid.appendChild(chartCard);
+  }
 
-  const rows = [];
-  for (const r of pendingLeave.slice(0, 6)) {
-    rows.push({ user: r.userId == null ? '' : r.userId, type: r.type == null ? 'Leave' : r.type, status: r.status == null ? 'pending' : r.status });
+  const showRecent = false;
+  if (showRecent) {
+    const recentCard = document.createElement('div');
+    recentCard.className = 'dash-card';
+    const recentTitle = document.createElement('div');
+    recentTitle.className = 'dash-card-title';
+    recentTitle.textContent = 'Recent Requests';
+    recentCard.appendChild(recentTitle);
+    const table = document.createElement('table');
+    table.className = 'dash-table';
+    table.innerHTML = '<thead><tr><th>User</th><th>Type</th><th>Status</th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    const rows = [];
+    for (const r of pendingLeave.slice(0, 6)) {
+      rows.push({ user: r.userId == null ? '' : r.userId, type: r.type == null ? 'Leave' : r.type, status: r.status == null ? 'pending' : r.status });
+    }
+    for (const r of pendingProfile.slice(0, 6)) {
+      rows.push({ user: (r.userId == null ? '' : r.userId) + (r.username ? ` ${r.username}` : ''), type: 'Profile', status: r.status == null ? 'pending' : r.status });
+    }
+    for (const it of rows.slice(0, 8)) {
+      const tr = document.createElement('tr');
+      const tdU = document.createElement('td');
+      tdU.textContent = String(it.user);
+      const tdT = document.createElement('td');
+      tdT.textContent = String(it.type);
+      const tdS = document.createElement('td');
+      const pill = document.createElement('span');
+      pill.className = 'dash-pill';
+      pill.textContent = String(it.status);
+      tdS.appendChild(pill);
+      tr.appendChild(tdU);
+      tr.appendChild(tdT);
+      tr.appendChild(tdS);
+      tbody.appendChild(tr);
+    }
+    if (!tbody.children.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '<div style="font-size:28px;">🗂️</div><div>保留中の申請はありません</div><a class="cta" href="/admin/leave/requests">承認待ち一覧を開く</a>';
+      recentCard.appendChild(empty);
+    } else {
+      recentCard.appendChild(table);
+    }
+    table.appendChild(tbody);
+    grid.appendChild(recentCard);
   }
-  for (const r of pendingProfile.slice(0, 6)) {
-    rows.push({ user: (r.userId == null ? '' : r.userId) + (r.username ? ` ${r.username}` : ''), type: 'Profile', status: r.status == null ? 'pending' : r.status });
-  }
-  for (const it of rows.slice(0, 8)) {
-    const tr = document.createElement('tr');
-    const tdU = document.createElement('td');
-    tdU.textContent = String(it.user);
-    const tdT = document.createElement('td');
-    tdT.textContent = String(it.type);
-    const tdS = document.createElement('td');
-    const pill = document.createElement('span');
-    pill.className = 'dash-pill';
-    pill.textContent = String(it.status);
-    tdS.appendChild(pill);
-    tr.appendChild(tdU);
-    tr.appendChild(tdT);
-    tr.appendChild(tdS);
-    tbody.appendChild(tr);
-  }
-  if (!tbody.children.length) {
-    const empty = document.createElement('div');
-    empty.className = 'empty-state';
-    empty.innerHTML = '<div style="font-size:28px;">🗂️</div><div>保留中の申請はありません</div><a class="cta" href="/admin/leave/requests">承認待ち一覧を開く</a>';
-    recentCard.appendChild(empty);
-  } else {
-    recentCard.appendChild(table);
-  }
-
-  table.appendChild(tbody);
-  grid.appendChild(recentCard);
 
   const workCard2 = document.createElement('div');
   workCard2.className = 'dash-card';

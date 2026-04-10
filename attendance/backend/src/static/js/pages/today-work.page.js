@@ -11,13 +11,8 @@ async function ensureAuthProfile() {
   }
   if (!profile) {
     try {
-      const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-      const r = await refresh(rt || undefined);
+      const r = await refresh();
       sessionStorage.setItem('accessToken', r.accessToken);
-      try {
-        sessionStorage.setItem('refreshToken', r.refreshToken || rt);
-        localStorage.setItem('refreshToken', r.refreshToken || rt);
-      } catch {}
       profile = await me(r.accessToken);
     } catch {}
   }
@@ -205,10 +200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const goLogin = async () => {
-    try {
-      const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-      await logout(rt || undefined);
-    } catch {}
+    try { await logout(); } catch {}
     try {
       sessionStorage.removeItem('accessToken');
       sessionStorage.removeItem('refreshToken');

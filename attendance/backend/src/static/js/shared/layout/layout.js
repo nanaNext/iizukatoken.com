@@ -74,10 +74,7 @@ export function initLayout() {
     const logoutBtn = document.querySelector('#nav-logout');
     if (logoutBtn) {
       logoutBtn.addEventListener('click', async () => {
-        try {
-          const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-          await logout(rt);
-        } catch { }
+        try { await logout(); } catch { }
         sessionStorage.removeItem('accessToken');
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('refreshToken');
@@ -114,10 +111,7 @@ export function initLayout() {
     const btnLogout = document.querySelector('#btnLogout');
     if (btnLogout) {
       btnLogout.addEventListener('click', async () => {
-        try {
-          const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-          await logout(rt);
-        } catch { }
+        try { await logout(); } catch { }
         sessionStorage.removeItem('accessToken');
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('refreshToken');

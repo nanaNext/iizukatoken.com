@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=0.75,minimum-scale=0.75,maximum-scale=3,user-scalable=yes">
+  <title>休暇欠勤台帳</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=navy-20260408-1">
+  <link rel="stylesheet" href="/static/css/attendance-monthly.css">
+  <link rel="stylesheet" href="/static/css/portal.css">
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+    .kintai-main { height: calc(100vh - 30px); overflow: auto !important; position: relative; padding: 0; }
+    .topbar .brand .icon { display: none; }
+    #mobileMenuBtn { display: none !important; }
+    .mobile-drawer { display: none !important; }
+    .mobile-drawer-backdrop { display: none !important; }
+    .se-employee-bar { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
+    .se-toggle {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #07366f; color: #fff; border: 2px solid #07366f;
+      cursor: pointer; margin-right: 8px;
+    }
+    .se-toggle.off { background: #fff; color: #07366f; }
+    /* summary table style similar to monthly */
+    #ledgerSummaryTable.se-summary table {
+      border-collapse: collapse; width: 100%;
+    }
+    #ledgerSummaryTable.se-summary thead th {
+      background: #0b2c66; color: #fff; font-weight: 900;
+      border-top: 1px solid rgba(255,255,255,.14);
+      border-right: 1px solid rgba(255,255,255,.14);
+      border-left: 1px solid rgba(255,255,255,.14);
+      padding: 6px 8px; white-space: nowrap; text-align: center;
+    }
+    #ledgerSummaryTable.se-summary tbody td {
+      background: #fff; color: #0f172a; font-weight: 700;
+      border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;
+      padding: 6px 8px; text-align: center; white-space: nowrap;
+    }
+    #ledgerSummaryTable.se-summary tr > :first-child { border-left: 1px solid #e5e7eb; }
+    #ledgerSummaryTable.se-summary thead th + th,
+    #ledgerSummaryTable.se-summary tbody td + td { border-left: 1px solid #e5e7eb; }
+    /* explanation table */
+    #ledgerExplainTable.se-summary table {
+      border-collapse: collapse; width: 100%;
+      font-size: 14px; line-height: 1.6;
+    }
+    #ledgerExplainTable.se-summary thead th {
+      background: #0b2c66; color: #fff; font-weight: 900;
+      border-top: 1px solid rgba(255,255,255,.14);
+      border-right: 1px solid rgba(255,255,255,.14);
+      border-left: 1px solid rgba(255,255,255,.14);
+      padding: 10px 12px; text-align: left; white-space: nowrap;
+    }
+    #ledgerExplainTable.se-summary tbody td {
+      background: #fff; color: #0f172a;
+      border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;
+      padding: 10px 12px; text-align: left;
+    }
+    #ledgerExplainTable.se-summary tbody td:first-child {
+      font-weight: 900; white-space: nowrap; width: 280px; text-align: left;
+      background: #0b2c66; color: #fff;
+      border-right: 1px solid rgba(255,255,255,.14);
+      letter-spacing: .2px;
+      color: #ffffff !important;
+    }
+    #ledgerExplainTable.se-summary thead th + th,
+    #ledgerExplainTable.se-summary tbody td + td { border-left: 1px solid #e5e7eb; }
+    /* sticky header only for metrics bottom table */
+    .metrics-table thead th {
+      position: sticky; top: 48px; z-index: 41;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, .15);
+    }
+    #ledgerExplainTable.se-summary tr > :first-child { border-left: 1px solid #e5e7eb; }
+    body.nav-js .kintai-dd { display: none !important; }
+    body.nav-js .kintai-nav .kintai-nav-dd.open > .kintai-dd { display: block !important; }
+    body.nav-js .kintai-nav-dd:focus-within .kintai-dd { display: none !important; }
+    .kintai-nav-dd:hover .kintai-dd { display: none !important; }
+    /* Strong page-specific override to avoid stacking */
+    .ledger-page .kintai-nav-dd .kintai-dd { display: none !important; }
+    .ledger-page .kintai-nav-dd.open > .kintai-dd { display: block !important; }
+    .ledger-page .kintai-nav-dd:hover .kintai-dd { display: none !important; }
+    .ledger-page .kintai-nav-dd:focus-within .kintai-dd { display: none !important; }
+    /* mobile responsive */
+    @media (max-width: 900px) {
+      .kintai-main { padding: 6px; }
+      .se-page-title { font-size: 17px; }
+      .se-employee-bar { padding: 4px 0 !important; }
+      .se-employee-meta { font-size: 12px; line-height: 1.4; }
+      .se-section-head { padding: 4px 6px; }
+      .se-section-body { padding: 4px 6px; }
+      .se-daily-switch { width: 32px; height: 18px; }
+      .se-daily-switch::after { width: 12px; height: 12px; }
+      .se-toolbar-field { gap: 6px; }
+      .se-toolbar-label { font-size: 12px; padding: 4px 8px; }
+      .se-toolbar-select { min-width: 140px; height: 26px; font-size: 12px; }
+      .se-summary { overflow-x: auto; }
+      #ledgerSummaryTable.se-summary table { width: max-content; }
+      #ledgerExplainTable.se-summary table { width: max-content; }
+      #ledgerSummaryTable.se-summary thead th,
+      #ledgerSummaryTable.se-summary tbody td { font-size: 12px; padding: 5px 6px; }
+      #ledgerExplainTable.se-summary thead th,
+      #ledgerExplainTable.se-summary tbody td { font-size: 12px; padding: 5px 6px; }
+      #ledgerExplainTable.se-summary tbody td:first-child { width: 180px; }
+      .metrics-table thead th { top: 44px; }
+      /* Topbar like monthly: compact logo, keep only logout */
+      .kintai-logo { font-size: 16px !important; line-height: 44px; height: 44px; }
+      .kintai-top-links .kintai-top-link:not(.logout-link) { display: none !important; }
+      .kintai-top-links { gap: 8px; justify-content: flex-end; }
+      /* Place selector inside screen on mobile: move below title and limit width */
+      .se-section-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+      .se-toolbar-field { width: 100%; justify-content: flex-start; }
+      #targetYear.se-toolbar-select { max-width: 80vw; }
+    }
+    /* improve visibility of toggle and year selector */
+    .se-daily-title { display: inline-flex; align-items: center; gap: 8px; }
+    .se-daily-switch {
+      width: 36px; height: 20px; border-radius: 999px;
+      background: #07366f; border: 2px solid #07366f; position: relative;
+    }
+    .se-section.collapsed .se-daily-switch { background: #cbd5e1; border-color: #94a3b8; }
+    .se-daily-switch::after {
+      content: ''; position: absolute; top: 50%; transform: translateY(-50%);
+      left: 4px; width: 14px; height: 14px; border-radius: 50%; background: #fff;
+      transition: left .2s ease;
+    }
+    .se-section.collapsed .se-daily-switch::after { left: 18px; }
+    .se-toolbar-field { display: inline-flex; align-items: center; gap: 8px; }
+    .se-toolbar-label {
+      background: #0b2c66; color: #fff; font-weight: 900;
+      padding: 6px 10px; border-radius: 6px; white-space: nowrap;
+    }
+    .se-toolbar-select {
+      min-width: 160px; height: 28px; border: 1px solid #cfe0f5; border-radius: 6px;
+      padding: 2px 8px; color: #0f172a;
+    }
+    /* compact mode like monthly */
+    .compact-mode .se-page-title { font-size: 16px; }
+    .compact-mode .se-section-head { padding: 4px 6px; }
+    .compact-mode .se-section-body { padding: 4px 6px; }
+    .compact-mode .se-summary { overflow-x: auto; }
+    .compact-mode #ledgerSummaryTable.se-summary table,
+    .compact-mode #ledgerExplainTable.se-summary table { width: max-content; }
+    .compact-mode #ledgerExplainTable.se-summary tbody td:first-child { width: 200px; }
+  </style>
+</head>
+<body class="nav-js ledger-page">
+  <header class="kintai-top">
+    <div class="kintai-top-inner">
+      <div class="kintai-brand">
+        <div class="kintai-logo">スマートE勤怠</div>
+      </div>
+      <nav class="kintai-nav" aria-label="main">
+        <div class="kintai-nav-dd">
+          <button class="kintai-nav-btn" type="button" data-dd="att" aria-haspopup="true" aria-expanded="false">
+            勤怠入力 <span class="kintai-caret">▾</span>
+          </button>
+          <div class="kintai-dd" data-dd-panel="att" hidden>
+            <a href="/ui/attendance">個人カレンダー登録画面</a>
+            <a href="/ui/attendance/monthly">月次勤怠入力へ</a>
+            <a href="/ui/attendance/simple">簡易登録画面</a>
+          </div>
+        </div>
+        <div class="kintai-nav-dd">
+          <button class="kintai-nav-btn active" type="button" data-dd="leave" aria-haspopup="true" aria-expanded="false">
+            有休管理 <span class="kintai-caret">▾</span>
+          </button>
+          <div class="kintai-dd" data-dd-panel="leave" hidden>
+            <a href="/ui/leave-ledger">休暇欠勤台帳</a>
+          </div>
+        </div>
+        <div class="kintai-nav-dd">
+          <button class="kintai-nav-btn" type="button" data-dd="common" aria-haspopup="true" aria-expanded="false">
+            共通機能 <span class="kintai-caret">▾</span>
+          </button>
+          <div class="kintai-dd" data-dd-panel="common" hidden>
+            <a href="/ui/change-password">パスワード変更画面</a>
+          </div>
+        </div>
+      </nav>
+      <div class="kintai-user">
+        <div class="kintai-top-links">
+          <a class="kintai-top-link" href="/ui/manual">操作マニュアル</a>
+          <a class="kintai-top-link" href="/ui/faq">よくある質問</a>
+          <a class="kintai-top-link logout-link" href="/ui/logout">ログアウト</a>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main class="kintai-main" style="padding:8px 16px 16px">
+    <div class="layout-container">
+      <div class="layout-main">
+        <div class="layout-header"></div>
+        <div class="layout-contents">
+          <div class="se-page-head">
+            <div class="se-page-title">休暇欠勤台帳</div>
+          </div>
+          <div class="se-employee-bar">
+            <div class="se-employee-left">
+              <div class="se-avatar" aria-hidden="true"><img src="/static/images/logoten.png" alt="" class="se-avatar-img"></div>
+              <div class="se-employee-meta">
+                <div class="se-employee-line">
+                  <span class="se-employee-k">社員番号</span>
+                  <span class="se-employee-v" id="empCode">—</span>
+                </div>
+                <div class="se-employee-line">
+                  <span class="se-employee-k">スタッフ名</span>
+                  <span class="se-employee-v" id="empName">—</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- tables removed per request -->
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="/static/js/pages/session-idle.js" defer></script>
+  <script src="/static/js/pages/kintai-topbar-links.js?v=navy-20260408-2" defer></script>
+  <script type="module" src="/static/js/pages/leave-ledger.page.js"></script>
+  </body>
+</html>

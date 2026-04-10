@@ -122,8 +122,7 @@ exports.login = async (req, res) => {
       username: user.username,
       email: user.email,
       role,
-      accessToken: token,
-      refreshToken: rt
+      accessToken: token
     });
     try {
       await auditRepo.writeLog({
@@ -216,13 +215,24 @@ exports.superReset = async (req, res) => {
     const { email, password, code } = req.body || {};
     const superEmail = process.env.SUPER_ADMIN_EMAIL;
     const resetCode = process.env.SUPER_ADMIN_RESET_CODE;
-    if (!email || !password || !code) {
-      return res.status(400).json({ message: 'Missing email/password/code' });
+    if (!password || !code) return res.status(400).json({ message: 'Missing password/code' });
+    if (!resetCode || code !== resetCode) return res.status(403).json({ message: 'Forbidden' });
+    let targetEmail = String(email || '').trim();
+    if (superEmail) {
+      if (!targetEmail) targetEmail = superEmail;
+      if (targetEmail !== superEmail) return res.status(403).json({ message: 'Forbidden' });
     }
-    if (email !== superEmail || code !== resetCode) {
-      return res.status(403).json({ message: 'Forbidden' });
+    let user = null;
+    if (targetEmail) {
+      user = await authRepository.findUserByEmail(targetEmail);
+    } else {
+      const db = require('../../core/database/mysql');
+      const [rows] = await db.query(`SELECT * FROM users WHERE LOWER(role) = 'admin' ORDER BY id ASC LIMIT 2`);
+      if (!rows || !rows.length) return res.status(404).json({ message: 'User not found.' });
+      if (rows.length > 1) return res.status(400).json({ message: 'Multiple admin users found; specify email.' });
+      user = rows[0];
+      targetEmail = user.email;
     }
-    const user = await authRepository.findUserByEmail(email);
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
@@ -230,6 +240,56 @@ exports.superReset = async (req, res) => {
     const hashed = isHash ? password : bcrypt.hashSync(password, bcryptRounds);
     await userRepo.setPassword(user.id, hashed);
     res.status(200).json({ ok: true, id: user.id });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Tạo SUPER ADMIN qua Postman khi chưa có, bảo vệ bằng code
+exports.superBootstrap = async (req, res) => {
+  try {
+    const { email, password, code, name } = req.body || {};
+    const superEmail = process.env.SUPER_ADMIN_EMAIL;
+    const resetCode = process.env.SUPER_ADMIN_RESET_CODE;
+    if (!password || !code) return res.status(400).json({ message: 'Missing password/code' });
+    if (!resetCode || code !== resetCode) return res.status(403).json({ message: 'Forbidden' });
+    const targetEmail = String(email || '').trim();
+    if (superEmail && targetEmail !== superEmail) return res.status(403).json({ message: 'Forbidden' });
+    if (!superEmail) {
+      const db = require('../../core/database/mysql');
+      const [cnt] = await db.query(`SELECT COUNT(*) AS c FROM users WHERE LOWER(role) = 'admin'`);
+      const hasAdmin = Number(cnt?.[0]?.c || 0) > 0;
+      if (hasAdmin) return res.status(409).json({ message: 'Admin already exists' });
+    }
+    if (!targetEmail) return res.status(400).json({ message: 'Missing email' });
+    const existing = await authRepository.findUserByEmail(targetEmail);
+    if (existing) {
+      return res.status(409).json({ message: 'User already exists' });
+    }
+    const hashed = /^\$2[aby]\$\d+\$/.test(password) ? password : bcrypt.hashSync(password, bcryptRounds);
+    const id = await userRepo.createUser({
+      employeeCode: null,
+      username: name || process.env.SUPER_ADMIN_NAME || 'Super Admin',
+      email: targetEmail,
+      password: hashed,
+      role: 'admin',
+      departmentId: null,
+      employmentType: 'full_time',
+      hireDate: new Date().toISOString().slice(0,10),
+      level: null,
+      managerId: null,
+      phone: null,
+      birthDate: null,
+      gender: null,
+      avatarUrl: null,
+      probationDate: null,
+      officialDate: null,
+      contractEnd: null,
+      baseSalary: null,
+      shiftId: null
+    });
+    try { await auditRepo.writeLog({ userId: id, action: 'super_bootstrap', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: null, afterData: JSON.stringify({ id, email: targetEmail }) }); } catch {}
+    res.status(201).json({ id, email: targetEmail });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -303,7 +363,7 @@ exports.refresh = async (req, res) => {
       path: '/api/auth'
     });
     setSessionCookie(req, res, token);
-    res.status(200).json({ accessToken: token, refreshToken: newRt });
+    res.status(200).json({ accessToken: token });
     try { require('../../core/metrics').inc('token_refresh', 1); } catch {}
   } catch (err) {
     res.status(500).json({ message: err.message });

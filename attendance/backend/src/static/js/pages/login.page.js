@@ -2,6 +2,13 @@ import { login, me, refresh } from '../api/auth.api.js';
 
 const $ = (sel) => document.querySelector(sel);
 
+try {
+  const p = String(window.location && window.location.pathname || '');
+  if (p.includes('expenses-login')) {
+    window.LOGIN_NEXT = '/ui/expenses';
+  }
+} catch {}
+
 function hidePageSpinner() {
   try {
     const ps = document.querySelector('#pageSpinner');
@@ -30,23 +37,18 @@ function setError(msg) {
   const el = $('#error'); el.textContent = msg || ''; el.style.display = msg ? 'block' : 'none';
 }
 
-function saveAuth({ accessToken, refreshToken, username, email, role }) {
+function saveAuth({ accessToken, username, email, role }) {
   sessionStorage.setItem('accessToken', accessToken);
   sessionStorage.setItem('user', JSON.stringify({ username, email, role }));
-  try { sessionStorage.setItem('refreshToken', refreshToken || ''); } catch {}
   try {
     localStorage.setItem('user', JSON.stringify({ username, email, role }));
-    localStorage.setItem('refreshToken', refreshToken || '');
   } catch {}
 }
 
 async function tryRefresh() {
   try {
-    const rt = sessionStorage.getItem('refreshToken') || '';
-    if (!rt) return null;
-    const r = await refresh(rt);
+    const r = await refresh();
     sessionStorage.setItem('accessToken', r.accessToken);
-    try { sessionStorage.setItem('refreshToken', r.refreshToken || rt); } catch {}
     return r.accessToken;
   } catch (e) { return null; }
 }
@@ -56,12 +58,16 @@ function getCookie(name) { return null; }
 function roleRedirect(role) {
   try { sessionStorage.setItem('navSpinner', '1'); } catch {}
   showPageSpinner();
-  const r = String(role || '').toLowerCase();
-  if (r === 'admin' || r === 'manager') {
-    window.location.href = '/admin/dashboard';
-    return;
-  }
-  window.location.href = '/ui/portal';
+  let next = '/ui/portal';
+  try {
+    const qn = new URLSearchParams(window.location.search).get('next');
+    if (qn) next = qn;
+  } catch {}
+  try {
+    const wnext = String(window.LOGIN_NEXT || '').trim();
+    if (wnext) next = wnext;
+  } catch {}
+  try { window.location.replace(next); } catch { window.location.href = next; }
 }
 
 async function handleSubmit(e) {
@@ -84,6 +90,10 @@ async function handleSubmit(e) {
   try {
     const data = await login(email, password);
     saveAuth(data);
+    try {
+      const grp = document.querySelector('.input-group');
+      if (grp) grp.classList.add('success');
+    } catch {}
     roleRedirect(data.role);
   } catch (err) {
     const msg = String(err.message || '').toLowerCase();
@@ -161,6 +171,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const pass = passwordInput && passwordInput.value != null ? String(passwordInput.value) : '';
     const ok = !!(email && pass);
     if (btn) { btn.disabled = !ok; btn.setAttribute('aria-disabled', (!ok).toString()); }
+    try {
+      const grp = document.querySelector('.input-group');
+      if (grp) {
+        const hasAny = !!(email || pass);
+        if (hasAny) grp.classList.add('filled');
+        else grp.classList.remove('filled');
+      }
+    } catch {}
   };
   updateBtnState();
   if (emailInput) emailInput.addEventListener('input', updateBtnState);

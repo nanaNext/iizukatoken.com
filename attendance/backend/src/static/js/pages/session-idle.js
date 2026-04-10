@@ -2,8 +2,10 @@
   if (globalThis.SessionIdle) return;
   if (/\/login(?:\.html)?$/.test(String(window.location.pathname || ''))) return;
 
-  const IDLE_TIMEOUT_MS = 25 * 60 * 1000;
-  const WARNING_MS = 5 * 60 * 1000;
+  const host = String(location.hostname || '').toLowerCase();
+  const isProd = host.endsWith('.iizukatoken.com') && !host.startsWith('app-stg.') && !host.startsWith('dev.') && !host.includes('-stg.');
+  const IDLE_TIMEOUT_MS = isProd ? (25 * 60 * 1000) : (8 * 60 * 60 * 1000);
+  const WARNING_MS = isProd ? (5 * 60 * 1000) : (10 * 60 * 1000);
   const GRACE_MS = 3 * 60 * 1000;
   const CHECK_MS = 10 * 1000;
   const ACTIVITY_KEY = 'se.lastActivityAt';
@@ -66,16 +68,13 @@
   const doLogout = async () => {
     flushDrafts();
     try { localStorage.setItem(FORCE_LOGOUT_KEY, String(now())); } catch {}
-    const rt = (() => {
-      try { return sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || ''; } catch { return ''; }
-    })();
     try {
       const csrf = getCookie('csrfToken');
       await fetch('/api/auth/logout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' },
         credentials: 'include',
-        body: JSON.stringify(rt ? { refreshToken: rt } : {})
+        body: JSON.stringify({})
       });
     } catch {}
     clearClientTokens();
@@ -83,15 +82,12 @@
   };
 
   const refreshSession = async () => {
-    const rt = (() => {
-      try { return sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || ''; } catch { return ''; }
-    })();
     const csrf = getCookie('csrfToken');
     const res = await fetch('/api/auth/refresh', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' },
       credentials: 'include',
-      body: JSON.stringify(rt ? { refreshToken: rt } : {})
+      body: JSON.stringify({})
     });
     if (!res.ok) {
       let msg = `HTTP ${res.status}`;
@@ -101,10 +97,6 @@
     const j = await res.json();
     if (j && j.accessToken) {
       try { sessionStorage.setItem('accessToken', j.accessToken); } catch {}
-    }
-    if (j && j.refreshToken) {
-      try { sessionStorage.setItem('refreshToken', j.refreshToken); } catch {}
-      try { localStorage.setItem('refreshToken', j.refreshToken); } catch {}
     }
     bump();
     return true;

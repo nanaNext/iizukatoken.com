@@ -17,7 +17,7 @@
   const { renderTable } = render;
   const { loadMonth } = api;
 
-  const renderContract = (host, detail) => {
+  const renderContract = async (host, detail) => {
     if (!host) return;
     const rows0 = Array.isArray(detail?.shiftAssignments) ? detail.shiftAssignments : [];
     const isISODate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || '').slice(0, 10));
@@ -77,7 +77,58 @@
       }
       return out.map(({ _k, ...r }) => r);
     })();
-    const rows = normalized.length ? normalized : rows0;
+    let rows = normalized.length ? normalized : rows0;
+    if (!rows.length) {
+      try {
+        const role = String(profile?.role || '').toLowerCase();
+        const uid = (role !== 'employee' && (state.currentViewingUserId || null)) ? String(state.currentViewingUserId) : '';
+        const ym = String((document.querySelector('#monthPicker2') || document.querySelector('#monthPicker'))?.value || '').trim();
+        const qp = [];
+        if (uid) qp.push(`userId=${encodeURIComponent(uid)}`);
+        if (/^\d{4}-\d{2}$/.test(ym)) qp.push(`ym=${encodeURIComponent(ym)}`);
+        const qs = qp.length ? ('?' + qp.join('&')) : '';
+        const prof = await fetchJSONAuth('/api/attendance/user-profile' + qs);
+        const s = prof?.contract?.shift || null;
+        if (s && (s.start_time || s.end_time)) {
+          rows = [{
+            shift: {
+              id: s.id || null,
+              name: s.name || '',
+              start_time: s.start_time || '',
+              end_time: s.end_time || '',
+              break_minutes: s.break_minutes || 0,
+              standard_minutes: s.standard_minutes || null
+            },
+            start_date: null,
+            end_date: null,
+            _suggest: true
+          }];
+          // Auto-apply shift assignment when month is empty and viewer is manager/admin
+          if ((role === 'admin' || role === 'manager') && s.id) {
+            try {
+              const ym = String((document.querySelector('#monthPicker2') || document.querySelector('#monthPicker'))?.value || '').trim();
+              const startDefault = /^\d{4}-\d{2}$/.test(ym) ? `${ym}-01` : null;
+              if (startDefault) {
+                await fetchJSONAuth('/api/attendance/shifts/assign', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    userId: state.currentViewingUserId || undefined,
+                    shiftId: s.id,
+                    startDate: startDefault,
+                    endDate: null
+                  })
+                });
+                // reload month to reflect applied shift
+                const { detail, timesheet } = await loadMonth(ym, (role === 'employee') ? null : (state.currentViewingUserId || null));
+                state.currentMonthDetail = detail;
+                state.currentMonthTimesheet = timesheet;
+                rows = Array.isArray(detail?.shiftAssignments) ? detail.shiftAssignments : rows;
+              }
+            } catch {}
+          }
+        }
+      } catch {}
+    }
     const fmtBreak = (min) => {
       const m = Number(min);
       if (!Number.isFinite(m) || m < 0) return '—';
@@ -113,9 +164,10 @@
           const std = s ? fmtStd(s.standard_minutes) : '—';
           const sd = r?.start_date || '—';
           const ed = r?.end_date || '—';
+          const sug = r?._suggest ? '（社員情報）' : '';
           return `<tr>
             <td>${esc(i + 1)}</td>
-            <td>${esc(name)}</td>
+            <td>${esc(name)}${esc(sug)}</td>
             <td>${esc(st)}</td>
             <td>${esc(et)}</td>
             <td>${esc(br)}</td>
@@ -131,11 +183,61 @@
     host.appendChild(table);
   };
 
-  const renderWorkDetail = (host, detail, profile) => {
+  const renderWorkDetail = async (host, detail, profile) => {
     if (!host) return;
     const role = String(profile?.role || '').toLowerCase();
     const canManage = role === 'admin' || role === 'manager';
-    const rows = Array.isArray(detail?.workDetails) ? detail.workDetails : [];
+    let rows = Array.isArray(detail?.workDetails) ? detail.workDetails : [];
+    if (!rows.length) {
+      try {
+        const uid = (role !== 'employee' && (state.currentViewingUserId || null)) ? String(state.currentViewingUserId) : '';
+        const ym = String((document.querySelector('#monthPicker2') || document.querySelector('#monthPicker'))?.value || '').trim();
+        const qp = [];
+        if (uid) qp.push(`userId=${encodeURIComponent(uid)}`);
+        if (/^\d{4}-\d{2}$/.test(ym)) qp.push(`ym=${encodeURIComponent(ym)}`);
+        const qs = qp.length ? ('?' + qp.join('&')) : '';
+        const prof = await fetchJSONAuth('/api/attendance/user-profile' + qs);
+        if (Array.isArray(prof?.workDetails) && prof.workDetails.length) {
+          const w = prof.workDetails[0];
+          rows = [{
+            id: null,
+            startDate: w.start_date || '',
+            endDate: w.end_date || '',
+            companyName: w.company_name || '',
+            workPlaceAddress: w.work_place_address || '',
+            workContent: w.work_content || '',
+            roleTitle: w.role_title || '',
+            responsibilityLevel: w.responsibility_level || '',
+            _suggest: true
+          }];
+          // Auto-apply first work detail when month is empty and viewer is manager/admin
+          if (role === 'admin' || role === 'manager') {
+            try {
+              const ym = String((document.querySelector('#monthPicker2') || document.querySelector('#monthPicker'))?.value || '').trim();
+              const startDefault = /^\d{4}-\d{2}$/.test(ym) ? `${ym}-01` : (rows[0].startDate || '');
+              await fetchJSONAuth('/api/attendance/work-details', {
+                method: 'POST',
+                body: JSON.stringify({
+                  userId: state.currentViewingUserId || undefined,
+                  startDate: startDefault || null,
+                  endDate: rows[0].endDate || null,
+                  companyName: rows[0].companyName || '',
+                  workPlaceAddress: rows[0].workPlaceAddress || '',
+                  workContent: rows[0].workContent || '',
+                  roleTitle: rows[0].roleTitle || '',
+                  responsibilityLevel: rows[0].responsibilityLevel || ''
+                })
+              });
+              // reload month to reflect applied work detail
+              const { detail, timesheet } = await loadMonth(ym, (role === 'employee') ? null : (state.currentViewingUserId || null));
+              state.currentMonthDetail = detail;
+              state.currentMonthTimesheet = timesheet;
+              rows = Array.isArray(detail?.workDetails) ? detail.workDetails : rows;
+            } catch {}
+          }
+        }
+      } catch {}
+    }
     const esc2 = (v) => esc(v == null ? '' : v);
     const table = document.createElement('table');
     table.innerHTML = `
@@ -162,8 +264,10 @@
           const resp = r?.responsibilityLevel || '';
           const ops = canManage ? `
             <td style="white-space:nowrap;">
-              <button type="button" class="se-mini-btn" data-wd-action="edit" data-wd-id="${esc2(id)}">編集</button>
-              <button type="button" class="se-mini-btn" data-wd-action="del" data-wd-id="${esc2(id)}">削除</button>
+              ${r?._suggest ? `<button type="button" class="se-mini-btn" data-wd-action="apply" data-wd-id="suggest">適用</button>` : `
+                <button type="button" class="se-mini-btn" data-wd-action="edit" data-wd-id="${esc2(id)}">編集</button>
+                <button type="button" class="se-mini-btn" data-wd-action="del" data-wd-id="${esc2(id)}">削除</button>
+              `}
             </td>
           ` : '';
           return `<tr>
@@ -258,16 +362,33 @@
     host.querySelectorAll('button[data-wd-action][data-wd-id]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const action = String(btn.getAttribute('data-wd-action') || '');
-        const id = parseInt(String(btn.getAttribute('data-wd-id') || ''), 10);
-        if (!id) return;
+        const idRaw = String(btn.getAttribute('data-wd-id') || '');
+        const id = parseInt(idRaw, 10);
+        if (action !== 'apply' && !id) return;
         try {
-          const cur = rows.find(x => String(x?.id) === String(id)) || null;
+          const cur = action === 'apply' ? (rows.find(x => x?._suggest) || null) : (rows.find(x => String(x?.id) === String(id)) || null);
           if (!cur) return;
           if (action === 'del') {
             if (!confirm('削除します。よろしいですか？')) return;
             await fetchJSONAuth(`/api/attendance/work-details/${encodeURIComponent(String(id))}`, {
               method: 'DELETE',
               body: JSON.stringify({ userId: state.currentViewingUserId || undefined })
+            });
+          } else if (action === 'apply') {
+            const ym = String((document.querySelector('#monthPicker2') || document.querySelector('#monthPicker'))?.value || '').trim();
+            const startDefault = /^\d{4}-\d{2}$/.test(ym) ? `${ym}-01` : (cur.startDate || '');
+            await fetchJSONAuth('/api/attendance/work-details', {
+              method: 'POST',
+              body: JSON.stringify({
+                userId: state.currentViewingUserId || undefined,
+                startDate: startDefault || null,
+                endDate: cur.endDate || null,
+                companyName: cur.companyName || cur.company_name || '',
+                workPlaceAddress: cur.workPlaceAddress || cur.work_place_address || '',
+                workContent: cur.workContent || cur.work_content || '',
+                roleTitle: cur.roleTitle || cur.role_title || '',
+                responsibilityLevel: cur.responsibilityLevel || cur.responsibility_level || ''
+              })
             });
           } else if (action === 'edit') {
             const startDate = promptDate('適用開始日 (YYYY-MM-DD)', cur.startDate || '', false);
@@ -553,26 +674,33 @@
     const paidText = Number.isFinite(paidDays) ? Number(paidDays).toFixed(1) : '0.0';
 
     const table = document.createElement('table');
+    const L = {
+      planned: '所定日数', attend: '出勤日数', holiday: '休日出勤日数', standby: '待機日数',
+      total: '総労働時間', night: '深夜時間', overtime: '総残業時間', legal: '法定外時間',
+      paid: '有休日数', entitlement: '有給付与', substitute: '代休日数', unpaid: '無給休暇',
+      absent: '欠勤日数', deduction: '控除時間', onsite: '出社日数', remote: '在宅日数', satellite: '現場・出張日数'
+    };
     if (mode === 'sumAll') {
       table.innerHTML = `
       <thead>
         <tr>
-          <th>所定日数</th>
-          <th>出勤日数</th>
-          <th>休日出勤日数</th>
-          <th>待機日数</th>
-          <th>総労働時間</th>
-          <th>深夜時間</th>
-          <th>総残業時間</th>
-          <th>法定外時間</th>
-          <th>有休日数</th>
-          <th>代休日数</th>
-          <th>無給休暇</th>
-          <th>欠勤日数</th>
-          <th>控除時間</th>
-          <th>出社日数</th>
-          <th>在宅日数</th>
-          <th>現場・出張日数</th>
+          <th>${esc(L.planned)}</th>
+          <th>${esc(L.attend)}</th>
+          <th>${esc(L.holiday)}</th>
+          <th>${esc(L.standby)}</th>
+          <th>${esc(L.total)}</th>
+          <th>${esc(L.night)}</th>
+          <th>${esc(L.overtime)}</th>
+          <th>${esc(L.legal)}</th>
+          <th>${esc(L.paid)}</th>
+          <th>${esc(L.entitlement)}</th>
+          <th>${esc(L.substitute)}</th>
+          <th>${esc(L.unpaid)}</th>
+          <th>${esc(L.absent)}</th>
+          <th>${esc(L.deduction)}</th>
+          <th>${esc(L.onsite)}</th>
+          <th>${esc(L.remote)}</th>
+          <th>${esc(L.satellite)}</th>
         </tr>
       </thead>
       <tbody>
@@ -586,6 +714,7 @@
           <td>${esc(fmtHm(totals.overtime))}</td>
           <td>${esc(fmtHm(legalOvertimeMin))}</td>
           <td>${esc(paidText)}日</td>
+          <td>${esc(detail?.user?.paidLeaveEntitlement || '—')}日</td>
           <td>${esc(substituteDays)}日</td>
           <td>${esc(unpaidDays)}日</td>
           <td>${esc(absent2)}日</td>
@@ -600,18 +729,18 @@
       table.innerHTML = `
       <thead>
         <tr>
-          <th>所定日数</th>
-          <th>出勤日数</th>
-          <th>休日出勤日数</th>
-          <th>待機日数</th>
-          <th>総労働時間</th>
-          <th>深夜時間</th>
-          <th>総残業時間</th>
-          <th>法定外時間</th>
-          <th>有休日数</th>
-          <th>代休日数</th>
-          <th>無給休暇</th>
-          <th>欠勤日数</th>
+          <th>${esc(L.planned)}</th>
+          <th>${esc(L.attend)}</th>
+          <th>${esc(L.holiday)}</th>
+          <th>${esc(L.standby)}</th>
+          <th>${esc(L.total)}</th>
+          <th>${esc(L.night)}</th>
+          <th>${esc(L.overtime)}</th>
+          <th>${esc(L.legal)}</th>
+          <th>${esc(L.paid)}</th>
+          <th>${esc(L.substitute)}</th>
+          <th>${esc(L.unpaid)}</th>
+          <th>${esc(L.absent)}</th>
         </tr>
       </thead>
       <tbody>
@@ -636,7 +765,110 @@
     host.appendChild(table);
   };
 
-  const mod = { renderContract, renderWorkDetail, renderSummary };
+  const renderPlan = (host, detail, profile) => {
+    if (!host) return;
+    const days = Array.isArray(detail?.days) ? detail.days : [];
+    const table = document.createElement('table');
+    table.innerHTML = `
+    <thead>
+      <tr>
+        <th>日付</th>
+        <th>勤務区分</th>
+        <th>企業名</th>
+        <th>開始時刻</th>
+        <th>終了時刻</th>
+        <th>休憩時間</th>
+        <th>深夜休憩</th>
+        <th>勤務時間</th>
+        <th>勤務形態</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${
+        days.map(d => {
+          const ds = String(d?.date || '');
+          const dow = core.dowJa(ds);
+          const isOff = Number(d?.is_off || 0) === 1;
+          const plan = d?.plan || null;
+          const shift = d?.shift || null;
+          
+          const kubun = isOff ? '休日' : '出勤';
+          const company = plan?.location || '';
+          const st = plan?.startTime || shift?.start_time || '';
+          const et = plan?.endTime || shift?.end_time || '';
+          const br = plan?.breakMinutes != null ? plan.breakMinutes : (shift?.break_minutes || 0);
+          const nb = plan?.nightBreakMinutes || 0;
+          const wt = plan?.workType || (isOff ? '' : '契約なし');
+          
+          let workMin = 0;
+          if (st && et) {
+            const sM = core.parseHm(st);
+            const eM = core.parseHm(et);
+            if (sM != null && eM != null) {
+              const raw = eM >= sM ? (eM - sM) : (eM + 1440 - sM);
+              workMin = Math.max(0, raw - br - nb);
+            }
+          }
+
+          return `<tr class="${isOff ? 'off' : ''}">
+            <td>${esc(ds.slice(5).replace('-', '/'))}(${esc(dow)})</td>
+            <td>${esc(kubun)}</td>
+            <td><input type="text" class="se-input plan-input" data-date="${ds}" data-field="location" value="${esc(company)}"></td>
+            <td><input type="time" class="se-input plan-input" data-date="${ds}" data-field="startTime" value="${esc(st)}"></td>
+            <td><input type="time" class="se-input plan-input" data-date="${ds}" data-field="endTime" value="${esc(et)}"></td>
+            <td>
+              <select class="se-select plan-input" data-date="${ds}" data-field="breakMinutes">
+                <option value="60" ${br === 60 ? 'selected' : ''}>1:00</option>
+                <option value="45" ${br === 45 ? 'selected' : ''}>0:45</option>
+                <option value="30" ${br === 30 ? 'selected' : ''}>0:30</option>
+                <option value="0" ${br === 0 ? 'selected' : ''}>0:00</option>
+              </select>
+            </td>
+            <td>0:00</td>
+            <td>${esc(core.fmtHm(workMin))}</td>
+            <td><input type="text" class="se-input plan-input" data-date="${ds}" data-field="workType" value="${esc(wt)}"></td>
+          </tr>`;
+        }).join('')
+      }
+    </tbody>
+    `;
+    host.innerHTML = '';
+    host.appendChild(table);
+
+    // Bind inputs
+    host.querySelectorAll('.plan-input').forEach(el => {
+      el.addEventListener('change', async (e) => {
+        const date = el.dataset.date;
+        const field = el.dataset.field;
+        const val = el.value;
+        const row = el.closest('tr');
+        const plan = days.find(d => d.date === date)?.plan || {};
+        plan[field] = (field === 'breakMinutes') ? parseInt(val, 10) : val;
+        
+        try {
+          await fetchJSONAuth('/api/attendance/plan', {
+            method: 'PUT',
+            body: JSON.stringify({ date, plan })
+          });
+          // Recalculate work time locally
+          const st = row.querySelector('[data-field="startTime"]').value;
+          const et = row.querySelector('[data-field="endTime"]').value;
+          const br = parseInt(row.querySelector('[data-field="breakMinutes"]').value, 10);
+          if (st && et) {
+            const sM = core.parseHm(st);
+            const eM = core.parseHm(et);
+            const raw = eM >= sM ? (eM - sM) : (eM + 1440 - sM);
+            const wm = Math.max(0, raw - br);
+            row.children[7].textContent = core.fmtHm(wm);
+          }
+        } catch (err) {
+          console.error('Plan save failed:', err);
+        }
+      });
+    });
+  };
+
+  const mod = { renderContract, renderWorkDetail, renderSummary, renderPlan };
   root.SectionsRender = mod;
   globalThis.AttendanceMonthly = root;
   globalThis.MonthlyMonthlySectionsRender = mod;

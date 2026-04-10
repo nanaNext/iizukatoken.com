@@ -6,7 +6,8 @@ module.exports = {
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS login_fail_count INT DEFAULT 0,
       ADD COLUMN IF NOT EXISTS locked_until DATETIME NULL,
-      ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 1
+      ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS email_lower VARCHAR(255) NULL
     `;
     try {
       await db.query(sql);
@@ -27,16 +28,20 @@ module.exports = {
         if (!set.has('token_version')) {
           await db.query(`ALTER TABLE users ADD COLUMN token_version INT NOT NULL DEFAULT 1`);
         }
+        if (!set.has('email_lower')) {
+          await db.query(`ALTER TABLE users ADD COLUMN email_lower VARCHAR(255) NULL`);
+        }
       } catch {}
     }
+    try { await db.query(`UPDATE users SET email = TRIM(email) WHERE email IS NOT NULL AND (email REGEXP '^[[:space:]]|[[:space:]]$')`); } catch {}
+    try { await db.query(`UPDATE users SET email_lower = LOWER(TRIM(email)) WHERE email IS NOT NULL AND (email_lower IS NULL OR email_lower = '' OR email_lower != LOWER(TRIM(email)))`); } catch {}
+    try { await db.query(`ALTER TABLE users ADD UNIQUE KEY uniq_email_lower (email_lower)`); } catch {}
   },
   async findUserByEmail(email) {
-    try { await db.query(`ALTER TABLE users ADD COLUMN email_lower VARCHAR(255) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD UNIQUE KEY uniq_email_lower (email_lower)`); } catch {}
-    try { await db.query(`UPDATE users SET email_lower = LOWER(email) WHERE email IS NOT NULL AND (email_lower IS NULL OR email_lower = '')`); } catch {}
-    let [rows] = await db.query(`SELECT * FROM users WHERE email_lower = LOWER(?) LIMIT 1`, [email]);
+    const e = String(email || '').trim();
+    let [rows] = await db.query(`SELECT * FROM users WHERE email_lower = LOWER(?) LIMIT 1`, [e]);
     if (!rows || !rows.length) {
-      [rows] = await db.query(`SELECT * FROM users WHERE email = ? LIMIT 1`, [email]);
+      [rows] = await db.query(`SELECT * FROM users WHERE TRIM(email) = ? LIMIT 1`, [e]);
     }
     return rows[0];
   },
@@ -47,8 +52,6 @@ module.exports = {
   },
 
   async createUser({ username, email, password }) {
-    try { await db.query(`ALTER TABLE users ADD COLUMN email_lower VARCHAR(255) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD UNIQUE KEY uniq_email_lower (email_lower)`); } catch {}
     const sql = `INSERT INTO users (username, email, email_lower, password) VALUES (?, ?, LOWER(?), ?)`;
     const [result] = await db.query(sql, [username, email, email, password]);
     return result.insertId;

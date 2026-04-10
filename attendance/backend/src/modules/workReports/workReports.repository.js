@@ -60,7 +60,6 @@ module.exports = {
   ensureSchema,
   ensureMonthClosureSchema,
   async isMonthClosed(month) {
-    await ensureMonthClosureSchema();
     const [[row]] = await db.query(`
       SELECT month
       FROM work_report_month_closures
@@ -70,7 +69,6 @@ module.exports = {
     return !!row;
   },
   async closeMonth(month, closedBy) {
-    await ensureMonthClosureSchema();
     await db.query(`
       INSERT INTO work_report_month_closures (month, closed_by)
       VALUES (?, ?)
@@ -79,7 +77,6 @@ module.exports = {
     return { month, closed: true };
   },
   async upsert({ userId, date, attendanceId, workType, site, work }) {
-    await ensureSchema();
     const sql = `
       INSERT INTO work_reports (userId, date, attendanceId, work_type, site, work)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -93,7 +90,6 @@ module.exports = {
     return res.insertId || null;
   },
   async getByUserDate(userId, date) {
-    await ensureSchema();
     const [[row]] = await db.query(`
       SELECT *
       FROM work_reports
@@ -103,7 +99,6 @@ module.exports = {
     return row || null;
   },
   async listByUserMonth(userId, month) {
-    await ensureSchema();
     const [y, m] = String(month || '').split('-').map(n => parseInt(n, 10));
     const start = `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-01`;
     const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
@@ -116,7 +111,6 @@ module.exports = {
     return rows || [];
   },
   async listByMonth(month) {
-    await ensureSchema();
     const [y, m] = String(month || '').split('-').map(n => parseInt(n, 10));
     const start = `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-01`;
     const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
@@ -129,7 +123,6 @@ module.exports = {
     return rows || [];
   },
   async listByDate(date) {
-    await ensureSchema();
     const [rows] = await db.query(`
       SELECT *
       FROM work_reports

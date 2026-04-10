@@ -1,15 +1,25 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, authorize } = require('../../core/middleware/authMiddleware');
+const { rateLimit, rateLimitNamed } = require('../../core/middleware/rateLimit');
 const repo = require('./workReports.repository');
 const attendanceRepo = require('../attendance/attendance.repository');
 const calendarRepo = require('../calendar/calendar.repository');
 const db = require('../../core/database/mysql');
+const { classifyMonthlyDay } = require('../attendance/attendance.classifier');
 
 const isISODate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const isYM = (s) => /^\d{4}-\d{2}$/.test(String(s || ''));
 const todayJST = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 const monthJST = () => todayJST().slice(0, 7);
+const weekdayJa = (dateStr) => {
+  const s = String(dateStr || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '';
+  const [y, m, d] = s.split('-').map(n => parseInt(n, 10));
+  const labels = ['日', '月', '火', '水', '木', '金', '土'];
+  const idx = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return labels[idx] || '';
+};
 const monthRange = (month) => {
   const [y, m] = String(month).split('-').map(n => parseInt(n, 10));
   const start = `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-01`;
@@ -21,8 +31,6 @@ router.use(authenticate);
 
 router.get('/', authorize('admin', 'manager'), async (req, res) => {
   try {
-    await repo.ensureSchema().catch(() => null);
-    await attendanceRepo.ensureAttendanceSchemaPublic().catch(() => null);
     const date = isISODate(req.query?.date) ? String(req.query.date) : todayJST();
     const isOff = await calendarRepo.isOff(date).catch(() => false);
     const [rows] = await db.query(`
@@ -101,6 +109,7 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
           checkOut: r.checkOut || null
         },
         status,
+        dailyKubun: kubun || null,
         workType: wt,
         report: hasReport ? {
           workType: wt,
@@ -120,9 +129,11 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
   }
 });
 
-router.post('/backfill-worktype', authorize('admin', 'manager'), async (req, res) => {
+router.post('/backfill-worktype',
+  rateLimitNamed('workreports_backfill_worktype', { windowMs: 60_000, max: 10 }),
+  authorize('admin', 'manager'),
+  async (req, res) => {
   try {
-    await attendanceRepo.ensureAttendanceSchemaPublic().catch(() => null);
     const date = isISODate(req.body?.date) ? String(req.body.date) : todayJST();
     const wtRaw = String(req.body?.workType || req.body?.work_type || 'onsite').trim();
     const workType = wtRaw === 'onsite' || wtRaw === 'remote' || wtRaw === 'satellite' ? wtRaw : 'onsite';
@@ -140,10 +151,11 @@ router.post('/backfill-worktype', authorize('admin', 'manager'), async (req, res
   }
 });
 
-router.get('/export.xlsx', authorize('admin', 'manager'), async (req, res) => {
+router.get('/export.xlsx',
+  rateLimitNamed('workreports_export_xlsx', { windowMs: 60_000, max: 10 }),
+  authorize('admin', 'manager'),
+  async (req, res) => {
   try {
-    await repo.ensureSchema().catch(() => null);
-    await attendanceRepo.ensureAttendanceSchemaPublic().catch(() => null);
     const period = String(req.query?.period || 'day').toLowerCase();
     const qDate = String(req.query?.date || todayJST()).slice(0, 10);
     const qMonth = String(req.query?.month || qDate.slice(0, 7)).slice(0, 7);
@@ -636,55 +648,21 @@ router.get('/month', authorize('admin', 'manager'), async (req, res) => {
       try { assigns = await attendanceRepo.listShiftAssignmentsBetween(uid, start, end); } catch { assigns = []; }
       for (const d of daysInMonth) {
         const kubun = dailyByUserDate.get(`${uid}|${d}`) || '';
-        const offKubun = new Set(['休日', '代替休日']);
-        const leaveKubun = new Set(['有給休暇', '無給休暇', '欠勤']);
-        const isOffKubun = offKubun.has(kubun);
-        const forceLeave = leaveKubun.has(kubun) || isOnLeave(uid, d);
-        if (forceLeave || isOffKubun) {
-          const entry = { status: 'leave', report: null, kubun, plan: null };
-          if (wantDebug) entry.debug = { date: d, userId: uid, reason: forceLeave ? 'kubun_or_approved_leave' : 'off_kubun', kubun, isOffDate: isOffDate(d), hasAttendance: false };
-          perDay[d] = entry;
-          continue;
-        }
         const a = attLatest.get(`${uid}|${d}`) || null;
-        if (!a) {
-          const effKubun = kubun || '';
-          const workLike = new Set(['出勤', '半休']);
-          const leaveLike = new Set(['欠勤', '有給休暇', '無給休暇']);
-          if (leaveLike.has(effKubun)) {
-            const entry = { status: 'leave', report: null, kubun: effKubun, plan: null };
-            if (wantDebug) entry.debug = { date: d, userId: uid, reason: 'kubun_leave', kubun: effKubun, isOffDate: isOffDate(d), hasAttendance: false };
-            perDay[d] = entry;
-            continue;
-          }
-          if (workLike.has(effKubun)) {
-            const entry = { status: 'leave', report: null, kubun: '欠勤', plan: null };
-            if (wantDebug) entry.debug = { date: d, userId: uid, reason: 'worklike_no_attendance_absent', kubun: effKubun, isOffDate: isOffDate(d), hasAttendance: false };
-            perDay[d] = entry;
-            continue;
-          }
-          // Không có chấm công và chưa chọn kubun: hiển thị 予 theo kế hoạch (work/off) dựa theo phân ca của nhân viên
-          const plan = getPlanFor(assigns, d);
-          const entry = { status: 'planned', plan, report: null, kubun: null };
-          if (wantDebug) entry.debug = { date: d, userId: uid, reason: 'planned_no_data', kubun: null, plan, isOffDate: isOffDate(d), hasAttendance: false };
-          perDay[d] = entry;
-          continue;
-        }
-        // Nếu là ngày quá khứ mà chỉ có checkIn không có checkOut, coi như 欠勤 thay vì 出
-        if (a && !a.checkOut) {
-          const today = todayJST();
-          if (String(d) < String(today)) {
-            const entry = { status: 'leave', report: null, kubun: '欠勤', plan: null };
-            if (wantDebug) entry.debug = { date: d, userId: uid, reason: 'past_in_without_out_absent', kubun: '欠勤', isOffDate: isOffDate(d), hasAttendance: true, hasOut: false };
-            perDay[d] = entry;
-            continue;
-          }
-        }
-        const status = a ? (a.checkOut ? 'checked_out' : 'working') : 'not_checked_in';
+        const plan = getPlanFor(assigns, d);
+        const cls = classifyMonthlyDay({
+          date: d,
+          kubun,
+          isOnLeaveApproved: isOnLeave(uid, d),
+          isPlannedOff: plan === 'off',
+          hasAttendance: !!a,
+          hasCheckOut: !!a?.checkOut
+        });
+        const status = cls.status;
         const rep = reportMap.get(`${uid}|${d}`) || null;
         const report = rep ? { site: rep.site, work: rep.work, updatedAt: rep.updated_at || rep.updatedAt || null } : null;
-        const entry = { status, report, kubun, plan: null };
-        if (wantDebug) entry.debug = { date: d, userId: uid, reason: status === 'working' ? 'in_progress' : 'checked_out', kubun, isOffDate: isOffDate(d), hasAttendance: true, hasOut: !!a.checkOut };
+        const entry = { status, report, kubun: cls.kubun || kubun || null, plan: status === 'planned' ? cls.plan : null };
+        if (wantDebug) entry.debug = { date: d, userId: uid, kubun, plan, isOffDate: isOffDate(d), hasAttendance: !!a, hasOut: !!a?.checkOut, status };
         perDay[d] = entry;
         if (status === 'checked_out') {
           requiredTotal++;
@@ -708,6 +686,184 @@ router.get('/month', authorize('admin', 'manager'), async (req, res) => {
       range: { start, end },
       days: daysInMonth,
       summary: { required: requiredTotal, submitted: submittedTotal, missing: missingTotal },
+      items
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.post('/backfill/daily',
+  rateLimitNamed('workreports_backfill_daily', { windowMs: 60_000, max: 10 }),
+  authorize('admin', 'manager'),
+  async (req, res) => {
+  try {
+    const { userId, fromDate, toDate, month } = req.body || {};
+    const parseMonth = (s) => {
+      const m = String(s || '');
+      if (!/^\d{4}-\d{2}$/.test(m)) return null;
+      const y = parseInt(m.slice(0, 4), 10);
+      const mm = parseInt(m.slice(5, 7), 10);
+      if (!y || !mm || mm < 1 || mm > 12) return null;
+      const pad = (n) => String(n).padStart(2, '0');
+      const lastDay = new Date(Date.UTC(y, mm, 0)).getUTCDate();
+      return { from: `${y}-${pad(mm)}-01`, to: `${y}-${pad(mm)}-${pad(lastDay)}` };
+    };
+    const range = month ? parseMonth(month) : null;
+    const from = String(range ? range.from : fromDate || '').slice(0, 10);
+    const to = String(range ? range.to : toDate || '').slice(0, 10);
+    if (!from || !to) return res.status(400).json({ message: 'Missing from/to or month' });
+    const uid = userId != null ? parseInt(String(userId), 10) : null;
+    const params = [];
+    let sql = `
+      SELECT wr.userId, wr.date, wr.work_type, wr.site, wr.work
+      FROM work_reports wr
+      WHERE wr.date >= ? AND wr.date <= ?
+    `;
+    params.push(from, to);
+    if (uid) { sql += ` AND wr.userId = ?`; params.push(uid); }
+    sql += ` ORDER BY wr.userId ASC, wr.date ASC`;
+    const [rows] = await db.query(sql, params);
+    let updated = 0;
+    let users = new Set();
+    for (const r of (rows || [])) {
+      const u = Number(r.userId);
+      const d = String(r.date).slice(0, 10);
+      if (!u || !/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      users.add(u);
+      const payload = {
+        workType: r.work_type || null,
+        location: r.site || null,
+        memo: r.work || null
+      };
+      try {
+        const res1 = await attendanceRepo.upsertDaily(u, d, payload);
+        updated += Number(res1?.affectedRows || 0);
+      } catch {}
+    }
+    res.status(200).json({ ok: true, users: Array.from(users), from, to, updated });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/month/list', authorize('admin', 'manager'), async (req, res) => {
+  try {
+    const month = isYM(req.query?.month) ? String(req.query.month) : monthJST();
+    const { start, end } = monthRange(month);
+
+    const [users] = await db.query(`
+      SELECT u.id AS userId,
+             u.employee_code AS employeeCode,
+             u.username AS username,
+             u.departmentId AS departmentId,
+             d.name AS departmentName
+      FROM users u
+      LEFT JOIN departments d ON d.id = u.departmentId
+      WHERE u.employment_status = 'active'
+        AND u.role IN ('employee','manager')
+      ORDER BY COALESCE(u.employee_code, '') ASC, u.id ASC
+    `);
+    const userMap = new Map((users || []).map(u => [Number(u.userId), u]));
+
+    const [attRows] = await db.query(`
+      SELECT a.userId,
+             DATE(a.checkIn) AS date,
+             MIN(a.checkIn) AS firstCheckIn,
+             MAX(a.checkOut) AS lastCheckOut,
+             MAX(CASE WHEN a.work_type IS NOT NULL AND a.work_type <> '' THEN a.work_type ELSE NULL END) AS attendanceWorkType
+      FROM attendance a
+      WHERE DATE(a.checkIn) >= ? AND DATE(a.checkIn) <= ?
+        AND a.userId IN (
+          SELECT id
+          FROM users
+          WHERE employment_status = 'active'
+            AND role IN ('employee','manager')
+        )
+      GROUP BY a.userId, DATE(a.checkIn)
+      ORDER BY DATE(a.checkIn) ASC, a.userId ASC
+    `, [start, end]);
+
+    const [dailyRows] = await db.query(`
+      SELECT userId, date, kubun, work_type, location, memo
+      FROM attendance_daily
+      WHERE date >= ? AND date <= ?
+    `, [start, end]);
+    const dailyMap = new Map();
+    for (const r of (dailyRows || [])) {
+      dailyMap.set(`${r.userId}|${String(r.date).slice(0, 10)}`, {
+        kubun: r.kubun || null,
+        workType: r.work_type || null,
+        location: r.location || null,
+        memo: r.memo || null
+      });
+    }
+
+    const reports = await repo.listByMonth(month);
+    const reportMap = new Map();
+    for (const r of (reports || [])) {
+      reportMap.set(`${r.userId}|${String(r.date).slice(0, 10)}`, r);
+    }
+
+    const items = [];
+    let submitted = 0;
+    let missing = 0;
+    const workingUsers = new Set();
+    for (const a of (attRows || [])) {
+      const userId = Number(a.userId);
+      const user = userMap.get(userId);
+      if (!user) continue;
+      const date = String(a.date || a.firstCheckIn || '').slice(0, 10);
+      if (!date) continue;
+      const key = `${userId}|${date}`;
+      const rep = reportMap.get(key) || null;
+      const daily = dailyMap.get(key) || null;
+      const site = String(rep?.site || daily?.location || '').trim() || null;
+      const work = String(rep?.work || daily?.memo || '').trim() || null;
+      const workType = rep?.work_type || daily?.workType || a.attendanceWorkType || null;
+      const status = a.lastCheckOut
+        ? ((site || work) ? 'submitted' : 'missing')
+        : 'working';
+      if (status === 'submitted') submitted++;
+      else if (status === 'missing') missing++;
+      workingUsers.add(userId);
+      items.push({
+        userId,
+        employeeCode: user.employeeCode || null,
+        username: user.username || null,
+        departmentId: user.departmentId || null,
+        departmentName: user.departmentName || null,
+        date,
+        weekday: weekdayJa(date),
+        attendance: {
+          checkIn: a.firstCheckIn || null,
+          checkOut: a.lastCheckOut || null
+        },
+        kubun: daily?.kubun || null,
+        workType,
+        site,
+        work,
+        status
+      });
+    }
+
+    items.sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      const ac = String(a.employeeCode || '').toUpperCase();
+      const bc = String(b.employeeCode || '').toUpperCase();
+      if (ac !== bc) return ac < bc ? -1 : 1;
+      return Number(a.userId || 0) - Number(b.userId || 0);
+    });
+
+    res.status(200).json({
+      month,
+      range: { start, end },
+      summary: {
+        employees: workingUsers.size,
+        workedDays: items.length,
+        submitted,
+        missing
+      },
       items
     });
   } catch (err) {
@@ -793,7 +949,10 @@ router.get('/month/:userId', authorize('admin', 'manager'), async (req, res) => 
   }
 });
 
-router.post('/close-month', authorize('admin', 'manager'), async (req, res) => {
+router.post('/close-month',
+  rateLimitNamed('workreports_close_month', { windowMs: 60_000, max: 5 }),
+  authorize('admin', 'manager'),
+  async (req, res) => {
   try {
     const month = isYM(req.body?.month) ? String(req.body.month) : null;
     if (!month) return res.status(400).json({ message: 'Missing month' });
@@ -809,7 +968,6 @@ router.get('/:userId', authorize('admin', 'manager'), async (req, res) => {
     const userId = parseInt(String(req.params.userId || ''), 10);
     if (!userId) return res.status(400).json({ message: 'Invalid userId' });
     const date = isISODate(req.query?.date) ? String(req.query.date) : todayJST();
-    await repo.ensureSchema();
     const [[row]] = await db.query(`
       SELECT
         wr.*,

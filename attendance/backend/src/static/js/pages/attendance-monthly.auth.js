@@ -21,13 +21,13 @@
     return res.json();
   }
 
-  async function refresh(refreshToken) {
+  async function refresh() {
     const csrf = getCookie('csrfToken');
     const res = await fetch(`${AUTH_BASE}/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' },
       credentials: 'include',
-      body: JSON.stringify(refreshToken ? { refreshToken } : {})
+      body: JSON.stringify({})
     });
     if (!res.ok) {
       let msg = `HTTP ${res.status}`;
@@ -39,15 +39,13 @@
 
   let refreshInFlight = null;
   let refreshCooldownUntil = 0;
-  async function refreshCached(refreshToken) {
+  async function refreshCached() {
     const now = Date.now();
     if (now < refreshCooldownUntil) throw new Error('Too many requests');
     if (refreshInFlight) return refreshInFlight;
-    const rt = String(refreshToken || '').trim();
-    if (!rt) throw new Error('Missing refreshToken');
     refreshInFlight = (async () => {
       try {
-        return await refresh(rt);
+        return await refresh();
       } catch (e) {
         const msg = String(e?.message || '');
         if (msg.includes('HTTP 429') || msg.toLowerCase().includes('too many requests')) {
@@ -61,13 +59,13 @@
     return refreshInFlight;
   }
 
-  async function logout(refreshToken) {
+  async function logout() {
     const csrf = getCookie('csrfToken');
     const res = await fetch(`${AUTH_BASE}/logout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' },
       credentials: 'include',
-      body: JSON.stringify(refreshToken ? { refreshToken } : {})
+      body: JSON.stringify({})
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
@@ -102,10 +100,8 @@
     });
     if (!res.ok && (res.status === 401 || res.status === 403)) {
       try {
-        const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-        const r = await refreshCached(rt || undefined);
+        const r = await refreshCached();
         sessionStorage.setItem('accessToken', r.accessToken);
-        try { sessionStorage.setItem('refreshToken', r.refreshToken || rt); localStorage.setItem('refreshToken', r.refreshToken || rt); } catch {}
         const csrf2 = getCookie('csrfToken');
         res = await fetch(url, {
           headers: {
@@ -145,10 +141,8 @@
     let res = await fetch(url, { headers: { 'Authorization': tok ? 'Bearer ' + tok : '', 'X-CSRF-Token': csrf || '' }, credentials: 'include' });
     if (res.status === 401 || res.status === 403) {
       try {
-        const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-        const r = await refreshCached(rt || undefined);
+        const r = await refreshCached();
         sessionStorage.setItem('accessToken', r.accessToken);
-        try { sessionStorage.setItem('refreshToken', r.refreshToken || rt); localStorage.setItem('refreshToken', r.refreshToken || rt); } catch {}
         tok = r.accessToken;
         const csrf2 = getCookie('csrfToken');
         res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + tok, 'X-CSRF-Token': csrf2 || '' }, credentials: 'include' });
@@ -174,13 +168,8 @@
     if (token) { try { profile = await me(token); } catch {} }
     if (!profile) {
       try {
-        const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-        const r = await refreshCached(rt || undefined);
+        const r = await refreshCached();
         sessionStorage.setItem('accessToken', r.accessToken);
-        try {
-          sessionStorage.setItem('refreshToken', r.refreshToken || rt);
-          localStorage.setItem('refreshToken', r.refreshToken || rt);
-        } catch {}
         profile = await me(r.accessToken);
       } catch {}
     }

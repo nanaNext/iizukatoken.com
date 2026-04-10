@@ -11,11 +11,21 @@ exports.list = async (req, res) => {
     const departmentId = req.query.departmentId != null ? String(req.query.departmentId || '').trim() : null;
     const employmentStatus = req.query.employmentStatus != null ? String(req.query.employmentStatus || '').trim() : null;
     const usePaged = q || limit != null || offset != null || role || departmentId || employmentStatus;
+    const superEmail = (process.env.SUPER_ADMIN_EMAIL || '').trim().toLowerCase();
+    const meRole = String(req.user?.role || '').toLowerCase();
+    const meEmail = String(req.user?.email || '').trim().toLowerCase();
+    const isSuper = (superEmail && meEmail === superEmail) || meRole === 'super_admin' || meRole === 'super';
     if (usePaged) {
       const r = await repo.listUsersPaged({ q, role: role || null, departmentId: departmentId || null, employmentStatus: employmentStatus || null, limit, offset });
+      if (!isSuper && superEmail) {
+        const rows2 = (r.rows || []).filter(u => String(u.email || '').trim().toLowerCase() !== superEmail);
+        const delta = (r.rows || []).length - rows2.length;
+        return res.status(200).json({ ...r, rows: rows2, total: Math.max(0, Number(r.total || 0) - delta) });
+      }
       return res.status(200).json(r);
     }
-    const rows = await repo.listUsers();
+    let rows = await repo.listUsers();
+    if (!isSuper && superEmail) rows = (rows || []).filter(u => String(u.email || '').trim().toLowerCase() !== superEmail);
     return res.status(200).json(rows);
   } catch (err) {
     res.status(500).json({ message: err.message });

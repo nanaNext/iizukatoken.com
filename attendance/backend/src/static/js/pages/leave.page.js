@@ -37,6 +37,7 @@ const clearDraft = () => {
 
 async function renderBalance() {
   const box = $('#balance');
+  if (!box) { await renderMyRequests(); return; }
   box.innerHTML = '<div>残数を読み込み中…</div>';
   try {
     const r = await myPaidBalance();
@@ -55,7 +56,7 @@ async function renderBalance() {
     `;
     await renderMyRequests();
   } catch (e) {
-    box.innerHTML = `<div style="color:#b00">取得失敗: ${e?.message || 'error'}</div>`;
+    if (box) box.innerHTML = `<div style="color:#b00">取得失敗: ${e?.message || 'error'}</div>`;
   }
 }
 
@@ -63,15 +64,45 @@ async function renderMyRequests() {
   const box = $('#applyResult');
   try {
     const rows = await listMyRequests();
-    const tr = rows.map(r => `<tr><td>${r.startDate}〜${r.endDate}</td><td>${r.type}</td><td>${r.status}</td></tr>`).join('');
-    const tbl = `
-      <h3>申請履歴</h3>
-      <table style="width:100%">
-        <thead><tr><th>期間</th><th>種類</th><th>状態</th></tr></thead>
-        <tbody>${tr}</tbody>
-      </table>
+    const tr = rows.map((r, i) => {
+      const no = `R-${String(i + 1).padStart(7, '0')}`;
+      const type = r.type || '—';
+      const status = String(r.status || '').toLowerCase();
+      const label = status === 'approved' ? '承認済み' : status === 'rejected' ? '却下' : '承認待ち';
+      const cls = status === 'approved' ? 'adj-status-approved' : status === 'rejected' ? 'adj-status-rejected' : 'adj-status-pending';
+      return `
+        <tr>
+          <td style="white-space:nowrap;"><a href="#">${no}</a></td>
+          <td><span class="${cls}">${label}</span></td>
+          <td>${type}</td>
+          <td>${r.startDate || ''} 〜 ${r.endDate || ''}</td>
+        </tr>
+      `;
+    }).join('');
+    box.innerHTML = `
+      <div class="adjust-list-header-row">
+        <h3 class="adj-list-title">申請</h3>
+        <div class="adj-toolbar">
+          <input id="leaveSearch" placeholder="このリストを検索…" class="adj-search-input">
+        </div>
+      </div>
+      <div class="adj-table-card">
+        <table class="adj-table">
+          <thead><tr><th>申請番号</th><th>ステータス</th><th>レコードタイプ</th><th>期間</th></tr></thead>
+          <tbody>${tr}</tbody>
+        </table>
+      </div>
     `;
-    box.innerHTML = tbl;
+    const q = document.getElementById('leaveSearch');
+    if (q) {
+      q.addEventListener('input', () => {
+        const text = String(q.value || '').trim().toLowerCase();
+        box.querySelectorAll('.adj-table tbody tr').forEach(tr => {
+          const hit = tr.textContent.toLowerCase().includes(text);
+          tr.style.display = hit ? '' : 'none';
+        });
+      });
+    }
   } catch (err) {
     box.innerHTML = '履歴取得失敗: ' + (err?.message || 'error');
   }
@@ -111,7 +142,7 @@ function initApply() {
       await applyPaidLeave({ startDate, endDate, reason });
       result.textContent = '申請しました';
       clearDraft();
-      await renderBalance();
+      await renderMyRequests();
     } catch (err) {
       result.textContent = '申請失敗: ' + (err?.message || 'error');
     }
@@ -120,5 +151,5 @@ function initApply() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   initApply();
-  await renderBalance();
+  await renderMyRequests();
 });

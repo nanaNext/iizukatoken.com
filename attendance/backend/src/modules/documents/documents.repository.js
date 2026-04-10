@@ -19,7 +19,6 @@ async function ensureTable() {
   `);
 }
 async function listFiltered({ userId, types, from, to, owner, page, pageSize }) {
-  await ensureTable();
   const where = [];
   const params = [];
   if (userId) {
@@ -57,7 +56,6 @@ async function listFiltered({ userId, types, from, to, owner, page, pageSize }) 
   return { rows, page: p, pageSize: ps, total, pages: Math.ceil(total / ps) };
 }
 async function getById(id) {
-  await ensureTable();
   const [rows] = await db.query(
     `SELECT id, user_id as userId, type, title, description, filename, mime, size, uploaded_by as uploadedBy, created_at as createdAt
      FROM employee_documents WHERE id = ? LIMIT 1`,

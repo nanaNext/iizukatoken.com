@@ -1,0 +1,2 @@
+Current: enum('未入力','未承認','遅刻','承認待ち','承認済み')
+Already has chikoku - no change needed

@@ -7,6 +7,7 @@ export function wireAdminShell({ logoutRedirect = '/ui/login' } = {}) {
   wireUserMenu();
   wireMobileDrawer();
   wireLogout(logoutRedirect);
+  wireTopbarSearch();
 }
 
 export function wireTopbarHeightVar() {
@@ -39,6 +40,26 @@ export function wireUserMenu() {
       const t = e && e.target;
       if (t && t.closest && t.closest('.user-menu')) return;
       try { btn.setAttribute('aria-expanded', 'false'); } catch {}
+    });
+  } catch {}
+}
+
+export function wireTopbarSearch() {
+  try {
+    const input = document.querySelector('.topbar .search input');
+    if (!input) return;
+    if (input.dataset.bound === '1') return;
+    input.dataset.bound = '1';
+    const go = () => {
+      const q = String(input.value || '').trim();
+      const url = q ? `/admin/employees?q=${encodeURIComponent(q)}` : `/admin/employees`;
+      try { window.location.assign(url); } catch { window.location.href = url; }
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        go();
+      }
     });
   } catch {}
 }
@@ -96,10 +117,7 @@ export function wireLogout(logoutRedirect = '/ui/login') {
     if (btnLogout.dataset.bound === '1') return;
     btnLogout.dataset.bound = '1';
     btnLogout.addEventListener('click', async () => {
-      try {
-        const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-        await logout(rt || undefined);
-      } catch {}
+      try { await logout(); } catch {}
       try {
         sessionStorage.removeItem('accessToken');
         sessionStorage.removeItem('refreshToken');

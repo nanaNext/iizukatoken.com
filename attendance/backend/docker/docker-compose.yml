@@ -9,27 +9,105 @@ services:
     restart: always
     ports:
       - "3000:3000"
+    volumes:
+      - uploads:/app/attendance/backend/src/uploads
     environment:
       - NODE_ENV=production
+      - PORT=3000
       - DB_HOST=db
       - DB_USER=root
-      - DB_PASSWORD=secret
-      - DB_NAME=attendance
+      - DB_PASSWORD=1234567
+      - DB_NAME=attendance_db
       - COMPANY_NAME=飯塚塗研株式会社
     depends_on:
       - db
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/ping',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  api-staging:
+    build:
+      context: ../../..
+      dockerfile: attendance/backend/docker/Dockerfile
+    container_name: attendance-api-staging
+    restart: always
+    ports:
+      - "3001:3001"
+    volumes:
+      - uploads_staging:/app/attendance/backend/src/uploads
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=staging
+      - DISABLE_SCHEDULERS=true
+      - PORT=3001
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=1234567
+      - DB_NAME=attendance_staging
+      - COMPANY_NAME=飯塚塗研株式会社
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3001/ping',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   db:
     image: mysql:8
     container_name: attendance-db
     restart: always
     environment:
-      - MYSQL_ROOT_PASSWORD=secret
-      - MYSQL_DATABASE=attendance
+      - MYSQL_ROOT_PASSWORD=1234567
+      - MYSQL_DATABASE=attendance_db
     ports:
       - "3307:3306"
     volumes:
       - db_data:/var/lib/mysql
 
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: attendance-nginx
+    restart: always
+    depends_on:
+      - api
+      - api-staging
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../../backend/docker/nginx/default.conf:/etc/nginx/templates/default.conf.template:ro
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - certbot-web:/var/www/certbot
+    environment:
+      - APP_SERVER_NAME=${APP_SERVER_NAME}
+      - STAGING_SERVER_NAME=${STAGING_SERVER_NAME}
+      - APP_BACKEND=${APP_BACKEND:-api:3000}
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: attendance-certbot
+    profiles: ["certbot"]
+    ports:
+      - "80:80"
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - certbot-web:/var/www/certbot
+    entrypoint: /bin/sh
+    command: -c "certbot certonly --standalone -d $${APP_SERVER_NAME} -d $${STAGING_SERVER_NAME} --email $${LETSENCRYPT_EMAIL} --agree-tos --non-interactive --keep-until-expiring"
+    environment:
+      - APP_SERVER_NAME=${APP_SERVER_NAME}
+      - STAGING_SERVER_NAME=${STAGING_SERVER_NAME}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+
 volumes:
   db_data:
+  certbot-etc:
+  certbot-var:
+  certbot-web:
+  uploads:
+  uploads_staging:

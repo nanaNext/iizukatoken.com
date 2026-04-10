@@ -20,13 +20,14 @@
     return { detail, timesheet };
   };
 
-  const collectUpdates = (root, ym, userId) => {
+  const collectUpdates = (root, ym, userId, options = {}) => {
     const [y, m] = String(ym).split('-').map(x => parseInt(x, 10));
+    const includeAll = !!options?.includeAll;
     const rows = Array.from(root.querySelectorAll('[data-row="1"][data-date]'));
     const updates = [];
     const dailyUpdates = [];
     for (const tr of rows) {
-      if (String(tr.dataset.dirty || '') !== '1') continue;
+      if (!includeAll && String(tr.dataset.dirty || '') !== '1') continue;
       const dateStr = tr.dataset.date;
       const idRaw = String(tr.dataset.id || '').trim();
       let clientId = String(tr.dataset.clientId || '').trim();
@@ -73,7 +74,26 @@
           String(memo || '') !== base.memo ||
           br !== base.breakVal ||
           nb !== base.nightBreakVal;
-        if (changed) {
+        const hasMeaningfulDaily =
+          !!kubunVal ||
+          kubunConfirmed === 1 ||
+          !!wtNorm ||
+          !!String(loc || '').trim() ||
+          !!String(reason || '').trim() ||
+          !!String(memo || '').trim() ||
+          !!base.kubun ||
+          base.kubunConfirmed === 1 ||
+          !!base.workType ||
+          !!String(base.location || '').trim() ||
+          !!String(base.reason || '').trim() ||
+          !!String(base.memo || '').trim() ||
+          br !== '1:00' ||
+          nb !== '0:00' ||
+          base.breakVal !== '1:00' ||
+          base.nightBreakVal !== '0:00';
+        if (changed || (includeAll && hasMeaningfulDaily)) {
+          const shiftStart = String(tr.dataset.shiftStart || '08:00').trim();
+          const checkInRaw = String(tr.querySelector('input[data-field="checkIn"]')?.value || '').trim();
           dailyUpdates.push({
             date: String(dateStr).slice(0, 10),
             kubun: kubunVal,
@@ -83,7 +103,9 @@
             reason: String(reason || '').trim(),
             memo: String(memo || '').trim(),
             breakMinutes,
-            nightBreakMinutes
+            nightBreakMinutes,
+            shiftStart,
+            checkInTime: checkInRaw || null
           });
         }
       }
@@ -130,13 +152,15 @@
       }
       const workType = wt === 'onsite' || wt === 'remote' || wt === 'satellite' ? wt : null;
       if (idRaw) {
-        if (clearFlag) {
+        if (clearFlag || (!checkIn && !checkOut)) {
           updates.push({ id: parseInt(idRaw, 10), delete: true });
-        } else {
+        } else if (checkIn) {
           updates.push({ id: parseInt(idRaw, 10), checkIn, checkOut, workType });
         }
-      } else if (checkIn || checkOut) {
+      } else if (checkIn) {
         updates.push({ clientId, checkIn, checkOut, workType });
+      } else if (includeAll && clearFlag) {
+        updates.push({ clientId, delete: true });
       }
     }
     return { year: y, month: m, userId: userId || undefined, updates, dailyUpdates };

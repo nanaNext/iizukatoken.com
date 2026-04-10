@@ -34,6 +34,81 @@ const showToast = (msg, kind = 'success') => {
   }, 2000);
 };
 
+const setupSimpleCombo = (sel) => {
+  if (!sel) return;
+  if (sel.dataset.comboInit === '1') return;
+  const wrap = document.createElement('div');
+  wrap.className = 'simple-combo';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'simple-combo-btn';
+  const text = document.createElement('span');
+  text.className = 'simple-combo-text';
+  const caret = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  caret.setAttribute('class', 'simple-combo-caret');
+  caret.setAttribute('viewBox', '0 0 24 24');
+  caret.setAttribute('aria-hidden', 'true');
+  const caretPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  caretPath.setAttribute('d', 'M6 9h12l-6 6z');
+  caretPath.setAttribute('fill', '#1d4ed8');
+  caret.appendChild(caretPath);
+  btn.appendChild(text);
+  btn.appendChild(caret);
+  const list = document.createElement('div');
+  list.className = 'simple-combo-list';
+  list.setAttribute('hidden', '');
+  wrap.appendChild(btn);
+  wrap.appendChild(list);
+  sel.style.display = 'none';
+  sel.parentNode.insertBefore(wrap, sel.nextSibling);
+  const renderList = () => {
+    list.innerHTML = '';
+    const opts = Array.from(sel.querySelectorAll('option'));
+    for (const o of opts) {
+      const it = document.createElement('button');
+      it.type = 'button';
+      it.className = 'simple-combo-item';
+      it.textContent = o.textContent || '';
+      it.dataset.value = o.value || '';
+      if (o.disabled) it.disabled = true;
+      list.appendChild(it);
+    }
+  };
+  const open = (v) => {
+    if (v) {
+      list.removeAttribute('hidden');
+      wrap.classList.add('open');
+    } else {
+      list.setAttribute('hidden', '');
+      wrap.classList.remove('open');
+    }
+  };
+  btn.addEventListener('click', () => {
+    open(list.hasAttribute('hidden'));
+  });
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) open(false);
+  });
+  list.addEventListener('click', (e) => {
+    const b = e.target.closest('.simple-combo-item');
+    if (!b || b.disabled) return;
+    sel.value = b.dataset.value || '';
+    text.textContent = b.textContent || '';
+    wrap.classList.toggle('is-planned', sel.classList.contains('is-planned'));
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    open(false);
+  });
+  const sync = () => {
+    renderList();
+    const opt = sel.selectedOptions && sel.selectedOptions[0] ? sel.selectedOptions[0] : sel.querySelector('option:not([disabled])');
+    text.textContent = opt ? (opt.textContent || '') : '';
+    wrap.classList.toggle('is-planned', sel.classList.contains('is-planned'));
+  };
+  sync();
+  sel.dataset.comboInit = '1';
+  sel.addEventListener('change', sync);
+};
+
 const reportDraftKey = (date) => `attendanceSimple.workReport.${date}`;
 const saveDraft = (date, site, work) => {
   try { localStorage.setItem(reportDraftKey(date), JSON.stringify({ site: site || '', work: work || '' })); } catch {}
@@ -93,6 +168,64 @@ const fmtJP = (date) => {
   const dow = ['日','月','火','水','木','金','土'][dt.getUTCDay()];
   return `${y}/${m}/${d}(${dow})`;
 };
+const fmtYmd = (dateTimeStr) => {
+  try {
+    const s = String(dateTimeStr || '');
+    const d = s.slice(0, 10);
+    if (isISODate(d)) {
+      const [y,m,d2] = d.split('-');
+      return `${y}/${m}/${d2}`;
+    }
+    const dt = new Date(s);
+    const y = dt.getUTCFullYear();
+    const m = String(dt.getUTCMonth() + 1).padStart(2,'0');
+    const d2 = String(dt.getUTCDate()).padStart(2,'0');
+    return `${y}/${m}/${d2}`;
+  } catch { return '—'; }
+};
+const renderNotices = async (date) => {
+  try {
+    const box = $('#noticeBox');
+    const title = $('#noticeTitle');
+    if (!box) return;
+    const r = await fetchJSONAuth(`/api/notices?date=${encodeURIComponent(date)}&limit=10`).catch(() => null);
+    const items = Array.isArray(r?.notices) ? r.notices : [];
+    if (title) {
+      const latest = items.length ? items[0] : null;
+      title.textContent = `お知らせ（最終更新日：${latest ? fmtYmd(latest.created_at) : '—'}）`;
+    }
+    if (!items.length) {
+      box.innerHTML = `<div class="simple-notice-empty">お知らせはありません</div>`;
+      return;
+    }
+    const html = [
+      `<div class="simple-notice-list">`,
+      ...items.map(n => `
+        <details class="simple-notice-item ${n.read_at ? 'is-read' : 'is-unread'}">
+          <summary class="simple-notice-summary">
+            <div class="simple-notice-left">
+              <span class="simple-notice-tag">お知らせ</span>
+              <span class="simple-notice-preview">${esc(String(n.message || '').slice(0, 200))}</span>
+            </div>
+            <span class="simple-notice-time">${esc(fmtYmd(n.created_at))}</span>
+          </summary>
+          <div class="simple-notice-body">${esc(String(n.message || ''))}</div>
+        </details>
+      `),
+      `</div>`
+    ].join('');
+    box.innerHTML = html;
+    try {
+      const ids = items.filter(it => !it.read_at).map(it => it.id);
+      if (ids.length) {
+        // Lazy mark as read
+        fetchJSONAuth('/api/notices/read', { method: 'POST', body: JSON.stringify({ ids }) }).catch(() => {});
+      }
+    } catch {}
+  } catch {
+    try { $('#noticeBox').textContent = 'お知らせの取得に失敗しました'; } catch {}
+  }
+};
 
 const parseHm = (hm) => {
   const s = String(hm || '').trim();
@@ -116,13 +249,8 @@ async function ensureAuthProfile() {
   if (token) { try { profile = await me(token); } catch {} }
   if (!profile) {
     try {
-      const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-      const r = await refresh(rt || undefined);
+      const r = await refresh();
       sessionStorage.setItem('accessToken', r.accessToken);
-      try {
-        sessionStorage.setItem('refreshToken', r.refreshToken || rt);
-        localStorage.setItem('refreshToken', r.refreshToken || rt);
-      } catch {}
       profile = await me(r.accessToken);
     } catch {}
   }
@@ -198,22 +326,25 @@ const syncWorkTypeButtons = () => {
 };
 
 const applyHolidayRestMode = () => {
+  const st = window.state || {};
   const kubun = String($('#kubun')?.value || '').trim();
-  const restHoliday = !!state.isOff && kubun === '休日';
-  state.restHoliday = restHoliday;
+  const restHoliday = !!st.isOff && kubun === '休日';
+  st.restHoliday = restHoliday;
+  window.state = st;
 
   const toggle = (el, hidden) => {
     if (!el) return;
     el.style.display = hidden ? 'none' : '';
   };
 
-  toggle(document.querySelector('.simple-stamp-stack'), restHoliday);
-  toggle(document.querySelector('.simple-grid2'), restHoliday);
-  toggle($('#workMinutes')?.closest('.simple-row'), restHoliday);
-  toggle(document.querySelector('.simple-worktype-buttons'), restHoliday);
+  const nonWorking = restHoliday || ['欠勤', '有給休暇', '半休', '無給休暇'].includes(kubun);
+  toggle(document.querySelector('.simple-stamp-stack'), nonWorking);
+  toggle(document.querySelector('.simple-grid2'), nonWorking);
+  toggle($('#workMinutes')?.closest('.simple-row'), nonWorking);
+  toggle(document.querySelector('.simple-worktype-buttons'), nonWorking);
   toggle(document.querySelector('.simple-work-report'), restHoliday);
 
-  if (restHoliday) {
+  if (nonWorking) {
     const st = $('#startTime');
     const et = $('#endTime');
     if (st) {
@@ -228,6 +359,10 @@ const applyHolidayRestMode = () => {
     }
     const wt = $('#workType');
     if (wt) wt.value = '';
+    const btnIn = $('#btnStartStamp');
+    const btnOut = $('#btnEndStamp');
+    if (btnIn) btnIn.disabled = true;
+    if (btnOut) btnOut.disabled = true;
     const siteEl = $('#workSite');
     const workEl = $('#workContent');
     // Không tự động xóa site/work nếu đã có dữ liệu (để user có thể lưu báo cáo ngày nghỉ nếu muốn)
@@ -238,11 +373,11 @@ const applyHolidayRestMode = () => {
   } else {
     const st = $('#startTime');
     const et = $('#endTime');
-    if (st && !String(st.value || '').trim() && /^\d{2}:\d{2}$/.test(String(state.shiftStart || ''))) {
-      applyAutoTime(st, state.shiftStart);
+    if (st && !String(st.value || '').trim() && /^\d{2}:\d{2}$/.test(String((window.state || {}).shiftStart || ''))) {
+      applyAutoTime(st, (window.state || {}).shiftStart);
     }
-    if (et && !String(et.value || '').trim() && /^\d{2}:\d{2}$/.test(String(state.shiftEnd || ''))) {
-      applyAutoTime(et, state.shiftEnd);
+    if (et && !String(et.value || '').trim() && /^\d{2}:\d{2}$/.test(String((window.state || {}).shiftEnd || ''))) {
+      applyAutoTime(et, (window.state || {}).shiftEnd);
     }
     renderWorkMinutes();
   }
@@ -359,12 +494,7 @@ const load = async (date) => {
   showSpinner(true);
   try {
     $('#topDate').textContent = fmtJP(date);
-    try {
-      const box = $('#noticeBox');
-      if (box) box.innerHTML = `<div class="simple-notice-empty">お知らせは勤怠入力画面で確認してください。</div>`;
-    } catch {
-      try { $('#noticeBox').textContent = 'お知らせは勤怠入力画面で確認してください。'; } catch {}
-    }
+    await renderNotices(date);
     const isOff = await getCalendarOff(date);
     const shift = await getShiftForDate(date).catch(() => null);
     const shiftStart = String(shift?.start_time || FIXED_START).trim();
@@ -400,6 +530,7 @@ const load = async (date) => {
         selK.innerHTML = `<option value="" disabled>${kubunGroupLabel}</option>${kubunOptions.map(k => `<option value="${k}">${k}</option>`).join('')}`;
         selK.value = kubunOptions.includes(kubunInit) ? kubunInit : defaultKubun;
         selK.classList.toggle('is-planned', !kubunSaved);
+        setupSimpleCombo(selK);
       }
     } catch {}
     const day = await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}`);
@@ -416,9 +547,18 @@ const load = async (date) => {
         } catch {}
       }
     }
-    const status = seg?.checkIn ? (seg?.checkOut ? '承認済' : '未承認') : '未承認';
+    const hasActual = !!(seg?.checkIn || seg?.checkOut);
+    const isPlanned = !kubunSaved && !hasActual;
+    const roleStr = String(window.userRole || '').toLowerCase();
+    const isAdminView = roleStr === 'admin' || roleStr === 'manager';
+    const status = (() => {
+      if (isPlanned) return '未申請';
+      if (hasActual) return isAdminView ? '承認待ち' : '未確認';
+      return '—';
+    })();
     $('#topStatus').textContent = status;
     $('#panelStatus').textContent = status;
+    try { $('#topDate').textContent = fmtJP(date); } catch {}
 
     const stampSeg = openSeg || seg;
     const st = $('#startTime');
@@ -454,12 +594,19 @@ const load = async (date) => {
       const hasOpen = !!openSeg?.checkIn && !openSeg?.checkOut;
       if (btnIn) {
         btnIn.disabled = !canStamp || hasOpen;
-        btnIn.textContent = hasOpen && openSeg?.checkIn ? `開始打刻済 (${String(openSeg.checkIn).slice(11, 16)})` : '開始打刻';
+        const hmIn = hasOpen && openSeg?.checkIn ? String(openSeg.checkIn).slice(11, 16) : '';
+        const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
+        btnIn.textContent = hasOpen && hmIn
+          ? (isMobile ? `開始済 (${hmIn})` : `開始打刻済 (${hmIn})`)
+          : '開始打刻';
       }
       if (btnOut) {
         btnOut.disabled = !canStamp || !hasOpen;
         if (hasOpen) btnOut.textContent = '終了打刻';
-        else if (outTime) btnOut.textContent = `終了打刻済 (${outTime})`;
+        else if (outTime) {
+          const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
+          btnOut.textContent = isMobile ? `終了済 (${outTime})` : `終了打刻済 (${outTime})`;
+        }
         else btnOut.textContent = '終了打刻';
       }
     } catch {}
@@ -468,6 +615,7 @@ const load = async (date) => {
     const saved = loadSavedWorkType(date);
     if (sel) {
       if (saved) sel.value = saved;
+      else if (daily?.workType) sel.value = String(daily.workType).trim();
       else if (!String(sel.value || '').trim()) sel.value = 'onsite';
     }
     try {
@@ -485,6 +633,9 @@ const load = async (date) => {
         if (siteEl) siteEl.value = rep.site || '';
         if (workEl) workEl.value = rep.work || '';
         clearDraft(date);
+      } else if (daily && (daily.location || daily.memo)) {
+        if (siteEl) siteEl.value = daily.location || '';
+        if (workEl) workEl.value = daily.memo || '';
       } else {
         const draft = loadDraft(date);
         if (draft) {
@@ -680,6 +831,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (role === 'admin') {
     try { document.body.dataset.roleAdmin = '1'; } catch {}
   }
+  try { window.userRole = role; } catch {}
 
   const state = { date: getUrlDate(), isOff: false, restHoliday: false, shiftStart: FIXED_START, shiftEnd: FIXED_END };
   window.state = state; // Gán vào window để các hàm bên ngoài scope DOMContentLoaded (như applyHolidayRestMode) có thể truy cập
@@ -713,7 +865,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           try { if (st) st.dataset.touched = '1'; } catch {}
           const btnIn = $('#btnStartStamp');
           const btnOut = $('#btnEndStamp');
-          if (btnIn) { btnIn.disabled = true; btnIn.textContent = `開始打刻済 (${hm})`; }
+          if (btnIn) {
+            btnIn.disabled = true;
+            const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
+            btnIn.textContent = isMobile ? `開始済 (${hm})` : `開始打刻済 (${hm})`;
+          }
           if (btnOut) { btnOut.disabled = false; }
         } catch {}
       }
@@ -770,6 +926,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyHolidayRestMode();
     try { await persistDaily(state.date); } catch {}
   });
+  setupSimpleCombo(document.getElementById('breakMin'));
+  setupSimpleCombo(document.getElementById('nightBreakMin'));
   $('#workSite')?.addEventListener('input', () => {
     saveDraft(state.date, String($('#workSite')?.value || ''), String($('#workContent')?.value || ''));
   });
@@ -779,31 +937,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const company = $('#company');
     if (company && !company.value) company.value = 'iizuka';
+    setupSimpleCombo(company);
   } catch {}
 
   $('#btnReload')?.addEventListener('click', async () => { await load(state.date); });
+  const persistSimpleEntry = async () => {
+    const saved = await save(state.date);
+    const rep = await saveWorkReportIfPossible(state.date);
+    if (saved) {
+      showToast('保存しました');
+      if (rep?.saved && rep?.report?.id) showToast(`作業報告も保存しました (id=${rep.report.id})`, 'success');
+      else if (rep?.attempted && !rep?.saved && rep?.message) showErr(rep.message);
+    } else {
+      showToast('保存に失敗しました', 'error');
+    }
+  };
   $('#btnSave')?.addEventListener('click', async (e) => {
     e.preventDefault(); // Chặn hành vi submit mặc định của form (tránh trắng trang)
     showErr('');
-    const saved = await save(state.date);
-    if (saved) {
-      showToast('保存しました');
-    }
+    await persistSimpleEntry();
   });
   $('#btnConfirm')?.addEventListener('click', async (e) => {
     e.preventDefault(); // Chặn hành vi submit mặc định của form (tránh trắng trang)
     showErr('');
     const ok = window.confirm('保存しますか？');
     if (!ok) return;
-    const saved = await save(state.date);
-    const rep = await saveWorkReportIfPossible(state.date);
-    if (saved) {
-      showToast('保存しました', 'success');
-      if (rep?.saved && rep?.report?.id) showToast(`作業報告も保存しました (id=${rep.report.id})`, 'success');
-      else if (rep?.attempted && !rep?.saved && rep?.message) showErr(rep.message);
-    } else {
-      showToast('保存に失敗しました', 'error');
-    }
+    await persistSimpleEntry();
   });
   $('#btnAdd')?.addEventListener('click', () => { showErr('この画面では勤務区分追加は未対応です'); });
 

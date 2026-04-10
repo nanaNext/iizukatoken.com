@@ -100,6 +100,10 @@ function permit(moduleKey, action) {
       }
       const allowed = mod[role] || new Set();
       if (!allowed.has(action) && !allowed.has('full')) {
+        const adminAllowed = mod['admin'] || new Set();
+        if (role === 'manager' && (adminAllowed.has(action) || adminAllowed.has('full'))) {
+          return next();
+        }
         return res.status(403).json({ message: 'Forbidden: insufficient permission' });
       }
       next();

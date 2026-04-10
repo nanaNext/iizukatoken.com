@@ -47,7 +47,6 @@ async function ensureTable() {
 }
 
 async function create({ userId, month, payslipFileId, sentBy }) {
-  await ensureTable();
   const sql = `
     INSERT INTO payslip_deliveries (userId, month, payslip_file_id, sent_by)
     VALUES (?, ?, ?, ?)
@@ -57,7 +56,6 @@ async function create({ userId, month, payslipFileId, sentBy }) {
 }
 
 async function list({ userId = null, month = null, limit = 200 } = {}) {
-  await ensureTable();
   const sql = `
     SELECT d.id, d.userId, d.month, d.payslip_file_id, d.sent_by, d.sent_at,
       u.username AS user_name, u.email AS user_email,
@@ -76,5 +74,22 @@ async function list({ userId = null, month = null, limit = 200 } = {}) {
   return rows || [];
 }
 
-module.exports = { create, list, ensureTable };
+async function getById(id) {
+  const sql = `
+    SELECT d.id, d.userId, d.month, d.payslip_file_id, d.sent_by, d.sent_at
+    FROM payslip_deliveries d
+    WHERE d.id = ?
+    LIMIT 1
+  `;
+  const [rows] = await db.query(sql, [id]);
+  return rows[0] || null;
+}
 
+async function deleteById(id) {
+  const before = await getById(id);
+  if (!before) return null;
+  await db.query(`DELETE FROM payslip_deliveries WHERE id = ?`, [id]);
+  return before;
+}
+
+module.exports = { create, list, ensureTable, getById, deleteById };

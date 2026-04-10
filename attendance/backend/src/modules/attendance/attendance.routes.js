@@ -1,16 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, authorize } = require('../../core/middleware/authMiddleware');
+const { rateLimit, rateLimitNamed } = require('../../core/middleware/rateLimit');
 const controller = require('./attendance.controller');
 const attendanceRepo = require('./attendance.repository');
 const calendarRepo = require('../calendar/calendar.repository');
+const allowDebugRoutes = process.env.NODE_ENV !== 'production' || String(process.env.ENABLE_DEBUG_ROUTES || '').toLowerCase() === 'true';
 
-router.post('/checkin', authenticate, authorize('employee','manager','admin'), controller.checkIn);
-router.post('/checkout', authenticate, authorize('employee','manager','admin'), controller.checkOut);
+router.post('/checkin',
+  rateLimitNamed('attendance_checkin', { windowMs: 60_000, max: 3 }),
+  authenticate, authorize('employee','manager','admin'), controller.checkIn);
+router.post('/checkout',
+  rateLimitNamed('attendance_checkout', { windowMs: 60_000, max: 3 }),
+  authenticate, authorize('employee','manager','admin'), controller.checkOut);
 router.post('/worktype', authenticate, authorize('employee','manager','admin'), controller.setWorkType);
 router.get('/timesheet', authenticate, authorize('employee','manager','admin'), controller.timesheet);
-router.post('/gps', authenticate, authorize('employee','manager'), controller.gpsLog);
-router.post('/sync', authenticate, authorize('employee','manager'), controller.syncOffline);
+router.post('/gps',
+  rateLimitNamed('attendance_gps', { windowMs: 60_000, max: 20 }),
+  authenticate, authorize('employee','manager'), controller.gpsLog);
+router.post('/sync',
+  rateLimitNamed('attendance_sync', { windowMs: 60_000, max: 20 }),
+  authenticate, authorize('employee','manager'), controller.syncOffline);
 router.get('/status', authenticate, authorize('employee','manager','admin'), controller.statusToday);
 router.get('/today-summary', authenticate, authorize('manager','admin'), controller.todaySummary);
 router.get('/today-roster', authenticate, authorize('admin','manager'), controller.todayRoster);
@@ -26,21 +36,47 @@ router.get('/month/detail', authenticate, authorize('employee','manager','admin'
 router.get('/month/status', authenticate, authorize('employee','manager','admin','payroll'), controller.getMonthStatus);
 router.get('/month/status-bulk', authenticate, authorize('manager','admin'), controller.getMonthStatusBulk);
 router.post('/month/submit', authenticate, authorize('employee','manager','admin'), controller.submitMonth);
-router.post('/month/approve', authenticate, authorize('manager','admin'), controller.approveMonth);
-router.post('/month/unlock', authenticate, authorize('admin'), controller.unlockMonth);
+router.post('/month/approve',
+  rateLimitNamed('attendance_month_approve', { windowMs: 60_000, max: 10 }),
+  authenticate, authorize('manager','admin'), controller.approveMonth);
+router.post('/month/unlock',
+  rateLimitNamed('attendance_month_unlock', { windowMs: 60_000, max: 5 }),
+  authenticate, authorize('admin'), controller.unlockMonth);
+router.get('/month/missing', authenticate, authorize('manager','admin'), controller.getMonthMissing);
+router.post('/month/approve-ready', authenticate, authorize('manager','admin'), controller.approveReadyMonth);
 router.get('/month/summary', authenticate, authorize('employee','manager','admin'), controller.getMonthSummary);
 router.put('/month/summary', authenticate, authorize('manager','admin'), controller.putMonthSummary);
 router.get('/shifts/assignments', authenticate, authorize('employee','manager','admin'), controller.getShiftAssignments);
-router.post('/shifts/assignments', authenticate, authorize('manager','admin'), controller.postShiftAssignment);
-router.delete('/shifts/assignments/:id', authenticate, authorize('manager','admin'), controller.deleteShiftAssignment);
+router.post('/shifts/assignments',
+  rateLimitNamed('attendance_shift_assign', { windowMs: 60_000, max: 20 }),
+  authenticate, authorize('manager','admin'), controller.postShiftAssignment);
+router.delete('/shifts/assignments/:id',
+  rateLimitNamed('attendance_shift_assign_delete', { windowMs: 60_000, max: 20 }),
+  authenticate, authorize('manager','admin'), controller.deleteShiftAssignment);
 router.put('/month/bulk', authenticate, authorize('employee','manager','admin'), controller.putMonthBulk);
+router.post('/month/sync-salary',
+  rateLimitNamed('attendance_sync_salary', { windowMs: 60_000, max: 5 }),
+  authenticate, authorize('manager','admin'), controller.syncSalary);
+router.put('/plan', authenticate, authorize('employee','manager','admin'), controller.putPlan);
 router.get('/month/export.xlsx', authenticate, authorize('employee','manager','admin','payroll'), controller.exportMonthXlsx);
+router.get('/user-profile', authenticate, authorize('employee','manager','admin'), controller.userProfileForMonthly);
 router.get('/work-details', authenticate, authorize('employee','manager','admin'), controller.getWorkDetails);
-router.post('/work-details', authenticate, authorize('manager','admin'), controller.postWorkDetail);
-router.put('/work-details/:id', authenticate, authorize('manager','admin'), controller.putWorkDetail);
-router.delete('/work-details/:id', authenticate, authorize('manager','admin'), controller.deleteWorkDetail);
+router.post('/work-details',
+  rateLimitNamed('attendance_work_details_post', { windowMs: 60_000, max: 30 }),
+  authenticate, authorize('manager','admin'), controller.postWorkDetail);
+router.put('/work-details/:id',
+  rateLimitNamed('attendance_work_details_put', { windowMs: 60_000, max: 30 }),
+  authenticate, authorize('manager','admin'), controller.putWorkDetail);
+router.delete('/work-details/:id',
+  rateLimitNamed('attendance_work_details_delete', { windowMs: 60_000, max: 20 }),
+  authenticate, authorize('manager','admin'), controller.deleteWorkDetail);
 router.get('/shifts/definitions', authenticate, authorize('manager','admin'), controller.listShiftDefinitions);
-router.post('/shifts/definitions', authenticate, authorize('manager','admin'), controller.postShiftDefinition);
+router.post('/shifts/definitions',
+  rateLimitNamed('attendance_shift_def_post', { windowMs: 60_000, max: 10 }),
+  authenticate, authorize('manager','admin'), controller.postShiftDefinition);
+router.delete('/shifts/definitions/:id',
+  rateLimitNamed('attendance_shift_def_delete', { windowMs: 60_000, max: 10 }),
+  authenticate, authorize('manager','admin'), controller.deleteShiftDefinition);
 router.get('/export', authenticate, authorize('employee','manager','admin'), controller.exportCsv);
 router.get('/calendar', authenticate, authorize('employee','manager','admin'), async (req, res) => {
   try {
@@ -139,124 +175,126 @@ router.get('/calendar/working-days', authenticate, authorize('employee','manager
     res.status(500).json({ message: err.message });
   }
 });
-router.get('/calendar/debug', authenticate, authorize('employee','manager','admin'), async (req, res) => {
-  try {
-    const year = parseInt(String(req.query.year || new Date().getUTCFullYear()), 10);
-    const r = await calendarRepo.computeYear(year);
-    const summary = {
-      year: r.year,
-      keys: Object.keys(r),
-      counts: {
-        fixed: Array.isArray(r.fixed) ? r.fixed.length : 0,
-        jp_auto: Array.isArray(r.jp_auto) ? r.jp_auto.length : 0,
-        jp_substitute: Array.isArray(r.jp_substitute) ? r.jp_substitute.length : 0,
-        jp_bridge: Array.isArray(r.jp_bridge) ? r.jp_bridge.length : 0,
-        sundays: Array.isArray(r.sundays) ? r.sundays.length : 0,
-        saturday_last: Array.isArray(r.saturday_last) ? r.saturday_last.length : 0,
-        off_days: Array.isArray(r.off_days) ? r.off_days.length : 0,
-        detail: Array.isArray(r.detail) ? r.detail.length : 0
+if (allowDebugRoutes) {
+  router.get('/calendar/debug', authenticate, authorize('employee','manager','admin'), async (req, res) => {
+    try {
+      const year = parseInt(String(req.query.year || new Date().getUTCFullYear()), 10);
+      const r = await calendarRepo.computeYear(year);
+      const summary = {
+        year: r.year,
+        keys: Object.keys(r),
+        counts: {
+          fixed: Array.isArray(r.fixed) ? r.fixed.length : 0,
+          jp_auto: Array.isArray(r.jp_auto) ? r.jp_auto.length : 0,
+          jp_substitute: Array.isArray(r.jp_substitute) ? r.jp_substitute.length : 0,
+          jp_bridge: Array.isArray(r.jp_bridge) ? r.jp_bridge.length : 0,
+          sundays: Array.isArray(r.sundays) ? r.sundays.length : 0,
+          saturday_last: Array.isArray(r.saturday_last) ? r.saturday_last.length : 0,
+          off_days: Array.isArray(r.off_days) ? r.off_days.length : 0,
+          detail: Array.isArray(r.detail) ? r.detail.length : 0
+        }
+      };
+      res.status(200).json({ summary, sample: { jp_auto_first: r.jp_auto?.[0] || null, jp_substitute_first: r.jp_substitute?.[0] || null, jp_bridge_first: r.jp_bridge?.[0] || null } });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+  router.get('/debug/routes', authenticate, authorize('admin'), async (req, res) => {
+    try {
+      const list = (router.stack || [])
+        .map(l => l.route ? { path: l.route.path, methods: Object.keys(l.route.methods || {}) } : null)
+        .filter(Boolean);
+      res.status(200).json({ routes: list });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+  router.post('/debug/routes', authenticate, authorize('admin'), async (req, res) => {
+    try {
+      const list = (router.stack || [])
+        .map(l => l.route ? { path: l.route.path, methods: Object.keys(l.route.methods || {}) } : null)
+        .filter(Boolean);
+      res.status(200).json({ routes: list });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+  router.get('/debug/classify', authenticate, authorize('admin'), async (req, res) => {
+    try {
+      const userId = parseInt(req.query.userId, 10);
+      const date = String(req.query.date || '').slice(0,10);
+      if (!userId || !date) {
+        return res.status(400).json({ message: 'Missing userId/date' });
       }
-    };
-    res.status(200).json({ summary, sample: { jp_auto_first: r.jp_auto?.[0] || null, jp_substitute_first: r.jp_substitute?.[0] || null, jp_bridge_first: r.jp_bridge?.[0] || null } });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-router.get('/debug/routes', authenticate, authorize('admin'), async (req, res) => {
-  try {
-    const list = (router.stack || [])
-      .map(l => l.route ? { path: l.route.path, methods: Object.keys(l.route.methods || {}) } : null)
-      .filter(Boolean);
-res.status(200).json({ routes: list });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+      const userRepo = require('../users/user.repository');
+      const rules = require('./attendance.rules');
+      const user = await userRepo.getUserById(userId);
+      const dept = user?.departmentId ? (await userRepo.getDepartmentById(user.departmentId)) : null;
+      const rows = await attendanceRepo.listByUserBetween(userId, date, date);
+      const rec = rows.find(r => String(r.checkOut || '').startsWith(date) || String(r.checkIn || '').startsWith(date)) || null;
+      if (!rec) {
+        return res.status(404).json({ message: 'No attendance for date' });
+      }
+      const computed = await rules.computeRecord(rec);
+      res.status(200).json({
+        user: {
+          id: user?.id || userId,
+          employment_type: user?.employment_type || null,
+          departmentId: user?.departmentId || null,
+          departmentName: dept?.name || null
+        },
+        attendance: {
+          id: rec.id,
+          checkIn: rec.checkIn,
+          checkOut: rec.checkOut,
+          shiftId: rec.shiftId || null
+        },
+        computed
+      });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+  router.post('/debug/classify', authenticate, authorize('admin'), async (req, res) => {
+    try {
+      const userId = parseInt((req.body?.userId ?? req.query.userId), 10);
+      const date = String((req.body?.date ?? req.query.date) || '').slice(0,10);
+      if (!userId || !date) {
+        return res.status(400).json({ message: 'Missing userId/date' });
+      }
+      const userRepo = require('../users/user.repository');
+      const rules = require('./attendance.rules');
+      const user = await userRepo.getUserById(userId);
+      const dept = user?.departmentId ? (await userRepo.getDepartmentById(user.departmentId)) : null;
+      const rows = await attendanceRepo.listByUserBetween(userId, date, date);
+      const rec = rows.find(r => String(r.checkOut || '').startsWith(date) || String(r.checkIn || '').startsWith(date)) || null;
+      if (!rec) {
+        return res.status(404).json({ message: 'No attendance for date' });
+      }
+      const computed = await rules.computeRecord(rec);
+      res.status(200).json({
+        user: {
+          id: user?.id || userId,
+          employment_type: user?.employment_type || null,
+          departmentId: user?.departmentId || null,
+          departmentName: dept?.name || null
+        },
+        attendance: {
+          id: rec.id,
+          checkIn: rec.checkIn,
+          checkOut: rec.checkOut,
+          shiftId: rec.shiftId || null
+        },
+        computed
+      });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+  router.get('/shifts/ping', authenticate, authorize('admin'), (req, res) => {
+    res.status(200).json({ ok: true });
+  });
 }
-});
-router.post('/debug/routes', authenticate, authorize('admin'), async (req, res) => {
-  try {
-    const list = (router.stack || [])
-      .map(l => l.route ? { path: l.route.path, methods: Object.keys(l.route.methods || {}) } : null)
-      .filter(Boolean);
-    res.status(200).json({ routes: list });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-router.get('/debug/classify', authenticate, authorize('admin'), async (req, res) => {
-  try {
-    const userId = parseInt(req.query.userId, 10);
-    const date = String(req.query.date || '').slice(0,10);
-    if (!userId || !date) {
-      return res.status(400).json({ message: 'Missing userId/date' });
-    }
-    const userRepo = require('../users/user.repository');
-    const rules = require('./attendance.rules');
-    const user = await userRepo.getUserById(userId);
-    const dept = user?.departmentId ? (await userRepo.getDepartmentById(user.departmentId)) : null;
-    const rows = await attendanceRepo.listByUserBetween(userId, date, date);
-    const rec = rows.find(r => String(r.checkOut || '').startsWith(date) || String(r.checkIn || '').startsWith(date)) || null;
-    if (!rec) {
-      return res.status(404).json({ message: 'No attendance for date' });
-    }
-    const computed = await rules.computeRecord(rec);
-    res.status(200).json({
-      user: {
-        id: user?.id || userId,
-        employment_type: user?.employment_type || null,
-        departmentId: user?.departmentId || null,
-        departmentName: dept?.name || null
-      },
-      attendance: {
-        id: rec.id,
-        checkIn: rec.checkIn,
-        checkOut: rec.checkOut,
-        shiftId: rec.shiftId || null
-      },
-      computed
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-router.post('/debug/classify', authenticate, authorize('admin'), async (req, res) => {
-  try {
-    const userId = parseInt((req.body?.userId ?? req.query.userId), 10);
-    const date = String((req.body?.date ?? req.query.date) || '').slice(0,10);
-    if (!userId || !date) {
-      return res.status(400).json({ message: 'Missing userId/date' });
-    }
-    const userRepo = require('../users/user.repository');
-    const rules = require('./attendance.rules');
-    const user = await userRepo.getUserById(userId);
-    const dept = user?.departmentId ? (await userRepo.getDepartmentById(user.departmentId)) : null;
-    const rows = await attendanceRepo.listByUserBetween(userId, date, date);
-    const rec = rows.find(r => String(r.checkOut || '').startsWith(date) || String(r.checkIn || '').startsWith(date)) || null;
-    if (!rec) {
-      return res.status(404).json({ message: 'No attendance for date' });
-    }
-    const computed = await rules.computeRecord(rec);
-    res.status(200).json({
-      user: {
-        id: user?.id || userId,
-        employment_type: user?.employment_type || null,
-        departmentId: user?.departmentId || null,
-        departmentName: dept?.name || null
-      },
-      attendance: {
-        id: rec.id,
-        checkIn: rec.checkIn,
-        checkOut: rec.checkOut,
-        shiftId: rec.shiftId || null
-      },
-      computed
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-router.get('/shifts/ping', authenticate, authorize('admin'), (req, res) => {
-  res.status(200).json({ ok: true });
-});
 router.get('/shifts/definitions', authenticate, authorize('admin','manager'), async (req, res) => {
   try {
     const rows = await attendanceRepo.listShiftDefinitions();

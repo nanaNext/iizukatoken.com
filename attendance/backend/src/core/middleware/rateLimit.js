@@ -22,4 +22,12 @@ function rateLimit({ windowMs = 60_000, max = 10 } = {}) {
     next();
   };
 }
-module.exports = { rateLimit };
+function rateLimitNamed(name, defaults = {}) {
+  const base = 'RATE_' + String(name || '').toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+  const defW = defaults.windowMs != null ? Number(defaults.windowMs) : 60_000;
+  const defM = defaults.max != null ? Number(defaults.max) : 10;
+  const w = parseInt(process.env[`${base}_WINDOW_MS`] || process.env.RATE_WINDOW_MS || String(defW), 10) || defW;
+  const m = parseInt(process.env[`${base}_MAX`] || process.env.RATE_MAX || String(defM), 10) || defM;
+  return rateLimit({ windowMs: w, max: m });
+}
+module.exports = { rateLimit, rateLimitNamed };

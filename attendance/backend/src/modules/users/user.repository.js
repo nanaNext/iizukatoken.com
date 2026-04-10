@@ -44,33 +44,6 @@ module.exports = {
     return rows[0];
   },
   async createUser({ employeeCode = null, username, email, password, role = 'employee', departmentId = null, employmentType = 'full_time', hireDate = null, level = null, managerId = null, phone = null, birthDate = null, gender = null, avatarUrl = null, probationDate = null, officialDate = null, contractEnd = null, baseSalary = null, shiftId = null, employmentStatus = null, joinDate = null }) {
-    try { await db.query(`ALTER TABLE users ADD COLUMN email_lower VARCHAR(255) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD UNIQUE KEY uniq_email_lower (email_lower)`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN employee_code VARCHAR(32) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD UNIQUE KEY uniq_employee_code (employee_code)`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN employment_type VARCHAR(16) NOT NULL DEFAULT 'full_time'`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN hire_date DATE NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN lang VARCHAR(8) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN region VARCHAR(16) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN timezone VARCHAR(64) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN address VARCHAR(255) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN contract_type VARCHAR(32) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN visa_number VARCHAR(64) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN visa_expiry DATE NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN insurance_number VARCHAR(64) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN employment_status VARCHAR(16) NOT NULL DEFAULT 'active'`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN join_date DATE NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN birth_date DATE NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN gender VARCHAR(16) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN phone VARCHAR(32) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN avatar_url VARCHAR(255) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN probation_date DATE NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN official_date DATE NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN manager_id BIGINT UNSIGNED NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN level VARCHAR(32) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN contract_end DATE NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN base_salary DECIMAL(12,2) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN shift_id BIGINT UNSIGNED NULL`); } catch {}
     const today = new Date().toISOString().slice(0, 10);
     const cols = [
       'employee_code',
@@ -131,19 +104,6 @@ module.exports = {
     return id;
   },
   async updateUser(id, { employeeCode, username, email, role, departmentId, level, managerId, employmentType, hireDate, birthDate, gender, phone, avatarUrl, probationDate, officialDate, lang, region, timezone, address, contractType, visaNumber, visaExpiry, insuranceNumber, employmentStatus, contractEnd, baseSalary, shiftId, joinDate, lastLogin }) {
-    try { await db.query(`ALTER TABLE users ADD COLUMN employment_type VARCHAR(16) NOT NULL DEFAULT 'full_time'`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN employee_code VARCHAR(32) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN hire_date DATE NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN lang VARCHAR(8) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN region VARCHAR(16) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN timezone VARCHAR(64) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN address VARCHAR(255) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN contract_type VARCHAR(32) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN visa_number VARCHAR(64) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN visa_expiry DATE NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN insurance_number VARCHAR(64) NULL`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN employment_status VARCHAR(16) NOT NULL DEFAULT 'active'`); } catch {}
-    try { await db.query(`ALTER TABLE users ADD COLUMN join_date DATE NULL`); } catch {}
     const sql = `
       UPDATE users
       SET username = COALESCE(?, username),

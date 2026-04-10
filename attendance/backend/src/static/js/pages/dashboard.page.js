@@ -15,10 +15,8 @@ async function ensureProfile() {
   }
   if (!profile) {
     try {
-      const rt = sessionStorage.getItem('refreshToken') || '';
-      const r = await refresh(rt);
+      const r = await refresh();
       sessionStorage.setItem('accessToken', r.accessToken);
-      try { sessionStorage.setItem('refreshToken', r.refreshToken || rt); } catch {}
       token = r.accessToken;
       profile = await me(token);
     } catch {}
@@ -135,10 +133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnLogout = document.querySelector('#btnLogout');
     if (btnLogout) {
       btnLogout.addEventListener('click', async () => {
-        try {
-          const rt = sessionStorage.getItem('refreshToken') || '';
-          await logout(rt);
-        } catch {}
+        try { await logout(); } catch {}
         sessionStorage.removeItem('accessToken');
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('refreshToken');

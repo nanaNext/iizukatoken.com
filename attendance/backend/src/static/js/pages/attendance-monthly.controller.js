@@ -189,14 +189,13 @@
 
     if (role === 'employee') {
       const cur = String(monthJST() || '').slice(0, 7);
-      // Cho phép nhân viên sửa "tháng hiện tại" và "tháng kế tiếp" (để nhập kế hoạch)
       const y = parseInt(tgt.slice(0, 4), 10);
       const m = parseInt(tgt.slice(5, 7), 10);
       const cy = parseInt(cur.slice(0, 4), 10);
       const cm = parseInt(cur.slice(5, 7), 10);
       const idx = y * 12 + m;
       const cidx = cy * 12 + cm;
-      return idx === cidx || idx === cidx + 1;
+      return idx >= cidx;
     }
     const meId = String(profile?.id || '');
     const monthIndexLocal = (s) => {
@@ -219,7 +218,6 @@
     };
     if (role === 'admin') return true;
     if (role === 'manager') {
-      if (state.currentViewingUserId && meId && String(state.currentViewingUserId) !== meId) return false;
       return isEditableWindow(tgt, 6);
     }
     return isEditableWindow(tgt, 6);
@@ -275,6 +273,10 @@
   const syncMonthHScroll = () => {
     const getRoot = () => document.querySelector('#monthTable');
     const getHost = () => {
+      // Nếu không phải embed (trang nhân viên), vùng cuộn chính là .kintai-main
+      if (!document.body.classList.contains('embed')) {
+        return document.querySelector('.kintai-main');
+      }
       const r = getRoot();
       return r?.querySelector?.('.se-month-scroll') || r;
     };
@@ -289,26 +291,29 @@
       const rootEl = getRoot();
       const headTables = Array.from(rootEl?.querySelectorAll?.('.se-sticky-month-head table') || []);
       const cw = host?.clientWidth || 0;
-      const sw = host?.scrollWidth || 0;
+      // Nếu host là .kintai-main, scrollWidth phải tính theo bảng thực tế bên trong
+      const tableWrap = rootEl?.querySelector?.('.se-month-table-wrap');
+      const sw = (host === main && tableWrap) ? tableWrap.scrollWidth : (host?.scrollWidth || 0);
+      
       if ((cw === 0 || sw === 0) && attempt < 20) {
         requestAnimationFrame(() => refresh(attempt + 1));
         return;
       }
-      try { inner.style.width = `${Math.max(sw, cw)}px`; } catch {}
+      try { inner.style.width = `${sw}px`; } catch {}
       try { if (host) bar.scrollLeft = host.scrollLeft; } catch {}
       for (const ht of headTables) {
         try { ht.style.transform = `translateX(${- (host?.scrollLeft || 0)}px)`; } catch {}
       }
       try {
-        const need = ((host?.scrollWidth || 0) > (host?.clientWidth || 0) + 1);
+        const need = (sw > cw + 1);
         const inView = (() => {
           try {
             const rr = host?.getBoundingClientRect();
-            if (main) {
+            if (main && host !== main) {
               const mr = main.getBoundingClientRect();
               return rr && rr.bottom > (mr.top + 48) && rr.top < (mr.bottom - 48);
             }
-            return rr && rr.bottom > 0 && rr.top < window.innerHeight;
+            return true;
           } catch {
             return true;
           }
@@ -337,18 +342,65 @@
         }
         syncing = false;
       }, { passive: true });
-      // Bind to current host; will be replaced on next syncMonthHScroll() after re-render
+      // Gán sự kiện cuộn cho host (kintai-main hoặc se-month-scroll)
       const hostNow = getHost();
       hostNow?.addEventListener('scroll', () => {
         if (syncing) return;
         syncing = true;
         const host = getHost();
-        const rootEl = getRoot();
-        const headTables = Array.from(rootEl?.querySelectorAll?.('.se-sticky-month-head table') || []);
+        const headTables = Array.from(getRoot()?.querySelectorAll?.('.se-sticky-month-head table') || []);
         try { if (host) bar.scrollLeft = host.scrollLeft; } catch {}
         for (const ht of headTables) {
           try { ht.style.transform = `translateX(${- (host?.scrollLeft || 0)}px)`; } catch {}
         }
+        syncing = false;
+      }, { passive: true });
+      window.addEventListener('resize', () => { refresh(); }, { passive: true });
+      bar.dataset.wired = '1';
+    }
+
+    refresh();
+  };
+
+  const syncMonthVScroll = () => {
+    const getHost = () => document.querySelector('.kintai-main');
+    const bar = document.querySelector('#monthVScroll');
+    if (!getHost() || !bar) return;
+    const inner = bar.querySelector('.se-vscroll-inner');
+    if (!inner) return;
+
+    const refresh = (attempt = 0) => {
+      const host = getHost();
+      const ch = host?.clientHeight || 0;
+      const sh = host?.scrollHeight || 0;
+      if ((ch === 0 || sh === 0) && attempt < 20) {
+        requestAnimationFrame(() => refresh(attempt + 1));
+        return;
+      }
+      try { inner.style.height = `${sh}px`; } catch {}
+      try { if (host) bar.scrollTop = host.scrollTop; } catch {}
+      try {
+        const need = (sh > ch + 1);
+        bar.style.display = need ? 'block' : 'none';
+        document.body.classList.toggle('has-v-scroll', need);
+      } catch {}
+    };
+
+    if (bar.dataset.wired !== '1') {
+      let syncing = false;
+      bar.addEventListener('scroll', () => {
+        if (syncing) return;
+        syncing = true;
+        const host = getHost();
+        try { if (host) host.scrollTop = bar.scrollTop; } catch {}
+        syncing = false;
+      }, { passive: true });
+      const hostNow = getHost();
+      hostNow?.addEventListener('scroll', () => {
+        if (syncing) return;
+        syncing = true;
+        const host = getHost();
+        try { if (host) bar.scrollTop = host.scrollTop; } catch {}
         syncing = false;
       }, { passive: true });
       window.addEventListener('resize', () => { refresh(); }, { passive: true });
@@ -484,9 +536,34 @@
     const isAdmin = role === 'admin';
     const isManager = role === 'manager';
     const isSelf = !ctx.actingUserId || String(ctx.actingUserId) === String(ctx.profile?.id || '');
-    if (btnApprove) btnApprove.style.display = ((isManager || isAdmin) && !isSelf && status === 'submitted') ? '' : 'none';
+    if (btnApprove) btnApprove.style.display = ((isManager || isAdmin) && !isSelf) ? '' : 'none';
     if (btnUnlock) btnUnlock.style.display = (isAdmin && (status === 'submitted' || status === 'approved')) ? '' : 'none';
     applyPinMonthHead();
+  };
+
+  const ensureCompactToggle = () => {
+    const head = document.querySelector('#dailySection .se-section-head');
+    if (!head) return;
+    if (document.getElementById('btnCompactView')) return;
+    const wrap = document.createElement('div');
+    wrap.style.display = 'inline-flex';
+    wrap.style.gap = '8px';
+    const btn = document.createElement('button');
+    btn.id = 'btnCompactView';
+    btn.className = 'se-btn small';
+    btn.type = 'button';
+    btn.textContent = 'コンパクト表示';
+    wrap.appendChild(btn);
+    head.appendChild(wrap);
+    const applyState = () => {
+      const isMobile = window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
+      if (!isMobile) { document.body.classList.remove('mobile-compact'); return; }
+    };
+    btn.addEventListener('click', () => {
+      document.body.classList.toggle('mobile-compact');
+    });
+    applyState();
+    window.addEventListener('resize', applyState, { passive: true });
   };
 
   const scheduleAutoSave = () => {
@@ -499,8 +576,12 @@
       if (!state.editableMonth) return;
       if (!ctx.tableHost) return;
       if (ctx.autoSaveInFlight) return;
+      try {
+        const until = Number(ctx.autoSavePausedUntil || 0);
+        if (until && Date.now() < until) return;
+      } catch {}
       if (ctx.tableHost.querySelector('.invalid')) return;
-      const payload = collectUpdates(ctx.tableHost, ym, ctx.actingUserId || null);
+      const payload = collectUpdates(ctx.tableHost, ym, ctx.actingUserId || null, { includeAll: true });
       const body = JSON.stringify(payload);
       if (!body || body === ctx.lastAutoSavePayload) return;
       ctx.autoSaveInFlight = true;
@@ -541,7 +622,15 @@
         clearDirty();
         try { draft?.clear?.(ctx, ym); } catch {}
       } catch (e) {
-        showErr(e?.message || '保存に失敗しました');
+        const msg = String(e?.message || '');
+        if (msg.includes('Duplicate entry') && msg.includes('unique_user_checkin')) {
+          try { draft?.save?.(ctx, ym); } catch {}
+          try { ctx.lastAutoSavePayload = body; } catch {}
+          try { ctx.autoSavePausedUntil = Date.now() + 15000; } catch {}
+          showErr('保存が競合しています。少し待ってから再度お試しください。');
+        } else {
+          showErr(msg || '保存に失敗しました');
+        }
       } finally {
         ctx.autoSaveInFlight = false;
       }
@@ -576,7 +665,7 @@
           const code = u2.employee_code || u2.employeeCode || (u2.id ? ('EMP' + String(u2.id).padStart(3, '0')) : '');
           $('#empCode').textContent = code || '—';
           $('#staffName').textContent = u2.username || u2.email || '—';
-          const officeCode = u2.office_code || u2.officeCode || '00084';
+          const officeCode = u2.office_code || u2.officeCode || ' ';
           $('#officeCode').textContent = String(officeCode || '').trim() || '—';
           $('#empDept').textContent = u2.departmentName || '—';
         }
@@ -592,18 +681,25 @@
       applyPinMonthHead();
       applyEditability(ym);
       updateMonthWorkflowUI();
+      ensureCompactToggle();
       try { draft?.restore?.(ctx, ym); } catch {}
       try {
-        if (state.currentMonthStatus === 'submitted') showErr('この月は提出済のため編集できません。');
-        else if (state.currentMonthStatus === 'approved') showErr('この月は締め済のため編集できません。');
+        const role = String(ctx.profile?.role || '').toLowerCase();
+        const lockedMsg = state.currentMonthStatus === 'submitted'
+          ? 'この月は提出済のため編集できません。'
+          : (state.currentMonthStatus === 'approved' ? 'この月は締め済のため編集できません。' : '');
+        if (!state.editableMonth && lockedMsg) showErr(lockedMsg);
+        else showErr('');
       } catch {}
       syncFooterVars();
       syncTheadRowHeights();
       syncMonthHScroll();
+      syncMonthVScroll();
       wireMonthHScrollVisibility();
       ctx.lastAutoSavePayload = '';
       if (typeof ctx.applyContractTab === 'function') ctx.applyContractTab();
       if (typeof ctx.applySummaryTab === 'function') ctx.applySummaryTab();
+      if (typeof ctx.applyPlanTab === 'function') ctx.applyPlanTab();
     } catch (e) {
       showErr(e?.message || '読み込みに失敗しました');
     } finally {
@@ -692,12 +788,56 @@
           try { tr.dataset.kubunConfirmed = v ? '1' : ''; } catch {}
         }
       } catch {}
+      try {
+        const rows = Array.from(ctx.tableHost?.querySelectorAll?.('[data-row="1"][data-date]') || []);
+        for (const tr of rows) {
+          const inEl = tr.querySelector('input.se-time[data-field="checkIn"]');
+          const outEl = tr.querySelector('input.se-time[data-field="checkOut"]');
+          try { inEl?.classList?.remove('invalid'); } catch {}
+          try { outEl?.classList?.remove('invalid'); } catch {}
+          const inV = String(inEl?.value || '').trim();
+          const outV = String(outEl?.value || '').trim();
+          const idRaw = String(tr.dataset.id || '').trim();
+          const clearFlag = String(tr.dataset.clear || '') === '1';
+          if (outV && !inV) {
+            try { inEl?.classList?.add('invalid'); } catch {}
+            try { outEl?.classList?.add('invalid'); } catch {}
+          }
+          if (idRaw && !clearFlag && !inV && !outV) {
+            tr.dataset.clear = '1';
+            tr.dataset.dirty = '1';
+          }
+        }
+      } catch {}
       if (ctx.tableHost && ctx.tableHost.querySelector('.invalid')) {
         showErr('入力内容を確認してください（赤枠の項目）');
         alert('入力内容を確認してください（赤枠の項目）');
         return;
       }
-      const payload = collectUpdates(ctx.tableHost, ym, ctx.actingUserId || null);
+      if (!window.confirm('保存しますか？')) {
+        return;
+      }
+      const payload = collectUpdates(ctx.tableHost, ym, ctx.actingUserId || null, { includeAll: true });
+      try {
+        const days = Array.isArray(state.currentMonthDetail?.days) ? state.currentMonthDetail.days : [];
+        const findSegId = (checkInDt) => {
+          const dt = String(checkInDt || '');
+          const ds = dt.slice(0, 10);
+          if (!ds) return null;
+          const day = days.find(d => String(d?.date || '').slice(0, 10) === ds);
+          const segs = Array.isArray(day?.segments) ? day.segments : [];
+          const hit = segs.find(s => String(s?.checkIn || '') === dt);
+          return hit?.id != null ? Number(hit.id) : null;
+        };
+        for (const u of Array.isArray(payload?.updates) ? payload.updates : []) {
+          if (u?.id) continue;
+          if (!u?.checkIn) continue;
+          const existingId = findSegId(u.checkIn);
+          if (!existingId) continue;
+          u.id = existingId;
+          delete u.clientId;
+        }
+      } catch {}
       const body = JSON.stringify(payload);
       const savedDates = new Set();
       try {
@@ -715,7 +855,60 @@
           if (ds) savedDates.add(ds);
         }
       } catch {}
-      const r = await fetchJSONAuth('/api/attendance/month/bulk', { method: 'PUT', body });
+      let r = null;
+      try {
+        r = await fetchJSONAuth('/api/attendance/month/bulk', { method: 'PUT', body });
+      } catch (e) {
+        const msg = String(e?.message || '');
+        if (msg.includes('Duplicate entry') && msg.includes('unique_user_checkin')) {
+          try { draft?.save?.(ctx, ym); } catch {}
+          const now = Date.now();
+          const last = Number(ctx._dupRetryAt || 0);
+          if (now - last > 5000) {
+            ctx._dupRetryAt = now;
+            try {
+              const { detail } = await loadMonth(ym, ctx.actingUserId || null);
+              if (detail) state.currentMonthDetail = detail;
+              try {
+                const map = new Map();
+                const days = Array.isArray(detail?.days) ? detail.days : [];
+                for (const d of days) {
+                  for (const s of (Array.isArray(d?.segments) ? d.segments : [])) {
+                    const ci = String(s?.checkIn || '');
+                    const id = s?.id != null ? Number(s.id) : null;
+                    if (ci && id) map.set(ci, id);
+                  }
+                }
+                for (const u of Array.isArray(payload?.updates) ? payload.updates : []) {
+                  if (!u || u.id || !u.checkIn) continue;
+                  const id = map.get(String(u.checkIn));
+                  if (!id) continue;
+                  u.id = id;
+                  delete u.clientId;
+                  const ds = String(u.checkIn).slice(0, 10);
+                  const hm = String(u.checkIn).slice(11, 16);
+                  const tr = ctx.tableHost?.querySelector?.(`[data-row="1"][data-date="${cssEscape(ds)}"]`);
+                  const inEl = tr?.querySelector?.('input.se-time[data-field="checkIn"]');
+                  if (tr && inEl && String(inEl.value || '') === hm) {
+                    tr.dataset.id = String(id);
+                    tr.dataset.clientId = '';
+                  }
+                }
+              } catch {}
+              const body2 = JSON.stringify(payload);
+              r = await fetchJSONAuth('/api/attendance/month/bulk', { method: 'PUT', body: body2 });
+              if (r && r.ok === false) throw new Error(String(r?.message || '保存に失敗しました'));
+              showErr('');
+            } catch {
+              throw e;
+            }
+          } else {
+            throw e;
+          }
+        } else {
+          throw e;
+        }
+      }
       if (r && r.ok === false) {
         const msg = String(r?.message || '保存に失敗しました');
         throw new Error(msg);
@@ -871,8 +1064,27 @@
       if (n > 0 && root.Core?.showToast) {
         root.Core.showToast(`保存しました（daily:${daily}, seg+${created}, seg更新:${updated}）`, 'success');
       }
+      
+      // Update summary section locally
+      renderSummary(ctx.summaryHost, state.currentMonthDetail, state.currentMonthTimesheet);
+      
+      // Sync to salary module
+      try {
+        const [y, m] = ym.split('-');
+        await fetchJSONAuth('/api/attendance/month/sync-salary', {
+          method: 'POST',
+          body: JSON.stringify({ year: y, month: m, userId: ctx.actingUserId || null })
+        });
+      } catch (e) {
+        console.error('Salary sync failed:', e);
+      }
     } catch (e) {
-      showErr(e?.message || '保存に失敗しました');
+      const msg = String(e?.message || '');
+      if (msg.includes('Duplicate entry') && msg.includes('unique_user_checkin')) {
+        showErr('保存が競合しています。少し待ってから再度お試しください。');
+      } else {
+        showErr(msg || '保存に失敗しました');
+      }
     } finally {
       hideSpinner();
     }
@@ -1009,14 +1221,39 @@
       
       const updates = [];
       if (idRaw) {
-        // Nếu đã có ID, chúng ta gửi update. CheckInFinal phải lấy từ DOM hoặc giữ nguyên cái cũ.
-        const checkInFinal = inDt || null; 
-        updates.push({ id: parseInt(idRaw, 10), checkIn: checkInFinal, checkOut: outDt, workType: wt || null });
+        const xid = parseInt(idRaw, 10);
+        if (!inDt && !outDt) {
+          tr.dataset.clear = '1';
+          updates.push({ id: xid, delete: true });
+        } else if (inDt) {
+          updates.push({ id: xid, checkIn: inDt, checkOut: outDt, workType: wt || null });
+        } else {
+          return;
+        }
       } else if (inDt) {
         updates.push({ clientId, checkIn: inDt, checkOut: outDt, workType: wt || null });
       }
       
       if (!updates.length) return;
+
+      try {
+        const u0 = updates[0];
+        if (!u0?.id && u0?.checkIn) {
+          const days = Array.isArray(state.currentMonthDetail?.days) ? state.currentMonthDetail.days : [];
+          const dt = String(u0.checkIn || '');
+          const ds = dt.slice(0, 10);
+          const day = days.find(d => String(d?.date || '').slice(0, 10) === ds);
+          const segs = Array.isArray(day?.segments) ? day.segments : [];
+          const hit = segs.find(s => String(s?.checkIn || '') === dt);
+          const existingId = hit?.id != null ? Number(hit.id) : null;
+          if (existingId) {
+            u0.id = existingId;
+            delete u0.clientId;
+            tr.dataset.id = String(existingId);
+            tr.dataset.clientId = '';
+          }
+        }
+      } catch {}
       
       const sel = tr.querySelector('select[data-field="classification"]');
       const v = String(sel?.value || '').trim();
@@ -1211,6 +1448,9 @@
     try {
       const y = parseInt(ym.slice(0, 4), 10);
       const m = parseInt(ym.slice(5, 7), 10);
+      try {
+        await fetchJSONAuth('/api/attendance/month/submit', { method: 'POST', body: JSON.stringify({ year: y, month: m, userId: ctx.actingUserId }) });
+      } catch {}
       await fetchJSONAuth('/api/attendance/month/approve', { method: 'POST', body: JSON.stringify({ year: y, month: m, userId: ctx.actingUserId }) });
       await setMonth(ym, true);
     } catch (err) {
@@ -1247,15 +1487,18 @@
       const wrap = document.createElement('div');
       wrap.style.display = 'flex';
       wrap.style.alignItems = 'center';
-      wrap.style.gap = '8px';
+      wrap.style.gap = '12px';
       wrap.style.flexWrap = 'wrap';
       wrap.style.justifyContent = 'flex-end';
+      wrap.style.paddingRight = '16px';
+      wrap.style.marginTop = '12px';
 
       const lbl = document.createElement('div');
       lbl.textContent = '対象社員';
       lbl.style.fontWeight = '900';
       lbl.style.color = '#0b2c66';
       lbl.style.fontSize = '12px';
+      lbl.style.whiteSpace = 'nowrap';
 
       const input = document.createElement('input');
       input.type = 'search';
@@ -1266,15 +1509,17 @@
       input.style.borderRadius = '8px';
       input.style.padding = '0 10px';
       input.style.minWidth = '180px';
+      input.style.fontSize = '14px';
 
       const sel = document.createElement('select');
       sel.style.height = '32px';
       sel.style.border = '1px solid #cbd5e1';
       sel.style.borderRadius = '8px';
       sel.style.padding = '0 10px';
-      sel.style.minWidth = '240px';
+      sel.style.minWidth = '200px';
       sel.style.fontWeight = '800';
       sel.style.color = '#0b2c66';
+      sel.style.fontSize = '14px';
 
       wrap.appendChild(lbl);
       wrap.appendChild(input);
@@ -1334,12 +1579,6 @@
       if (!ctx.actingUserId && users.length) {
         ctx.actingUserId = String(users[0].id || '').trim();
         try { state.currentViewingUserId = ctx.actingUserId || String(ctx.profile?.id || ''); } catch {}
-        try {
-          const url = new URL(window.location.href);
-          if (ctx.actingUserId) url.searchParams.set('userId', ctx.actingUserId);
-          else url.searchParams.delete('userId');
-          history.replaceState(null, '', url.pathname + url.search + url.hash);
-        } catch {}
         try { sel.value = ctx.actingUserId; } catch {}
       }
 
@@ -1423,7 +1662,20 @@
       try { renderWorkDetail(ctx.workDetailHost, state.currentMonthDetail, ctx.profile); } catch {}
       try { renderSummary(ctx.summaryHost, state.currentMonthDetail, state.currentMonthTimesheet); } catch {}
     };
-    setInterval(() => { refresh().catch(() => {}); }, 5000);
+    try { clearInterval(ctx.refreshTimer); } catch {}
+    ctx.refreshFailCount = 0;
+    ctx.refreshTimer = setInterval(async () => {
+      try {
+        await refresh();
+        ctx.refreshFailCount = 0;
+      } catch {
+        ctx.refreshFailCount = (ctx.refreshFailCount || 0) + 1;
+        if (ctx.refreshFailCount >= 2) {
+          try { clearInterval(ctx.refreshTimer); } catch {}
+          ctx.refreshTimer = null;
+        }
+      }
+    }, 5000);
     try { lastKey = buildKey(state.currentMonthDetail); } catch {}
   };
 
@@ -1449,6 +1701,7 @@
       if (embed === '1' || embed === 'true') {
         const top = document.querySelector('.kintai-top');
         if (top) top.style.display = 'none';
+        try { document.body.classList.add('embed'); } catch {}
       }
     } catch {}
     try { $('#userName').textContent = profile.username || profile.email || 'ユーザー'; } catch {}
@@ -1492,6 +1745,15 @@
     syncTheadRowHeights();
     wireMonthHScrollVisibility();
     wireFooterResize();
+
+    try {
+      const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
+      if (isMobile) {
+        try { if (localStorage.getItem('monthly.contractCollapsed') == null) setContractCollapsed(true); } catch {}
+        try { if (localStorage.getItem('monthly.summaryCollapsed') == null) setSummaryCollapsed(true); } catch {}
+        try { if (localStorage.getItem('monthly.annualCollapsed') == null) setAnnualCollapsed(true); } catch {}
+      }
+    } catch {}
 
     applyDailyCollapsed(getDailyCollapsed());
     applyContractCollapsed(getContractCollapsed());
@@ -1574,14 +1836,15 @@
   const setActingUserId = async (nextUserId) => {
     ctx.actingUserId = String(nextUserId || '').trim();
     try { state.currentViewingUserId = ctx.actingUserId || String(ctx.profile?.id || ''); } catch {}
-    try {
-      const url = new URL(window.location.href);
-      if (ctx.actingUserId) url.searchParams.set('userId', ctx.actingUserId);
-      else url.searchParams.delete('userId');
-      history.replaceState(null, '', url.pathname + url.search + url.hash);
-    } catch {}
     const ym = ctx.picker?.value || monthJST();
     if (!ctx.actingUserId) return;
+    // Pass userId to setMonth so it updates URL once
+    const url = new URL(window.location.href);
+    if (ctx.actingUserId) url.searchParams.set('userId', ctx.actingUserId);
+    else url.searchParams.delete('userId');
+    try {
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    } catch {}
     await setMonth(ym, true);
   };
 

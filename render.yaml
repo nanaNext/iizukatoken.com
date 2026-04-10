@@ -17,7 +17,9 @@ services:
       - key: TRUST_PROXY_HOPS
         value: "2"
       - key: ENFORCE_CSRF
-        value: "false"
+        value: "true"
+      - key: ENABLE_HSTS
+        value: "true"
       - key: COMPANY_NAME
         value: Iizuka Token
       - key: ACCESS_TOKEN_EXPIRES

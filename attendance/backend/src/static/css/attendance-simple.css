@@ -61,7 +61,7 @@ body {
   display: flex;
   gap: 14px;
   padding: 8px 12px;
-  border-top: 1px solid rgba(255,255,255,.12);
+  border-top: 0;
   position: sticky;
   top: 46px;
   z-index: 2400;
@@ -321,6 +321,68 @@ body {
   color: #0f172a;
   font-size: 16px;
 }
+.simple-combo {
+  position: relative;
+  width: 100%;
+}
+.simple-combo-btn {
+  width: 100%;
+  border: 1px solid #cfd6e3;
+  border-radius: 4px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 400;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.simple-combo-caret {
+  width: 16px;
+  height: 12px;
+  margin-left: 8px;
+  flex: 0 0 auto;
+}
+.simple-combo-list {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 2px);
+  width: 100%;
+  max-height: 220px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #cfd6e3;
+  border-radius: 4px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.12);
+  z-index: 500;
+}
+.simple-combo-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: #fff;
+  color: #0f172a;
+  font-size: 16px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.simple-combo-item:disabled {
+  opacity: .6;
+  cursor: default;
+}
+.simple-combo-item:hover {
+  background: #eaf2ff;
+}
+.simple-combo.open .simple-combo-btn {
+  border-color: #7fb3ff;
+  box-shadow: 0 0 0 2px rgba(127,179,255,.35);
+}
+.simple-combo.is-planned .simple-combo-btn {
+  color: #0284c7;
+  font-weight: 700;
+}
 .simple-select.is-planned {
   color: #0284c7;
   font-weight: 700;
@@ -375,6 +437,8 @@ body {
   align-items: center;
   justify-content: center;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1;
   transition: background .12s ease, border-color .12s ease, box-shadow .12s ease, transform .08s ease;
 }
@@ -579,12 +643,23 @@ body {
   align-items: center;
   gap: 10px;
   text-decoration: none;
-  color: #2563eb;
+  color: #fff;
+  background: #1f3553;
+  border: 1px solid #1f3553;
+  border-radius: 6px;
+  padding: 10px 14px;
   font-weight: 900;
-  font-size: 20px;
+  font-size: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  line-height: 1;
+  box-sizing: border-box;
+  height: 44px;
 }
 .simple-monthly-link:hover {
-  text-decoration: underline;
+  filter: brightness(1.05);
 }
 .simple-icon-pc {
   width: 34px;
@@ -596,31 +671,149 @@ body {
   stroke-linejoin: round;
 }
 .simple-bottom .simple-btn {
-  flex: 0 0 auto;
-  min-width: 190px;
+  flex: 1 1 0;
+  min-width: 0;
   padding: 12px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-sizing: border-box;
+  height: 44px;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 700px) {
+  .simple-tabs { display: none; }
   .simple-actuals { grid-template-columns: 1fr; }
   .simple-actuals-right { display: none; }
-  .simple-row { grid-template-columns: minmax(120px, 140px) minmax(0, 1fr); }
-  .simple-time { grid-template-columns: minmax(120px, 140px) minmax(0, 1fr); }
-  .simple-grid2 { grid-template-columns: 1fr; }
-  .simple-stamp-row { grid-template-columns: minmax(120px, 140px) minmax(92px, 1fr) minmax(110px, 140px); }
-  .simple-stamp-btn { font-size: 18px; padding: 10px 8px; }
-  .simple-stamp-time { font-size: 18px; padding: 12px 8px; }
-  .simple-bottom .simple-btn { flex: 1 1 0; min-width: 0; }
+  .simple-row { grid-template-columns: minmax(120px, 140px) minmax(0, 1fr); gap: 10px; }
+  .simple-time { grid-template-columns: minmax(120px, 140px) minmax(0, 1fr); gap: 10px; }
+  .simple-grid2 { grid-template-columns: repeat(4, minmax(96px, 1fr)); gap: 6px; }
+  .simple-grid2 .simple-time { display: contents; }
+  .simple-grid2 .simple-select { text-align: left; padding: 8px 24px 8px 8px; font-size: 15px; }
+  /* Hàng thời gian + nút: chiều ngang gọn, chiều dọc rõ ràng và đồng đều */
+  .simple-stamp-row { grid-template-columns: minmax(120px, 140px) minmax(120px, 1fr) minmax(120px, 1fr); gap: 10px; align-items: stretch; }
+  .simple-stamp-btn { font-size: 16px; padding: 10px 12px; height: 44px !important; width: 100%; min-width: 0; margin: 0; white-space: normal; line-height: normal; overflow: visible; text-overflow: clip; justify-content: flex-start; text-align: left; }
+  .simple-stamp-time { font-size: 16px; padding: 10px 12px; letter-spacing: 0; border: 2px solid #93c5fd; border-radius: 6px; height: 44px !important; min-height: 44px !important; line-height: normal !important; width: 100%; min-width: 0; margin: 0; box-sizing: border-box; text-align: left; }
+  .simple-time-input { font-size: 16px; letter-spacing: 0; border: 2px solid #93c5fd; border-radius: 6px; width: 100%; min-width: 0; margin: 0; height: 44px !important; min-height: 44px !important; line-height: normal !important; box-sizing: border-box; text-align: left; }
+  .simple-stamp-time::-webkit-datetime-edit,
+  .simple-time-input::-webkit-datetime-edit {
+    font-size: 16px;
+    line-height: normal;
+  }
+  .simple-stamp-time::-webkit-datetime-edit-fields-wrapper,
+  .simple-time-input::-webkit-datetime-edit-fields-wrapper {
+    line-height: normal;
+  }
+  .simple-stamp-stack { display: flex; flex-direction: column; gap: 8px; }
+  .simple-select, .simple-input, .simple-number { font-size: 16px; height: 44px !important; min-height: 44px !important; border: 2px solid #93c5fd; border-radius: 6px; box-sizing: border-box; padding: 10px 12px; line-height: normal !important; text-align: left; }
+  .simple-select {
+    -webkit-appearance: menulist;
+    -moz-appearance: menulist;
+    appearance: menulist;
+    line-height: normal !important;
+    min-height: 44px !important;
+    padding-right: 32px;
+    text-align: left;
+    text-align-last: left;
+    font-variant-numeric: tabular-nums;
+  }
+  .simple-combo-btn {
+    border: 2px solid #93c5fd;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 16px;
+  }
+  .simple-combo-list {
+    max-height: 240px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.18);
+  }
+  .simple-select option { line-height: normal; }
+  .simple-select:focus, .simple-time-input:focus, .simple-stamp-time:focus {
+    outline: none;
+    border-color: #7fb3ff;
+    box-shadow: 0 0 0 2px rgba(127,179,255,.35);
+  }
+  /* Ngăn select một lựa chọn tạo overlay xấu trên mobile */
+  #taskType.simple-select {
+    pointer-events: none;
+    cursor: default;
+  }
+  .simple-row label, .simple-time label { font-size: 16px; font-weight: 900; padding: 0 12px; height: 44px !important; display: flex; align-items: center; justify-content: flex-start; text-align: left; box-sizing: border-box; border-width: 2px !important; }
+  .simple-stamp-time::-webkit-calendar-picker-indicator { display: none; }
+  .simple-time-input::-webkit-calendar-picker-indicator { display: none; }
+  .simple-bottom .simple-btn { flex: 1 1 0; min-width: 0; padding: 12px 14px; font-size: 16px; height: 44px !important; }
+  .simple-monthly-link {
+    font-size: 16px;
+    height: 44px;
+    line-height: 1;
+    padding: 10px 14px;
+    align-items: center;
+  }
+  .simple-monthly-link .simple-icon-pc { color: #fff; }
+  .simple-textarea { font-size: 16px; height: auto !important; min-height: 110px !important; border: 2px solid #93c5fd; border-radius: 6px; box-sizing: border-box; padding: 10px 12px; line-height: 1.4 !important; resize: vertical; }
   .simple-worktype-buttons {
-    grid-template-columns: repeat(3, minmax(84px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
-    max-width: 360px;
+    width: 100%;
+    max-width: none;
   }
   .simple-wt-title {
     font-size: 15px;
   }
   .simple-wt-box {
-    width: 36px;
-    height: 36px;
+    width: 36px !important;
+    height: 36px !important;
+    line-height: 36px !important;
+    border: 2px solid #93c5fd !important;
+    background: #eaf2ff !important;
   }
+  .simple-wt-btn[aria-pressed="true"] .simple-wt-box::after { font-size: 24px; }
+  /* Thu ngắn riêng 2 ô đầu (勤務区分/企業名) theo mẫu yêu cầu */
+  .simple-form .simple-row:nth-child(1) { grid-template-columns: 140px 260px; }
+  .simple-form .simple-row:nth-child(1) .simple-select { max-width: 260px !important; width: 260px !important; }
+  .simple-form .simple-row:nth-child(2) { grid-template-columns: 140px 220px; }
+  .simple-form .simple-row:nth-child(2) .simple-select,
+  .simple-form .simple-row:nth-child(2) .simple-input { max-width: 220px !important; width: 220px !important; }
+  /* Căn ngang bằng nhau cho 現場名 và 作業内容 */
+  .simple-work-report .simple-row { grid-template-columns: 140px 220px; }
+  .simple-work-report .simple-row:nth-child(1) .simple-input,
+  .simple-work-report .simple-row:nth-child(2) .simple-textarea { max-width: 220px !important; width: 220px !important; }
+  /* Đồng bộ theo layout chính: tất cả hàng dùng cột 140px + 1fr, không thu hẹp */
+  .simple-form .simple-row:nth-child(1),
+  .simple-form .simple-row:nth-child(2),
+  .simple-work-report .simple-row {
+    grid-template-columns: minmax(120px, 140px) minmax(0, 1fr) !important;
+  }
+  .simple-form .simple-row:nth-child(1) .simple-select,
+  .simple-form .simple-row:nth-child(2) .simple-select,
+  .simple-form .simple-row:nth-child(2) .simple-input,
+  .simple-work-report .simple-row:nth-child(1) .simple-input,
+  .simple-work-report .simple-row:nth-child(2) .simple-textarea {
+    max-width: none !important;
+    width: 100% !important;
+  }
+  .simple-stamp-row .simple-label {
+    font-weight: 900;
+    padding: 0 12px;
+    height: 44px !important;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    box-sizing: border-box;
+    border-width: 2px !important;
+  }
+}
+
+/* Fallback cho màn hình rất hẹp: xếp dọc để luôn hiển thị đủ chữ */
+@media (max-width: 380px) {
+  .simple-row,
+  .simple-time { grid-template-columns: 1fr; }
+  .simple-row label,
+  .simple-time label { height: 28px !important; font-size: 14px; padding: 6px; }
+  .simple-stamp-row { grid-template-columns: 1fr; }
+  .simple-stamp-time,
+  .simple-time-input,
+  .simple-stamp-btn { width: 100%; min-width: 0; }
 }

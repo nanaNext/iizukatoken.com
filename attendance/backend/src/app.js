@@ -9,6 +9,8 @@ const cookieParser = require('cookie-parser');
 const security = require('./core/middleware/security');
 
 const app = express();
+const BUILD_ID = process.env.BUILD_ID || 'navy-20260331-1';
+const STARTED_AT = Date.now();
 app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS || '1', 10));
 app.use(express.json());
 app.use(cookieParser());
@@ -17,6 +19,9 @@ security(app);
 app.use((req, res, next) => {
   req.id = crypto.randomUUID();
   res.setHeader('X-Request-ID', req.id);
+  res.setHeader('X-Build-Id', BUILD_ID);
+  res.setHeader('X-Started-At', String(STARTED_AT));
+  res.setHeader('X-Process-Id', String(process.pid));
   next();
 });
 app.use((req, res, next) => {
@@ -33,7 +38,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use((req, res, next) => {
-  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
@@ -58,7 +63,7 @@ app.use((req, res, next) => {
     process.env.CSP_STYLE_SRC || "style-src 'self' 'unsafe-inline'",
     process.env.CSP_SCRIPT_SRC || "script-src 'self'",
     process.env.CSP_OBJECT_SRC || "object-src 'none'",
-    process.env.CSP_FRAME_ANCESTORS || "frame-ancestors 'none'",
+    process.env.CSP_FRAME_ANCESTORS || "frame-ancestors 'self'",
     process.env.CSP_CONNECT_SRC || "connect-src 'self'",
     process.env.CSP_BASE_URI || "base-uri 'self'",
     process.env.CSP_FORM_ACTION || "form-action 'self'",
@@ -122,6 +127,12 @@ const routes = require('./routes');
 routes(app);
 const uiRoutes = require('./routes/ui.routes');
 app.use('/', uiRoutes);
+app.get('/api/version', (req, res) => {
+  res.status(200).json({ buildId: BUILD_ID, startedAt: STARTED_AT, pid: process.pid });
+});
+app.get('/version', (req, res) => {
+  res.status(200).json({ buildId: BUILD_ID, startedAt: STARTED_AT, pid: process.pid });
+});
 app.get('/ping', (req, res) => {
   res.status(200).json({ ok: true });
 });

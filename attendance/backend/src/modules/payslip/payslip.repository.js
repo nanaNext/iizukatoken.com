@@ -82,7 +82,6 @@ async function ensureTable() {
 }
 
 async function create({ userId, month, filename, originalName, uploadedBy, iv, authTag, keyVersion, hash, version = 1 }) {
-  await ensureTable();
   const sql = `
     INSERT INTO payslip_files (userId, month, filename, original_name, uploaded_by, iv, auth_tag, key_version, hash, version)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -92,7 +91,6 @@ async function create({ userId, month, filename, originalName, uploadedBy, iv, a
 }
 
 async function listByUserMonth(userId, month) {
-  await ensureTable();
   const sql = `
     SELECT id, userId, month, filename, original_name, uploaded_by, created_at
     FROM payslip_files
@@ -104,14 +102,12 @@ async function listByUserMonth(userId, month) {
 }
 
 async function getById(id) {
-  await ensureTable();
   const sql = `SELECT * FROM payslip_files WHERE id = ? LIMIT 1`;
   const [rows] = await db.query(sql, [id]);
   return rows[0];
 }
 
 async function deleteById(id) {
-  await ensureTable();
   const before = await getById(id);
   if (!before) return null;
   const sql = `DELETE FROM payslip_files WHERE id = ?`;
@@ -120,7 +116,6 @@ async function deleteById(id) {
 }
 
 async function updateFile(id, filename, originalName, uploadedBy, iv, authTag, keyVersion, hash, version = null) {
-  await ensureTable();
   const sql = `
     UPDATE payslip_files
     SET filename = ?, original_name = ?, uploaded_by = ?, iv = ?, auth_tag = ?, key_version = ?, hash = ?, version = COALESCE(?, version)
@@ -131,7 +126,6 @@ async function updateFile(id, filename, originalName, uploadedBy, iv, authTag, k
 }
 
 async function listByUserBetween(userId, fromMonth, toMonth) {
-  await ensureTable();
   let sql = `
     SELECT id, userId, month, filename, original_name, uploaded_by, created_at
     FROM payslip_files
@@ -154,7 +148,6 @@ async function listByUserBetween(userId, fromMonth, toMonth) {
 }
 
 async function findLatestByUserMonth(userId, month) {
-  await ensureTable();
   const sql = `
     SELECT id, userId, month, filename, original_name, uploaded_by, created_at
     FROM payslip_files
@@ -166,4 +159,4 @@ async function findLatestByUserMonth(userId, month) {
   return rows[0];
 }
 
-module.exports = { create, listByUserMonth, getById, deleteById, updateFile, listByUserBetween, findLatestByUserMonth };
+module.exports = { ensureTable, create, listByUserMonth, getById, deleteById, updateFile, listByUserBetween, findLatestByUserMonth };

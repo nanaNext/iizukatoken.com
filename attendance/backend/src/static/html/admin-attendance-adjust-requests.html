@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>調整申請一覧（管理者）</title>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260326-6">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260326-6">
+  <link rel="stylesheet" href="/static/css/admin.css?v=20260403-ds1">  <link rel="stylesheet" href="/static/css/adjust.page.css?v=20260403-7">
+  <script src="/static/js/pages/session-idle.js?v=navy-20260326-6" defer></script>
+  <script type="module" src="/static/js/admin/attendance/admin-attendance-adjust-requests.page.js?v=20260403-5"></script>
+  <link rel="icon" href="data:,">
+</head>
+<body class="admin has-sidebar">
+  <!--#include file="_partials/admin-topbar.html" -->
+  <!--#include file="_partials/admin-mobile-drawer.html" -->
+  <aside class="sidebar" aria-label="Admin navigation">
+    <a class="sidebar-brand" href="/admin/dashboard">飯塚塗研(株)</a>
+    <nav class="sidebar-nav">
+      <a href="/admin/dashboard" data-admin-link="dashboard">ホーム</a>
+      <details data-default-href="/admin/employees">
+        <summary><span class="summary-text">社員管理</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/employees" data-admin-link="employees-list">社員一覧</a>
+        <a href="/admin/employees/add" data-admin-link="employees-add">社員追加</a>
+      </details>
+      <details open data-default-href="/admin/attendance">
+        <summary><span class="summary-text">勤怠管理</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/attendance" data-admin-link="attendance-records">勤怠記録</a>
+        <a href="/admin/attendance/monthly" data-admin-link="attendance-monthly" target="_blank" rel="noopener noreferrer">月次勤怠入力(管理者)</a>
+        <a href="/admin/work-reports" data-admin-link="work-reports">作業報告</a>        <a href="/admin/attendance/shifts" data-admin-link="attendance-shifts">シフト管理</a>
+        <a href="/admin/attendance/holidays" data-admin-link="attendance-holidays">休日設定</a>
+        <a href="/admin-attendance-adjust-requests.html" data-admin-link="attendance-adjust-requests" class="active">調整申請一覧</a>
+      </details>
+      <details data-default-href="/admin/leave/requests">
+        <summary><span class="summary-text">休暇管理</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/leave/requests" data-admin-link="leave-requests">申請一覧</a>
+        <a href="/admin/leave/balance" data-admin-link="leave-balance">残日数</a>
+        <a href="/admin/leave/grants" data-admin-link="leave-grants">付与管理</a>
+      </details>
+      <details data-default-href="/admin/payroll/salary">
+        <summary><span class="summary-text">給与管理</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/payroll/salary" data-admin-link="payroll-salary">給与</a>
+        <a href="/admin/payroll/payslips" data-admin-link="payroll-payslips">給与明細</a>
+      </details>
+      <details data-default-href="/admin/departments">
+        <summary><span class="summary-text">組織</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/departments" data-admin-link="org-departments">部門管理</a>
+      </details>
+      <details data-default-href="/admin/chatbot/faq">
+        <summary><span class="summary-text">チャットボット</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/chatbot/faq" data-admin-link="chatbot-faq">FAQ</a>
+        <a href="/admin/chatbot/categories" data-admin-link="chatbot-categories">カテゴリ</a>
+        <a href="/admin/chatbot/user-questions" data-admin-link="chatbot-questions">質問</a>
+      </details>
+      <details data-default-href="/admin/system/settings">
+        <summary><span class="summary-text">システム</span><span class="chev" aria-hidden="true"></span></summary>
+        <a href="/admin/notices" data-admin-link="system-notices">お知らせ</a>
+        <a href="/admin/system/settings" data-admin-link="system-settings">設定</a>
+        <a href="/admin/system/audit-logs" data-admin-link="system-audit">監査ログ</a>
+      </details>
+    </nav>
+  </aside>
+  <main class="content">
+    <h2 style="margin-bottom:18px;color:#0b2c66;font-size:24px;letter-spacing:1px;">調整申請一覧</h2>
+    <div id="adjustRequestsHost"></div>
+  </main>
+</body>
+</html>

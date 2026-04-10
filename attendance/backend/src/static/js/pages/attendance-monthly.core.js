@@ -97,10 +97,7 @@
     const menu = $('#userMenu');
     if (!btn || !menu) return;
     const doLogout = async () => {
-      try {
-        const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-        await logout(rt || undefined);
-      } catch {}
+      try { await logout(); } catch {}
       try { sessionStorage.removeItem('accessToken'); sessionStorage.removeItem('refreshToken'); sessionStorage.removeItem('user'); } catch {}
       try { localStorage.removeItem('refreshToken'); localStorage.removeItem('user'); } catch {}
       window.location.replace('/ui/login');
@@ -125,14 +122,12 @@
     const btns = Array.from(document.querySelectorAll('.kintai-nav-btn[data-dd]'));
     const panels = Array.from(document.querySelectorAll('.kintai-dd[data-dd-panel]'));
     if (!btns.length || !panels.length) return;
-    try {
-      const hoverFine = window.matchMedia('(hover:hover) and (pointer:fine)').matches;
-      if (hoverFine) return;
-    } catch {}
+    try { document.body.classList.add('nav-js'); } catch {}
 
     const closeAll = () => {
       for (const b of btns) { try { b.setAttribute('aria-expanded', 'false'); } catch {} }
-      for (const p of panels) { try { p.setAttribute('hidden', ''); } catch {} }
+      for (const p of panels) { try { p.setAttribute('hidden', ''); p.style.display = ''; } catch {} }
+      document.querySelectorAll('.kintai-nav-dd').forEach(dd => { try { dd.classList.remove('open'); } catch {} });
     };
     const openOne = (key) => {
       closeAll();
@@ -140,7 +135,15 @@
       const panel = panels.find(p => p.dataset.ddPanel === key);
       if (!btn || !panel) return;
       try { btn.setAttribute('aria-expanded', 'true'); } catch {}
-      try { panel.removeAttribute('hidden'); } catch {}
+      try { panel.removeAttribute('hidden'); panel.style.display = 'block'; } catch {}
+      try { btn.closest('.kintai-nav-dd')?.classList.add('open'); } catch {}
+    try {
+      panel.style.position = '';
+      panel.style.left = '';
+      panel.style.top = '';
+      panel.style.maxWidth = '';
+      panel.style.width = '';
+    } catch {}
     };
     for (const b of btns) {
       b.addEventListener('click', (e) => {
@@ -151,6 +154,22 @@
         if (isOpen) closeAll();
         else openOne(key);
       });
+      b.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        const key = b.dataset.dd;
+        const panel = panels.find(p => p.dataset.ddPanel === key);
+        const isOpen = panel && !panel.hasAttribute('hidden');
+        if (isOpen) closeAll();
+        else openOne(key);
+      }, { passive: false });
+      b.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        const key = b.dataset.dd;
+        const panel = panels.find(p => p.dataset.ddPanel === key);
+        const isOpen = panel && !panel.hasAttribute('hidden');
+        if (isOpen) closeAll();
+        else openOne(key);
+      }, { passive: false });
     }
     document.addEventListener('click', (e) => {
       if (e.target?.closest?.('.kintai-nav-dd')) return;

@@ -5,16 +5,35 @@
   margin-bottom: 12px;
 }
 
+main.content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: calc(100vh - var(--topbar-height, 48px));
+  padding: 12px;
+}
+
+section.card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin-bottom: 0;
+  width: 100%;
+}
+
+/* ── Thanh điều khiển ── */
 .admin-monthly-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-}
-
-.admin-monthly-title {
-  margin: 0;
+  background: #fff;
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
 }
 
 .admin-monthly-controls {
@@ -26,49 +45,83 @@
 
 .admin-monthly-label {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
+  color: #475569;
+}
+
+.admin-monthly-month-label {
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
   color: #0b2c66;
+  font-weight: 700;
+  font-size: 14px;
 }
 
 .admin-monthly-month {
   height: 34px;
   border: 1px solid #cbd5e1;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 0 10px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 600;
   color: #0b2c66;
+  outline: none;
+}
+.admin-monthly-month:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.12);
 }
 
-.admin-monthly-hint {
-  margin-top: 10px;
-  color: #334155;
-  font-weight: 700;
-}
-
-.admin-monthly-grid {
-  margin-top: 12px;
-  display: grid;
-  grid-template-columns: 420px 1fr;
-  gap: 12px;
-  align-items: start;
-}
-
-.admin-monthly-frame-wrap {
-  position: relative;
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+/* Dropdown chọn nhân viên */
+.admin-monthly-emp-select {
+  height: 34px;
+  min-width: 220px;
+  max-width: 340px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0b2c66;
   background: #fff;
+  outline: none;
+  cursor: pointer;
+}
+.admin-monthly-emp-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+}
+.admin-monthly-emp-select:disabled {
+  opacity: .6;
+  cursor: default;
+}
+
+/* ── iframe full width ── */
+.admin-monthly-frame-wrap {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
-  min-height: 520px;
-  height: calc(100dvh - var(--topbar-height) - 160px);
+  position: relative;     /* ← anchor cho iframe absolute */
+  margin-top: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(15,23,42,.06);
 }
 
 .admin-monthly-frame {
+  position: absolute;     /* ← fill 100% parent tường minh */
+  inset: 0;
   width: 100%;
   height: 100%;
   border: 0;
   background: #fff;
+  display: block;
 }
 
 .admin-monthly-frame-spinner {
@@ -76,78 +129,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(255, 255, 255, .82);
+  background: rgba(255,255,255,.85);
   z-index: 5;
 }
-
-.admin-monthly-frame-spinner[hidden] {
-  display: none;
-}
-
-.admin-monthly-table {
-  width: 100%;
-}
-
-.admin-monthly-user-link {
-  font-weight: 900;
-  color: #0b2c66;
-  text-decoration: none;
-}
-
-.admin-monthly-status-pill {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 900;
-  color: #fff;
-  text-align: center;
-  min-width: 70px;
-}
-
-.admin-monthly-status-pill.draft {
-  background-color: #94a3b8;
-}
-
-.admin-monthly-status-pill.submitted {
-  background-color: #f59e0b;
-}
-
-.admin-monthly-status-pill.approved {
-  background-color: #10b981;
-}
- .admin-monthly-status-pill.ready {
-   background-color: #0ea5e9;
- }
-
-.admin-monthly-btn-approve {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid #10b981;
-  background: #10b981;
-  color: #fff;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.admin-monthly-btn-approve:hover {
-  background: #059669;
-}
-
-.admin-monthly-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 30px;
-  padding: 0 10px;
-  border-radius: 10px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  color: #0b2c66;
-  font-weight: 900;
-  text-decoration: none;
-}
+.admin-monthly-frame-spinner[hidden] { display: none; }

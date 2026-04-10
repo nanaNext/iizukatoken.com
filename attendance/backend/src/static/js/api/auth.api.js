@@ -46,7 +46,7 @@ export async function login(email, password) {
     throw new Error(msg);
   }
   const data = await res.json();
-  return data; // { accessToken, refreshToken, id, username, email, role }
+  return data;
 }
 
 export async function me(accessToken) {
@@ -65,13 +65,13 @@ export async function me(accessToken) {
   return res.json();
 }
 
-export async function refresh(refreshToken) {
+export async function refresh() {
   const csrf = getCookie('csrfToken');
   const res = await fetchWithTimeout(`${AUTH_BASE}/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' },
     credentials: 'include',
-    body: JSON.stringify(refreshToken ? { refreshToken } : {})
+    body: JSON.stringify({})
   }, 15000);
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
@@ -81,16 +81,16 @@ export async function refresh(refreshToken) {
     } catch {}
     throw new Error(msg);
   }
-  return res.json(); // { accessToken, refreshToken }
+  return res.json();
 }
 
-export async function logout(refreshToken) {
+export async function logout() {
   const csrf = getCookie('csrfToken');
   const res = await fetchWithTimeout(`${AUTH_BASE}/logout`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' },
     credentials: 'include',
-    body: JSON.stringify(refreshToken ? { refreshToken } : {})
+    body: JSON.stringify({})
   }, 15000);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();

@@ -46,14 +46,12 @@ async function ensureTable() {
 }
 
 async function getByUserMonth(userId, month) {
-  await ensureTable();
   const sql = `SELECT id, userId, month, payload, is_published, updated_by, updated_at FROM salary_inputs WHERE userId = ? AND month = ? LIMIT 1`;
   const [rows] = await db.query(sql, [userId, month]);
   return rows[0] || null;
 }
 
 async function upsert({ userId, month, payload, updatedBy }) {
-  await ensureTable();
   const sql = `
     INSERT INTO salary_inputs (userId, month, payload, updated_by)
     VALUES (?, ?, CAST(? AS JSON), ?)
@@ -64,7 +62,6 @@ async function upsert({ userId, month, payload, updatedBy }) {
 }
 
 async function setPublished(userId, month, isPublished, updatedBy) {
-  await ensureTable();
   const sql = `
     UPDATE salary_inputs
     SET is_published = ?, updated_by = ?
@@ -75,7 +72,6 @@ async function setPublished(userId, month, isPublished, updatedBy) {
 }
 
 async function listPublishedByUser(userId) {
-  await ensureTable();
   const sql = `
     SELECT userId, month, is_published, updated_by, updated_at
     FROM salary_inputs
@@ -86,4 +82,4 @@ async function listPublishedByUser(userId) {
   return rows || [];
 }
 
-module.exports = { getByUserMonth, upsert, setPublished, listPublishedByUser };
+module.exports = { ensureTable, getByUserMonth, upsert, setPublished, listPublishedByUser };

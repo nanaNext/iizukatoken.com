@@ -15,13 +15,8 @@ async function ensureAuthProfile() {
   }
   if (!profile) {
     try {
-      const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-      const r = await refresh(rt || undefined);
+      const r = await refresh();
       sessionStorage.setItem('accessToken', r.accessToken);
-      try {
-        sessionStorage.setItem('refreshToken', r.refreshToken || rt);
-        localStorage.setItem('refreshToken', r.refreshToken || rt);
-      } catch {}
       token = r.accessToken;
       profile = await me(token);
     } catch {}
@@ -33,15 +28,8 @@ async function ensureAuthProfile() {
       if (user && (user.role === 'admin' || user.role === 'manager' || user.role === 'employee')) {
         profile = user;
         try {
-          const rt2 = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-          if (rt2) {
-            const r2 = await refresh(rt2 || undefined);
-            sessionStorage.setItem('accessToken', r2.accessToken);
-            try {
-              sessionStorage.setItem('refreshToken', r2.refreshToken || rt2);
-              localStorage.setItem('refreshToken', r2.refreshToken || rt2);
-            } catch {}
-          }
+          const r2 = await refresh();
+          sessionStorage.setItem('accessToken', r2.accessToken);
         } catch {}
       }
     } catch {}
@@ -111,10 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   if (!profile) { await waitMinDelay(); if (pageSpinner) { pageSpinner.setAttribute('hidden', ''); } window.location.replace('/ui/login'); return; }
   const goLogin = async () => {
-    try {
-      const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-      await logout(rt || undefined);
-    } catch {}
+    try { await logout(); } catch {}
     try {
       sessionStorage.removeItem('accessToken');
       sessionStorage.removeItem('refreshToken');
@@ -127,9 +112,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { window.location.replace('/ui/login'); } catch { window.location.href = '/ui/login'; }
   };
   try {
-    const rt = sessionStorage.getItem('refreshToken') || '';
     const userStr = sessionStorage.getItem('user') || '';
-    if (rt) { localStorage.setItem('refreshToken', rt); }
     if (userStr) { localStorage.setItem('user', userStr); }
   } catch {}
   const role = String(profile.role || '').toLowerCase();
@@ -162,7 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <a class="tile" href="/ui/profile"><div class="icon">👤</div><div class="title">プロフィール</div></a>
         <a class="tile" href="/ui/salary"><div class="icon">💴</div><div class="title">給与明細など</div></a>
         <a class="tile" href="/ui/calendar"><div class="icon">📅</div><div class="title">カレンダー</div></a>
-        <a class="tile" href="/ui/leave"><div class="icon">✈️</div><div class="title">休暇申請</div></a>
+        <a class="tile" href="/ui/requests"><div class="icon">✈️</div><div class="title">休暇申請</div></a>
       `;
     }
   }
@@ -223,16 +206,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       tiles.classList.add('employee-portal');
       tiles.innerHTML = `
         <div class="emp-tiles-3">
-          <a class="tile" href="/ui/leave">
+          <a class="tile" href="/ui/requests">
             <div class="icon">📝</div>
             <div class="title">申請</div>
           </a>
-          <a class="tile" href="/ui/attendance">
+          <a class="tile" href="/ui/attendance" target="_blank" rel="noopener noreferrer">
             <div class="title">勤怠入力</div>
           </a>
           <a class="tile" href="/ui/adjust">
             <div class="icon">💳</div>
             <div class="title">調整申請</div>
+          </a>
+          <a class="tile" href="/expenses-login" target="_blank" rel="noopener noreferrer">
+            <div class="icon"></div>
+            <div class="title">交通費計算</div>
           </a>
         </div>
         <div class="emp-tiles-2">
@@ -256,9 +243,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       { key:'departments', title:'部門管理', icon:'🏢', href:'/admin/departments', desc:'Departments', adminOnly:true, prio:14 },
       { key:'admin', title:'社員管理', icon:'🛠', href:'/admin/employees', desc:'Admin portal', adminOnly:true, prio:16 },
       { key:'attendance_in', title:'勤怠入力', icon:'', href:'/ui/attendance', desc:'Daily time input', prio:20, hideForAdmin:true },
-      { key:'paid_leave', title:'有給休暇', icon:'🏝', href:'/ui/leave?type=paid', desc:'Paid leave', prio:25 },
+      { key:'paid_leave', title:'有給休暇', icon:'🏝', href:'/ui/requests', desc:'Paid leave', prio:25 },
       { key:'paid_leave_manage', title:'有給休暇管理', icon:'🏝', href:'/admin/leave/balance', desc:'Paid leave admin', adminOnly:true, prio:22 },
-      { key:'leave', title:'申請', icon:'📝', href:'/ui/leave', desc:'Leave & requests', prio:30, hideForAdmin:true },
+      { key:'leave', title:'申請', icon:'📝', href:'/ui/requests', desc:'Leave & requests', prio:30, hideForAdmin:true },
       { key:'overtime', title:'残業申請', icon:'⏲', href:'/ui/adjust?type=overtime', desc:'Overtime / time correction request', prio:32, hideForAdmin:true },
       { key:'overtime_manage', title:'残業管理', icon:'⏲', href:'/admin/leave/requests', desc:'Overtime management', adminOnly:true, prio:18 },
       { key:'requests_manage', title:'申請管理', icon:'🗂', href:'/admin/leave/requests', desc:'Requests management', adminOnly:true, prio:19 },
@@ -325,10 +312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     drawerEl.addEventListener('click', async (e) => {
       const btn = e.target?.closest?.('#drawerLogout');
       if (btn) {
-        try {
-          const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-          await logout(rt);
-        } catch {}
+        try { await logout(); } catch {}
         sessionStorage.removeItem('accessToken');
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('refreshToken');
@@ -399,10 +383,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnLogout = document.querySelector('#btnLogout');
     if (btnLogout) {
       btnLogout.addEventListener('click', async () => {
-        try {
-          const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-          await logout(rt);
-        } catch {}
+        try { await logout(); } catch {}
         sessionStorage.removeItem('accessToken');
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('refreshToken');

@@ -7,7 +7,7 @@
   const { cssEscape, setDirty } = core;
   const { recomputeRow } = render;
 
-  const KEY_PREFIX = 'se.attMonthlyDraft.v1:';
+  const KEY_PREFIX = 'se.attMonthlyDraft.v2:';
   const MAX_BYTES = 3500000;
 
   const safeJSONParse = (s) => {
@@ -52,6 +52,7 @@
 
     const items = [];
     for (const row of rows) {
+      if (String(row.dataset?.dirty || '') !== '1') continue;
       const date = String(row.getAttribute('data-date') || '').slice(0, 10);
       const rowNo = String(row.getAttribute('data-row') || '');
       if (!date || !rowNo) continue;
@@ -83,7 +84,7 @@
       }
     }
 
-    const payload = { savedAt: Date.now(), ym: String(ym || '').slice(0, 7), items };
+    const payload = { version: 2, savedAt: Date.now(), ym: String(ym || '').slice(0, 7), items };
     return safeJSONSet(key, payload);
   };
 
@@ -130,6 +131,7 @@
     const key = ymKey(ctx, ym);
     const raw = (() => { try { return localStorage.getItem(key); } catch { return null; } })();
     const data = safeJSONParse(raw);
+    if (Number(data?.version || 0) !== 2) return { ok: false, restored: 0 };
     const items = Array.isArray(data?.items) ? data.items : [];
     if (!items.length) return { ok: false, restored: 0 };
 

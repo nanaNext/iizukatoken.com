@@ -50,7 +50,7 @@ const toLegacyState = (path) => {
   if (p === '/admin/attendance/monthly') return { redirect: '/ui/attendance/monthly' };
   if (p === '/admin/attendance/shifts') return { tab: 'shifts', hash: '' };
   if (p === '/admin/attendance/shift-assignment') return { tab: 'shifts', hash: '' };
-  if (p === '/admin/attendance/adjust-requests') return { tab: 'approvals', hash: '' };
+  if (p === '/admin/attendance/adjust-requests') return { redirect: '/admin-attendance-adjust-requests.html' };
   if (p === '/admin/attendance/holidays') return { tab: 'calendar', hash: '' };
 
   if (p === '/admin/leave/requests') return { tab: 'approvals', hash: '' };
@@ -107,6 +107,13 @@ const markActiveNav = () => {
       }
     }
     for (const a of links) a.classList.toggle('active', a === best);
+
+    try {
+      const nav = document.querySelector('.sidebar .sidebar-nav');
+      if (nav && !nav.querySelector('.selected')) {
+        if (best) best.classList.add('selected');
+      }
+    } catch {}
   } catch {}
 };
 
@@ -194,10 +201,7 @@ const wireUserMenu = () => {
     if (!btnLogout || btnLogout.dataset.bound === '1') return;
     btnLogout.dataset.bound = '1';
     btnLogout.addEventListener('click', async () => {
-      try {
-        const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-        await logout(rt || undefined);
-      } catch {}
+      try { await logout(); } catch {}
       try {
         sessionStorage.removeItem('accessToken');
         sessionStorage.removeItem('user');
@@ -385,6 +389,10 @@ const route = async () => {
       document.body.classList.toggle('employees-wide', p === '/admin/employees' || p.startsWith('/admin/employees/'));
     } catch {}
     markActiveNav();
+    try {
+      const home = document.querySelector('.sidebar .sidebar-nav a[data-admin-link="dashboard"]');
+      if (home) home.classList.add('pinned');
+    } catch {}
     expandActiveSidebarSection();
     if (seq !== routeSeq) return;
 
@@ -432,6 +440,12 @@ const route = async () => {
     }
     if (p2 === '/admin/payroll/salary' || p2 === '/admin/payroll/payslips') {
       const mod = await loadModule('./payroll/payroll.page.js');
+      if (seq !== routeSeq) return;
+      if (mod && typeof mod.mount === 'function') await mod.mount();
+      return;
+    }
+    if (p2 === '/admin/expenses') {
+      const mod = await loadModule('./expenses/expenses.page.js');
       if (seq !== routeSeq) return;
       if (mod && typeof mod.mount === 'function') await mod.mount();
       return;
@@ -533,10 +547,56 @@ const wireSpaNav = () => {
   } catch {}
 };
 
+const wireNavSelection = () => {
+  try {
+    if (document.body.dataset.navSelection === '1') return;
+    document.body.dataset.navSelection = '1';
+    const nav = document.querySelector('.sidebar .sidebar-nav');
+    if (!nav) return;
+
+    const clear = () => {
+      nav.querySelectorAll('a.selected, summary.selected').forEach((el) => el.classList.remove('selected'));
+    };
+    const selectEl = (el) => {
+      if (!el) return;
+      clear();
+      el.classList.add('selected');
+      try {
+        const a = el.tagName === 'A' ? el : null;
+        const key = a ? `a:${a.getAttribute('href') || ''}` : 'summary';
+        sessionStorage.setItem('admin.nav.selected', key);
+      } catch {}
+    };
+
+    try {
+      const saved = sessionStorage.getItem('admin.nav.selected') || '';
+      if (saved.startsWith('a:')) {
+        const href = saved.slice(2);
+        const a = nav.querySelector(`a[href="${CSS.escape(href)}"]`);
+        if (a) a.classList.add('selected');
+      }
+    } catch {}
+
+    nav.addEventListener('click', (e) => {
+      const t = e && e.target;
+      const a = (t && t.closest) ? t.closest('a[href]') : null;
+      if (a && nav.contains(a)) {
+        selectEl(a);
+        return;
+      }
+      const summary = (t && t.closest) ? t.closest('summary') : null;
+      if (summary && nav.contains(summary)) {
+        selectEl(summary);
+      }
+    }, true);
+  } catch {}
+};
+
 const boot = async () => {
   setTopbarHeightVar();
   try { window.addEventListener('resize', setTopbarHeightVar); } catch {}
   wireSidebarAccordion();
+  wireNavSelection();
   wireLegacyLinkRewrite();
   wireSpaNav();
   wireAdminShell({ logoutRedirect: '/ui/login' });
@@ -547,10 +607,7 @@ const boot = async () => {
         document.body.dataset.backLoginBound = '1';
         try { history.pushState({ back_to_login_guard: true }, '', window.location.href); } catch {}
         window.addEventListener('popstate', async () => {
-          try {
-            const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-            await logout(rt || undefined);
-          } catch {}
+          try { await logout(); } catch {}
           try {
             sessionStorage.removeItem('accessToken');
             sessionStorage.removeItem('refreshToken');

@@ -4,6 +4,9 @@ const rules = require('./attendance.rules');
 const repo = require('./attendance.repository');
 const { formatInputToMySQLJST } = require('../../utils/dateTime');
 const userRepo = require('../users/user.repository');
+const workReportRepo = require('../workReports/workReports.repository');
+const salaryInputRepo = require('../salary/salaryInput.repository');
+const { calculatePaidLeaveEntitlement } = require('../../utils/leaveRules');
 // Controller xử lý request/response cho module chấm công
 
 exports.checkIn = async (req, res) => {
@@ -54,6 +57,13 @@ exports.checkIn = async (req, res) => {
         afterData: JSON.stringify({ ...loc, workType, result })
       });
     } catch {}
+    try {
+      const dtStr = String(result?.checkIn || b?.time || '').slice(0, 10) || new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      const y = parseInt(dtStr.slice(0, 4), 10);
+      const m = parseInt(dtStr.slice(5, 7), 10);
+      const st = await getMonthStatusValue(userId, y, m);
+      if (st !== 'approved') await repo.setMonthStatus(userId, y, m, 'submitted', req.user?.id);
+    } catch {}
     res.status(201).json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -93,6 +103,13 @@ exports.checkOut = async (req, res) => {
         afterData: JSON.stringify({ ...loc, result })
       });
     } catch {}
+    try {
+      const dtStr = String(result?.checkOut || result?.checkIn || b?.time || '').slice(0, 10) || new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      const y = parseInt(dtStr.slice(0, 4), 10);
+      const m = parseInt(dtStr.slice(5, 7), 10);
+      const st = await getMonthStatusValue(userId, y, m);
+      if (st !== 'approved') await repo.setMonthStatus(userId, y, m, 'submitted', req.user?.id);
+    } catch {}
     res.status(200).json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -116,6 +133,66 @@ exports.setWorkType = async (req, res) => {
 
 const { timesheetMaxDays } = require('../../config/env');
 const { nowJSTMySQL } = require('../../utils/dateTime');
+exports.userProfileForMonthly = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    const requesterId = req.user?.id;
+    let userId = req.query.userId ? parseInt(String(req.query.userId), 10) : requesterId;
+    if (!userId) return res.status(400).json({ message: 'Missing userId' });
+    if (role === 'employee' && String(userId) !== String(requesterId)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    const user = await userRepo.getUserById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const dept = user?.departmentId ? (await userRepo.getDepartmentById(user.departmentId)) : null;
+    const db = require('../../core/database/mysql');
+    await require('./attendance.repository').ensureWorkDetailsSchema();
+    const [workRows] = await db.query(`
+      SELECT id, start_date, end_date, company_name, work_place_address, work_content, role_title, responsibility_level
+      FROM user_work_details
+      WHERE userId = ?
+      ORDER BY start_date DESC, id DESC
+      LIMIT 10
+    `, [userId]);
+    let shift = null;
+    const ym = String(req.query.ym || '').slice(0, 7);
+    let targetDate = null;
+    if (/^\d{4}-\d{2}$/.test(ym)) targetDate = ym + '-15';
+    if (user?.shift_id) {
+      const [srows] = await db.query(`SELECT id, name, start_time, end_time, break_minutes FROM shift_definitions WHERE id = ? LIMIT 1`, [user.shift_id]);
+      if (srows && srows[0]) shift = srows[0];
+    }
+    if (!shift) {
+      const refDate = targetDate || new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+      const [rowsAssign] = await db.query(`
+        SELECT sd.id, sd.name, sd.start_time, sd.end_time, sd.break_minutes
+        FROM user_shift_assignments usa
+        JOIN shift_definitions sd ON sd.id = usa.shiftId
+        WHERE usa.userId = ?
+          AND (usa.start_date IS NULL OR usa.start_date <= ?)
+          AND (usa.end_date IS NULL OR usa.end_date >= ?)
+        ORDER BY usa.start_date DESC, usa.id DESC
+        LIMIT 1
+      `, [userId, refDate, refDate]);
+      if (rowsAssign && rowsAssign[0]) shift = rowsAssign[0];
+    }
+    res.status(200).json({
+      userId,
+      contract: {
+        employment_type: user?.employment_type || null,
+        contract_type: user?.contract_type || null,
+        base_salary: user?.base_salary || null,
+        contract_end: user?.contract_end || null,
+        departmentId: user?.departmentId || null,
+        departmentName: dept?.name || null,
+        shift: shift
+      },
+      workDetails: workRows || []
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 exports.timesheet = async (req, res) => {
   try {
     const requesterId = req.user?.id;
@@ -321,7 +398,8 @@ exports.todayRoster = async (req, res) => {
         a.id AS attendanceId,
         a.shiftId AS shiftId,
         a.checkIn AS checkIn,
-        a.checkOut AS checkOut
+        a.checkOut AS checkOut,
+        ad.kubun AS dailyKubun
       FROM users u
       LEFT JOIN departments d
         ON d.id = u.departmentId
@@ -329,6 +407,8 @@ exports.todayRoster = async (req, res) => {
         ON lr.userId = u.id
        AND lr.status = 'approved'
        AND ? BETWEEN lr.startDate AND lr.endDate
+      LEFT JOIN attendance_daily ad
+        ON ad.userId = u.id AND ad.date = ?
       LEFT JOIN (
         SELECT t1.*
         FROM attendance t1
@@ -348,7 +428,7 @@ exports.todayRoster = async (req, res) => {
         CASE WHEN a.checkIn IS NULL THEN 1 ELSE 0 END ASC,
         COALESCE(u.employee_code, '') ASC,
         u.id ASC
-    `, [date, date]);
+    `, [date, date, date]);
 
     const items = (rows || []).map(r => {
       const hasIn = !!r.checkIn;
@@ -360,6 +440,8 @@ exports.todayRoster = async (req, res) => {
         username: r.username || null,
         departmentId: r.departmentId || null,
         departmentName: r.departmentName || null,
+        role: r.role || null,
+        dailyKubun: r.dailyKubun || null,
         attendance: {
           id: r.attendanceId || null,
           shiftId: r.shiftId || null,
@@ -375,9 +457,11 @@ exports.todayRoster = async (req, res) => {
         u.id AS userId,
         u.employee_code AS employeeCode,
         u.username AS username,
+        u.role AS role,
         u.departmentId AS departmentId,
         d.name AS departmentName,
-        CASE WHEN lr.id IS NULL THEN 0 ELSE 1 END AS isLeave
+        CASE WHEN lr.id IS NULL THEN 0 ELSE 1 END AS isLeave,
+        lr.type AS leaveType
       FROM users u
       LEFT JOIN departments d
         ON d.id = u.departmentId
@@ -410,10 +494,12 @@ exports.todayRoster = async (req, res) => {
         userId: r.userId,
         employeeCode: r.employeeCode || null,
         username: r.username || null,
+        role: r.role || null,
         departmentId: r.departmentId || null,
         departmentName: r.departmentName || null,
         planned: {
           status: Number(r.isLeave || 0) ? 'leave' : 'work',
+          leaveType: r.leaveType || null,
           shift
         }
       });
@@ -489,11 +575,52 @@ async function assertMonthWritable(req, targetUserId, year, month) {
     e.status = 423;
     throw e;
   }
-  if (role === 'manager' && String(targetUserId) !== String(meId)) {
-    const e = new Error('Forbidden: managers cannot edit other users');
-    e.status = 403;
-    throw e;
+}
+
+async function computeMonthMissing(userId, y, m) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const from = `${y}-${pad(m)}-01`;
+  const to = `${y}-${pad(m)}-${pad(lastDay)}`;
+  const calendarRepo = require('../calendar/calendar.repository');
+  const cal = await calendarRepo.computeYear(y).catch(() => null);
+  const off = new Set();
+  try {
+    const detail = Array.isArray(cal?.detail) ? cal.detail : [];
+    for (const it of detail) {
+      const ds = String(it?.date || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
+      if (Number(it?.is_off || 0) === 1) off.add(ds);
+    }
+  } catch {}
+  const dailyRows = await repo.listDailyBetween(userId, from, to).catch(() => []);
+  const dailyKubun = new Map((dailyRows || []).map(r => [String(r?.date || '').slice(0, 10), String(r?.kubun || '').trim()]));
+  const segRows = await repo.listByUserBetween(userId, from, to).catch(() => []);
+  const segByDate = new Map();
+  for (const r of segRows || []) {
+    const ds = String(r?.checkIn || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
+    if (!segByDate.has(ds)) segByDate.set(ds, []);
+    segByDate.get(ds).push(r);
   }
+  const workKubunSet = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
+  const missing = [];
+  for (let day = 1; day <= lastDay; day++) {
+    const ds = `${y}-${pad(m)}-${pad(day)}`;
+    const dow = ['日', '月', '火', '水', '木', '金', '土'][new Date(Date.UTC(y, m - 1, day, 0, 0, 0)).getUTCDay()];
+    const isOff = off.has(ds) || dow === '日' || dow === '土';
+    const k0 = dailyKubun.get(ds) || '';
+    const allowedNormal = new Set(['', '出勤', '半休', '欠勤', '有給休暇', '無給休暇', '代替休日']);
+    const allowedOff = new Set(['休日', '休日出勤', '代替出勤']);
+    const kubun = (isOff ? (allowedOff.has(k0) ? k0 : '休日') : (allowedNormal.has(k0) ? (k0 || '出勤') : '出勤'));
+    const segs = segByDate.get(ds) || [];
+    const hasComplete = segs.some(s => !!s?.checkIn && !!s?.checkOut);
+    const isWork = workKubunSet.has(kubun);
+    if (isWork && !hasComplete) {
+      missing.push(ds);
+    }
+  }
+  return missing;
 }
 
 exports.getMonthStatus = async (req, res) => {
@@ -622,54 +749,9 @@ exports.submitMonth = async (req, res) => {
     if (status === 'approved') return res.status(409).json({ message: 'Locked: month is closed' });
 
     try {
-      const pad = (n) => String(n).padStart(2, '0');
-      const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-      const from = `${y}-${pad(m)}-01`;
-      const to = `${y}-${pad(m)}-${pad(lastDay)}`;
-      const calendarRepo = require('../calendar/calendar.repository');
-      const cal = await calendarRepo.computeYear(y).catch(() => null);
-      const off = new Set();
-      try {
-        const detail = Array.isArray(cal?.detail) ? cal.detail : [];
-        for (const it of detail) {
-          const ds = String(it?.date || '').slice(0, 10);
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
-          if (Number(it?.is_off || 0) === 1) off.add(ds);
-        }
-      } catch {}
-      const dailyRows = await repo.listDailyBetween(userId, from, to).catch(() => []);
-      const dailyKubun = new Map((dailyRows || []).map(r => [String(r?.date || '').slice(0, 10), String(r?.kubun || '').trim()]));
-      const segRows = await repo.listByUserBetween(userId, from, to).catch(() => []);
-      const segByDate = new Map();
-      for (const r of segRows || []) {
-        const ds = String(r?.checkIn || '').slice(0, 10);
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
-        if (!segByDate.has(ds)) segByDate.set(ds, []);
-        segByDate.get(ds).push(r);
-      }
-      const workKubunSet = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
-      const errors = [];
-      for (let day = 1; day <= lastDay; day++) {
-        const ds = `${y}-${pad(m)}-${pad(day)}`;
-        const dow = ['日', '月', '火', '水', '木', '金', '土'][new Date(Date.UTC(y, m - 1, day, 0, 0, 0)).getUTCDay()];
-        const isOff = off.has(ds) || dow === '日' || dow === '土';
-        const k0 = dailyKubun.get(ds) || '';
-        const allowedNormal = new Set(['', '出勤', '半休', '欠勤', '有給休暇', '無給休暇', '代替休日']);
-        const allowedOff = new Set(['休日', '休日出勤', '代替出勤']);
-        const kubun = (isOff ? (allowedOff.has(k0) ? k0 : '休日') : (allowedNormal.has(k0) ? (k0 || '出勤') : '出勤'));
-        const segs = segByDate.get(ds) || [];
-        const hasSeg = segs.some(s => !!s?.checkIn);
-        const hasComplete = segs.some(s => !!s?.checkIn && !!s?.checkOut);
-        const isWork = workKubunSet.has(kubun);
-        if (isWork && !hasComplete) {
-          errors.push(`${ds} (${kubun}): missing checkIn/checkOut`);
-        }
-        if (!isWork && hasSeg) {
-          errors.push(`${ds} (${kubun}): has attendance but kubun is non-work`);
-        }
-      }
-      if (errors.length) {
-        return res.status(400).json({ message: `入力が未完了です: ${errors.slice(0, 10).join('; ')}${errors.length > 10 ? ' ...' : ''}` });
+      const missing = await computeMonthMissing(userId, y, m);
+      if (missing.length) {
+        return res.status(400).json({ message: `入力が未完了です`, missing });
       }
     } catch {}
 
@@ -677,6 +759,72 @@ exports.submitMonth = async (req, res) => {
     res.status(200).json({ ok: true, userId, year: y, month: m, status: 'submitted' });
   } catch (err) {
     res.status(Number(err?.status || 500)).json({ message: err.message });
+  }
+};
+
+exports.getMonthMissing = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    const allow = role === 'admin' || role === 'manager';
+    if (!allow) return res.status(403).json({ message: 'Forbidden' });
+    const { userId, year, month } = req.query || {};
+    const uid = parseInt(String(userId), 10);
+    const y = parseInt(String(year), 10);
+    const m = parseInt(String(month), 10);
+    if (!uid || !y || !m) return res.status(400).json({ message: 'Missing userId/year/month' });
+    const missing = await computeMonthMissing(uid, y, m);
+    res.status(200).json({ userId: uid, year: y, month: m, missing });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.approveReadyMonth = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    const allow = role === 'admin' || role === 'manager';
+    if (!allow) return res.status(403).json({ message: 'Forbidden' });
+    const { month, departmentId } = req.body || {};
+    const ym = String(month || '').slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(ym)) return res.status(400).json({ message: 'Missing month (YYYY-MM)' });
+    const y = parseInt(ym.slice(0, 4), 10);
+    const m = parseInt(ym.slice(5, 7), 10);
+    const db = require('../../core/database/mysql');
+    const params = [];
+    let sql = `
+      SELECT u.id AS userId
+      FROM users u
+      WHERE u.employment_status = 'active'
+        AND u.role IN ('employee','manager')
+    `;
+    if (departmentId != null) {
+      sql += ` AND u.departmentId = ?`;
+      params.push(parseInt(String(departmentId), 10));
+    }
+    const [rows] = await db.query(sql, params);
+    let approved = 0, submitted = 0, skipped = 0;
+    const results = [];
+    for (const r of (rows || [])) {
+      const uid = Number(r.userId);
+      const st = await repo.getMonthStatus(uid, y, m).catch(() => null);
+      const status = String(st?.status || '').trim() || 'draft';
+      const missing = await computeMonthMissing(uid, y, m).catch(() => ['error']);
+      if (missing && missing.length) {
+        results.push({ userId: uid, status, ok: false, reason: 'missing_days', missing });
+        skipped++;
+        continue;
+      }
+      if (status !== 'submitted') {
+        await repo.setMonthStatus(uid, y, m, 'submitted', req.user?.id).catch(() => {});
+        submitted++;
+      }
+      await repo.setMonthStatus(uid, y, m, 'approved', req.user?.id).catch(() => {});
+      approved++;
+      results.push({ userId: uid, status: 'approved', ok: true });
+    }
+    res.status(200).json({ month: ym, approved, submitted, skipped, results });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -691,8 +839,14 @@ exports.approveMonth = async (req, res) => {
     const m = parseInt(String(month), 10);
     const status = await getMonthStatusValue(userId, y, m);
     if (status !== 'submitted') {
-      return res.status(409).json({ message: 'Invalid state: month must be submitted' });
+      await repo.setMonthStatus(userId, y, m, 'submitted', req.user?.id);
     }
+    try {
+      const missing = await computeMonthMissing(userId, y, m);
+      if (missing.length) {
+        return res.status(400).json({ message: `未承認: 勤務未入力の日があります`, missing });
+      }
+    } catch {}
     await repo.setMonthStatus(userId, y, m, 'approved', req.user?.id);
     res.status(200).json({ ok: true, userId, year: y, month: m, status: 'approved' });
   } catch (err) {
@@ -753,6 +907,12 @@ exports.putDaily = async (req, res) => {
     }
     await repo.upsertDaily(userId, date, req.body || {});
     const daily = await repo.getDaily(userId, date);
+  try {
+    const y = parseInt(date.slice(0, 4), 10);
+    const m = parseInt(date.slice(5, 7), 10);
+    const st = await getMonthStatusValue(userId, y, m);
+    if (st !== 'approved') await repo.setMonthStatus(userId, y, m, 'submitted', req.user?.id);
+  } catch {}
     res.status(200).json({ date, daily });
   } catch (err) {
     res.status(Number(err?.status || 500)).json({ message: err.message });
@@ -785,6 +945,10 @@ exports.putDay = async (req, res) => {
     }
 
     await repo.updateTimes(attendanceId, nextIn, nextOut);
+  try {
+    const st = await getMonthStatusValue(userId, y, m);
+    if (st !== 'approved') await repo.setMonthStatus(userId, y, m, 'submitted', req.user?.id);
+  } catch {}
     res.status(200).json({ id: attendanceId });
   } catch (err) {
     res.status(Number(err?.status || 500)).json({ message: err.message });
@@ -806,6 +970,11 @@ exports.addSegment = async (req, res) => {
     if (checkOut) {
       await repo.setCheckOut(id, checkOut, null, null);
     }
+  try {
+    const y = parseInt(date.slice(0,4),10), m = parseInt(date.slice(5,7),10);
+    const st = await getMonthStatusValue(userId, y, m);
+    if (st !== 'approved') await repo.setMonthStatus(userId, y, m, 'submitted', req.user?.id);
+  } catch {}
     res.status(201).json({ id });
   } catch (err) {
     res.status(Number(err?.status || 500)).json({ message: err.message });
@@ -909,6 +1078,8 @@ exports.getMonthDetail = async (req, res) => {
       rows = await repo.listByUserBetween(userId, from, to);
     }
     const dailyRows = await repo.listDailyBetween(userId, from, to).catch(() => []);
+    const planRows = await repo.listPlanBetween(userId, from, to).catch(() => []);
+    const workReportRows = await workReportRepo.listByUserMonth(userId, `${y}-${pad(m)}`).catch(() => []);
     const calendarRepo = require('../calendar/calendar.repository');
     const cal = await calendarRepo.computeYear(y).catch(() => null);
     const off = new Set();
@@ -999,17 +1170,6 @@ exports.getMonthDetail = async (req, res) => {
       const outStr = toMySQLDateTime(r.checkOut);
       const d = String(inStr || '').slice(0, 10) || String(outStr || '').slice(0, 10);
       if (!d) continue;
-      try {
-        const sid = r.shiftId != null ? String(r.shiftId) : '';
-        const def = sid ? (shiftById.get(sid) || null) : null;
-        const wt = String(r.work_type || '').trim();
-        const labels = String(r.labels || '').trim();
-        const inHm = String(inStr || '').slice(11, 16);
-        const outHm = String(outStr || '').slice(11, 16);
-        if (def && !wt && !labels && inHm === String(def.start_time || '').trim() && outHm === String(def.end_time || '').trim()) {
-          continue;
-        }
-      } catch {}
       if (!map.has(d)) map.set(d, []);
       map.get(d).push({
         id: r.id,
@@ -1020,10 +1180,21 @@ exports.getMonthDetail = async (req, res) => {
         labels: r.labels || null
       });
     }
+    const reportMap = new Map();
+    for (const r of workReportRows || []) {
+      const d = String(r?.date || '').slice(0, 10);
+      if (!d) continue;
+      reportMap.set(d, {
+        workType: r?.work_type || null,
+        location: r?.site || null,
+        memo: r?.work || null
+      });
+    }
     const dailyMap = new Map();
     for (const r of dailyRows || []) {
       const d = String(r?.date || '').slice(0, 10);
       if (!d) continue;
+      const report = reportMap.get(d) || null;
       const kc = (() => {
         try {
           const raw = Number(r.kubun_confirmed || 0);
@@ -1037,12 +1208,26 @@ exports.getMonthDetail = async (req, res) => {
       dailyMap.set(d, {
         kubun: r.kubun || null,
         kubunConfirmed: kc,
-        workType: r.work_type || null,
-        location: r.location || null,
+        workType: r.work_type || report?.workType || null,
+        location: r.location || report?.location || null,
         reason: r.reason || null,
-        memo: r.memo || null,
+        memo: r.memo || report?.memo || null,
         breakMinutes: r.break_minutes == null ? null : Number(r.break_minutes),
-        nightBreakMinutes: r.night_break_minutes == null ? null : Number(r.night_break_minutes)
+        nightBreakMinutes: r.night_break_minutes == null ? null : Number(r.night_break_minutes),
+        status: r.status || null
+      });
+    }
+    for (const [d, report] of reportMap.entries()) {
+      if (dailyMap.has(d)) continue;
+      dailyMap.set(d, {
+        kubun: null,
+        kubunConfirmed: 0,
+        workType: report?.workType || null,
+        location: report?.location || null,
+        reason: null,
+        memo: report?.memo || null,
+        breakMinutes: null,
+        nightBreakMinutes: null
       });
     }
     const shiftForDate = (ds) => {
@@ -1146,9 +1331,23 @@ exports.getMonthDetail = async (req, res) => {
     })();
     for (let day = 1; day <= lastDay; day++) {
       const ds = `${y}-${pad(m)}-${pad(day)}`;
-      days.push({ date: ds, is_off: off.has(ds) ? 1 : 0, shift: shiftForDate(ds), daily: dailyMap.get(ds) || null, segments: map.get(ds) || [] });
+      const plan = planRows.find(p => String(p.date).slice(0, 10) === ds) || null;
+      days.push({ 
+        date: ds, 
+        is_off: off.has(ds) ? 1 : 0, 
+        shift: shiftForDate(ds), 
+        daily: dailyMap.get(ds) || null, 
+        plan: plan ? {
+          shiftId: plan.shiftId,
+          workType: plan.work_type,
+          location: plan.location,
+          memo: plan.memo
+        } : null,
+        segments: map.get(ds) || [] 
+      });
     }
     const u = await userRepo.getUserById(userId).catch(() => null);
+    const paidLeaveEntitlement = calculatePaidLeaveEntitlement(u?.join_date || u?.hire_date);
     const user = u ? {
       id: u.id,
       employee_code: u.employee_code || null,
@@ -1158,7 +1357,8 @@ exports.getMonthDetail = async (req, res) => {
       departmentId: u.departmentId || null,
       departmentName: u.departmentName || null,
       office_code: u.office_code || null,
-      officeCode: u.office_code || null
+      officeCode: u.office_code || null,
+      paidLeaveEntitlement: paidLeaveEntitlement
     } : null;
     res.status(200).json({
       year: y,
@@ -1209,6 +1409,22 @@ exports.postShiftDefinition = async (req, res) => {
     }
     const row = await repo.upsertShiftDefinition({ name, start_time, end_time, break_minutes, working_days });
     res.status(200).json(row);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.deleteShiftDefinition = async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') return res.status(403).json({ message: 'Forbidden' });
+    const id = parseInt(String(req.params?.id || ''), 10);
+    if (!id) return res.status(400).json({ message: 'Missing id' });
+    const r = await repo.deleteShiftDefinitionById(id);
+    if (r?.notFound) return res.status(404).json({ message: 'Not found' });
+    if (r?.inUse) return res.status(409).json({ message: 'Shift is in use', assignedCount: r.assignedCount ?? null });
+    if (!r || !r.deleted) return res.status(500).json({ message: 'Delete failed' });
+    res.status(200).json({ ok: true, deleted: r.deleted });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -1446,7 +1662,62 @@ exports.putMonthBulk = async (req, res) => {
     // 1. Validation: Cho phép mọi khung giờ (00:00 - 23:59) để hỗ trợ ca đêm và tăng ca muộn
     // (Đã gỡ bỏ logic chặn 06:00 - 23:59 theo yêu cầu của người dùng)
 
-    const result = await repo.bulkUpsertAttendance(userId, { updates, dailyUpdates });
+    const normalizedUpdates = Array.isArray(updates) ? updates.map(u => ({ ...(u || {}) })) : [];
+    const normalizedDailyUpdates = Array.isArray(dailyUpdates) ? dailyUpdates : dailyUpdates;
+
+    // De-dup within the same request by (userId, checkIn): keep the last one
+    try {
+      const seen = new Map();
+      for (let i = 0; i < normalizedUpdates.length; i++) {
+        const u = normalizedUpdates[i];
+        const key = (!u?.id && u?.checkIn) ? String(u.checkIn) : null;
+        if (!key) continue;
+        if (seen.has(key)) {
+          normalizedUpdates[seen.get(key)] = null;
+        }
+        seen.set(key, i);
+      }
+    } catch {}
+
+    // Normalize: if segment already exists (same checkIn), convert "create" into "update" to avoid unique error.
+    try {
+      for (const u of normalizedUpdates) {
+        if (!u || u.delete === true) continue;
+        if (u.id) continue;
+        const inV = String(u.checkIn || '').trim();
+        if (!inV) continue;
+        const existing = await repo.findCheckInByTime(userId, inV).catch(() => null);
+        if (existing?.id) {
+          u.id = Number(existing.id);
+          delete u.clientId;
+        }
+      }
+    } catch {}
+
+    const cleanedUpdates = normalizedUpdates.filter(Boolean);
+
+    let result = null;
+    try {
+      result = await repo.bulkUpsertAttendance(userId, { updates: cleanedUpdates, dailyUpdates: normalizedDailyUpdates });
+    } catch (err) {
+      if (String(err?.code || '') === 'ER_DUP_ENTRY') {
+        try {
+          for (const u of cleanedUpdates) {
+            if (u?.id || u?.delete === true) continue;
+            const inV = String(u.checkIn || '').trim();
+            if (!inV) continue;
+            const existing = await repo.findCheckInByTime(userId, inV).catch(() => null);
+            if (existing?.id) {
+              u.id = Number(existing.id);
+              delete u.clientId;
+            }
+          }
+        } catch {}
+        result = await repo.bulkUpsertAttendance(userId, { updates: cleanedUpdates, dailyUpdates: normalizedDailyUpdates });
+      } else {
+        throw err;
+      }
+    }
 
     try {
       await auditRepo.writeLog({
@@ -1466,6 +1737,92 @@ exports.putMonthBulk = async (req, res) => {
     res.status(Number(err?.status || 500)).json({ message: err.message });
   }
 };
+
+exports.syncSalary = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const { year, month } = req.body || {};
+    if (!userId) return res.status(404).json({ message: 'User not found' });
+    if (!year || !month) return res.status(400).json({ message: 'Missing year/month' });
+    
+    const y = parseInt(year, 10);
+    const m = parseInt(month, 10);
+    const ym = `${y}-${String(m).padStart(2, '0')}`;
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const from = `${y}-${String(m).padStart(2, '0')}-01`;
+    const to = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    // 1. Calculate work days and paid leave from attendance
+    const dailyRows = await repo.listDailyBetween(userId, from, to).catch(() => []);
+    const attendanceRows = await repo.listByUserBetween(userId, from, to).catch(() => []);
+    
+    const workKubunSet = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
+    const workDaysSet = new Set();
+    let paidLeaveDays = 0;
+
+    for (const r of dailyRows) {
+      const date = String(r.date || '').slice(0, 10);
+      const kubun = String(r.kubun || '').trim();
+      if (workKubunSet.has(kubun)) {
+        workDaysSet.add(date);
+      }
+      if (kubun === '有給休暇') {
+        paidLeaveDays++;
+      }
+    }
+    for (const r of attendanceRows) {
+      const date = String(r.checkIn || r.checkOut || '').slice(0, 10);
+      if (date) workDaysSet.add(date);
+    }
+
+    const workDays = workDaysSet.size;
+
+    // 2. Get user info for paid leave entitlement
+    const user = await userRepo.getUserById(userId);
+    const joinDate = user?.join_date || user?.hire_date || null;
+    const paidLeaveEntitlement = calculatePaidLeaveEntitlement(joinDate);
+
+    // 3. Update salary_inputs
+    const existingInput = await salaryInputRepo.getByUserMonth(userId, ym);
+    const payload = existingInput?.payload || {};
+    
+    // Update payload with new attendance data
+    payload.kintai = payload.kintai || {};
+    payload.kintai['出勤日数'] = workDays;
+    payload.kintai['有給休暇'] = paidLeaveDays;
+    payload.kintai['有給休暇付与'] = paidLeaveEntitlement;
+
+    await salaryInputRepo.upsert({
+      userId,
+      month: ym,
+      payload,
+      updatedBy: req.user?.id
+    });
+
+    res.status(200).json({
+      ok: true,
+      workDays,
+      paidLeaveDays,
+      paidLeaveEntitlement
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+exports.putPlan = async (req, res) => {
+  try {
+    const userId = await resolveTargetUserId(req);
+    if (userId === '__forbidden__') return res.status(403).json({ message: 'Forbidden' });
+    const { date, plan } = req.body || {};
+    if (!userId || !date) return res.status(400).json({ message: 'Missing userId/date' });
+    const result = await repo.upsertPlan(userId, date, plan);
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.exportCsv = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -1509,6 +1866,7 @@ exports.exportMonthXlsx = async (req, res) => {
 
     const rows = await repo.listByUserBetween(userId, from, to);
     const dailyRows = await repo.listDailyBetween(userId, from, to).catch(() => []);
+    const planRows = await repo.listPlanBetween(userId, from, to).catch(() => []);
     const shiftDefs = await repo.listShiftDefinitions().catch(() => []);
     const shiftById = new Map((shiftDefs || []).map(s => [String(s.id), s]));
     const calendarRepo = require('../calendar/calendar.repository');
@@ -1713,8 +2071,26 @@ exports.exportMonthXlsx = async (req, res) => {
     ];
 
     const sheetRows = [];
+    const planSheetRows = [];
+    const planColumns = [
+      { header: '日付', width: 12 },
+      { header: '勤務区分', width: 10 },
+      { header: '変換勤務区分', width: 14 },
+      { header: '企業名', width: 20 },
+      { header: '開始時刻', width: 10 },
+      { header: '終了時刻', width: 10 },
+      { header: '休憩時間', width: 10 },
+      { header: '深夜休憩', width: 10 },
+      { header: '勤務時間', width: 10 },
+      { header: '勤務形態', width: 14 }
+    ];
+
     for (let day = 1; day <= lastDay; day++) {
       const ds = `${y}-${pad(m)}-${pad(day)}`;
+      const dow = dowJa(ds);
+      const isOff = off.has(ds) || dow === '日' || dow === '土';
+      
+      // Sheet 1: 入力用勤怠表
       const segs0 = (segMap.get(ds) || []).slice().sort((a, b) => String(a?.checkIn || '').localeCompare(String(b?.checkIn || '')));
       const segs = segs0.filter(s => {
         try {
@@ -1733,8 +2109,6 @@ exports.exportMonthXlsx = async (req, res) => {
       const seg = segs[0] || null;
       const daily = dailyMap.get(ds) || null;
       const wd = resolveWorkDetail(ds);
-      const dow = dowJa(ds);
-      const isOff = off.has(ds) || dow === '日' || dow === '土';
       const inHm = hm(seg?.checkIn);
       const outHm = hm(seg?.checkOut);
       const hasTime = !!inHm || !!outHm;
@@ -1757,8 +2131,8 @@ exports.exportMonthXlsx = async (req, res) => {
       const wtRe = wt === 'remote' ? { v: '✓', s: 'checkOn' } : '';
       const wtSa = wt === 'satellite' ? { v: '✓', s: 'checkOn' } : '';
       const holidayLock = !isWorkKubun;
-      const brMin = holidayLock ? 0 : (daily?.breakMinutes == null ? 60 : Number(daily.breakMinutes));
-      const nbMin = holidayLock ? 0 : (daily?.nightBreakMinutes == null ? 0 : Number(daily.nightBreakMinutes));
+      const brMin = holidayLock ? 0 : (daily?.break_minutes == null ? 60 : Number(daily.break_minutes));
+      const nbMin = holidayLock ? 0 : (daily?.night_break_minutes == null ? 0 : Number(daily.night_break_minutes));
       const workedMin = holidayLock ? 0 : Math.max(0, minutesBetween(seg?.checkIn, seg?.checkOut) - brMin);
       const otMin = holidayLock ? 0 : Math.max(0, workedMin - (8 * 60));
       const lateEarly = (() => {
@@ -1816,12 +2190,45 @@ exports.exportMonthXlsx = async (req, res) => {
           ''
         ]
       });
+
+      // Sheet 2: 予定
+      const plan = planRows.find(p => String(p.date).slice(0, 10) === ds) || null;
+      const shiftDef = plan?.shiftId ? shiftById.get(String(plan.shiftId)) : (shiftForDate(ds) ? shiftById.get(String(shiftForDate(ds).id)) : null);
+      const planKubun = isOff ? '休日' : '出勤';
+      const planStartTime = plan?.startTime || shiftDef?.start_time || '';
+      const planEndTime = plan?.endTime || shiftDef?.end_time || '';
+      const planBreak = plan?.breakMinutes != null ? plan.breakMinutes : (shiftDef?.break_minutes || 0);
+      const planWorkType = plan?.work_type || (isOff ? '' : '契約なし');
+      
+      planSheetRows.push({
+        isOff,
+        cells: [
+          `${m}月${day}日(${dow})`,
+          planKubun,
+          planKubun,
+          plan?.location || '',
+          planStartTime ? planStartTime.split(':')[0] : '',
+          planStartTime ? planStartTime.split(':')[1] : '',
+          planEndTime ? planEndTime.split(':')[0] : '',
+          planEndTime ? planEndTime.split(':')[1] : '',
+          Math.floor(planBreak / 60),
+          planBreak % 60,
+          0, 0, // 深夜休憩
+          { f: `MAX(0, (G${day+1}*60+H${day+1})-(E${day+1}*60+F${day+1})-(I${day+1}*60+J${day+1}))` }, // Công thức tính phút
+          planWorkType
+        ]
+      });
     }
 
     const safeFile = (s) => String(s || '').replace(/[\\\/:*?"<>|]/g, '_');
     const fileName = safeFile(`attendance_month_${from.slice(0, 7)}_${userId}.xlsx`);
     const { buildXlsxBook } = require('../../utils/xlsx');
-    const buf = buildXlsxBook({ sheets: [{ name: `月次 ${from.slice(0, 7)}`, columns, rows: sheetRows, headerStyleKey: 'headerGrey' }] });
+    const buf = buildXlsxBook({ 
+      sheets: [
+        { name: '入力用勤怠表', columns, rows: sheetRows, headerStyleKey: 'headerGrey' },
+        { name: '予定', columns: planColumns, rows: planSheetRows, headerStyleKey: 'headerGrey' }
+      ] 
+    });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.status(200).send(buf);

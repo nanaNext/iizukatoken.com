@@ -157,14 +157,70 @@ async function ensureSuperAdmin() {
   );
 }
 
-async function init() {
-  await ensureUsersTable();
-  await runMigrations();
+async function ensureModuleTables() {
+  const attendanceRepo = require('../modules/attendance/attendance.repository');
+  const auditRepo = require('../modules/audit/audit.repository');
+  const authRepo = require('../modules/auth/auth.repository');
+  const refreshRepo = require('../modules/auth/refresh.repository');
+  const passwordResetRepo = require('../modules/auth/password_reset.repository');
+  const leaveRepo = require('../modules/leave/leave.repository');
+  const workReportsRepo = require('../modules/workReports/workReports.repository');
+  const calendarRepo = require('../modules/calendar/calendar.repository');
+  const settingsRepo = require('../modules/settings/settings.repository');
+  const salaryInputRepo = require('../modules/salary/salaryInput.repository');
+  const payslipDeliveryRepo = require('../modules/salary/payslipDelivery.repository');
+  const documentsRepo = require('../modules/documents/documents.repository');
+  const payslipRepo = require('../modules/payslip/payslip.repository');
+  const adjustRepo = require('../modules/adjust/adjust.repository');
+  const expensesRepo = require('../modules/expenses/expenses.repository');
+  const stationsRepo = require('../modules/stations/stations.repository');
+  const expenseTypesRepo = require('../modules/expenses/expenseTypes.repository');
+  const chatbotRepo = require('../modules/chatbot/chatbot.repository');
+  const salaryRepo = require('../modules/salary/salary.repository');
+  const requestsRepo = require('../modules/requests/requests.repository');
+  const webauthnRepo = require('../modules/webauthn/webauthn.repository');
+  await attendanceRepo.ensureAttendanceTables();
+  await auditRepo.ensureTable();
+  await authRepo.ensureUserSecurityColumns();
+  await refreshRepo.ensureTable();
+  await passwordResetRepo.ensureTable();
+  await leaveRepo.ensureSchema();
+  await workReportsRepo.ensureSchema();
+  await workReportsRepo.ensureMonthClosureSchema();
+  await calendarRepo.ensureTable();
+  await settingsRepo.ensureFlagsSchema();
+  await salaryInputRepo.ensureTable();
+  await payslipDeliveryRepo.ensureTable();
+  await documentsRepo.ensureTable();
+  await payslipRepo.ensureTable();
+  await adjustRepo.ensureSchema();
+  await expensesRepo.ensureTable();
+  await expenseTypesRepo.ensureTable();
+  await stationsRepo.ensureTable();
+  await webauthnRepo.ensureTable();
+  await requestsRepo.ensureTable();
   try {
-    const attendanceRepo = require('../modules/attendance/attendance.repository');
-    await attendanceRepo.ensureAttendanceTables();
+    await chatbotRepo.init();
+    await chatbotRepo.ensureSeedCategories();
+    await chatbotRepo.ensureSeedFaqs();
   } catch {}
-  await ensureSuperAdmin();
+  try {
+    await salaryRepo.listHistory({ page: 1, pageSize: 1 });
+  } catch {}
+}
+
+let initPromise = null;
+
+async function init() {
+  if (!initPromise) {
+    initPromise = (async () => {
+      await ensureUsersTable();
+      await runMigrations();
+      await ensureModuleTables();
+      await ensureSuperAdmin();
+    })();
+  }
+  return initPromise;
 }
 
 module.exports = { init };

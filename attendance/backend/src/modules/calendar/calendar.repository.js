@@ -100,12 +100,10 @@ module.exports = {
     } catch {}
   },
   async listFixed(year) {
-    await this.ensureTable();
     const [rows] = await db.query(`SELECT date, name, type, is_off FROM company_holidays WHERE YEAR(date) = ? AND type = 'fixed' ORDER BY date ASC`, [year]);
     return rows;
   },
   async listByTypes(year, types) {
-    await this.ensureTable();
     const placeholders = (types || []).map(() => '?').join(',');
     const [rows] = await db.query(
       `SELECT date, name, type, is_off FROM company_holidays WHERE YEAR(date) = ? AND type IN (${placeholders}) ORDER BY date ASC`,
@@ -114,7 +112,6 @@ module.exports = {
     return rows;
   },
   async listAllByYear(year) {
-    await this.ensureTable();
     const [rows] = await db.query(
       `SELECT date, name, type, is_off FROM company_holidays WHERE YEAR(date) = ? ORDER BY date ASC`,
       [year]
@@ -122,7 +119,6 @@ module.exports = {
     return rows;
   },
   async listOverrides(year) {
-    await this.ensureTable();
     const [rows] = await db.query(
       `SELECT date, name, type, is_off FROM company_holidays WHERE YEAR(date) = ? AND type = 'jp_override' ORDER BY date ASC`,
       [year]
@@ -172,7 +168,6 @@ module.exports = {
     return this.applyOverrides(list, overrides);
   },
   async upsertFixed(dates) {
-    await this.ensureTable();
     for (const it of dates || []) {
       const date = String(it.date || it).slice(0, 10);
       const name = it.name || null;
@@ -187,7 +182,6 @@ module.exports = {
     return { ok: true };
   },
   async materializeJapanYear(year) {
-    await this.ensureTable();
     const fixed = await this.listFixed(year);
     const fixedSet = new Set(fixed.filter(f => f.is_off).map(f => String(f.date)));
     const sundays = [];
@@ -263,7 +257,6 @@ module.exports = {
     return { year, counts: { jp_auto: jp.length, jp_substitute: jpSubstitute.length, jp_bridge: jpBridge.length } };
   },
   async ensureMaterializedJapan(year) {
-    await this.ensureTable();
     const [rows] = await db.query(
       `SELECT COUNT(*) AS c FROM company_holidays WHERE YEAR(date) = ? AND type IN ('jp_auto','jp_substitute','jp_bridge')`,
       [year]
@@ -274,7 +267,6 @@ module.exports = {
     }
   },
   async explainDate(dateStr) {
-    await this.ensureTable();
     const y = parseInt(String(dateStr).slice(0, 4), 10);
     const r = await this.computeYear(y);
     const list = Array.isArray(r.detail) ? r.detail : [];
@@ -285,7 +277,6 @@ module.exports = {
     return { date: dateStr, is_off: isOff ? 1 : 0, reasons };
   },
   async computeYear(year) {
-    await this.ensureTable();
     await this.ensureMaterializedJapan(year);
     const fixed = await this.listFixed(year);
     const jpAll = await this.listByTypes(year, ['jp_auto','jp_substitute','jp_bridge']);

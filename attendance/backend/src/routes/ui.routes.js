@@ -20,6 +20,13 @@ const authorizePage = (...roles) => (req, res, next) => {
 router.get('/ui/login', sendPage('login.html'));
 router.get('/login', sendPage('login.html'));
 router.get('/login.html', sendPage('login.html'));
+// Public standalone login for Expenses
+router.get('/ui/expenses-login', sendPage('expenses-login.html'));
+router.get('/expenses-login', sendPage('expenses-login.html'));
+
+// Make expenses page accessible and let FE handle auth redirect to /expenses-login
+router.get('/ui/expenses', sendPage('expenses.html'));
+router.get('/ui/expenses/', sendPage('expenses.html'));
 
 router.get('/ui/logout', async (req, res) => {
   try {
@@ -32,6 +39,8 @@ router.get('/ui/logout', async (req, res) => {
     res.clearCookie('csrfToken', { path: '/' });
     res.clearCookie('session_token', { path: '/' });
   } catch {}
+  const next = String(req.query?.next || '').trim();
+  if (next) return res.redirect(302, next);
   return res.redirect(302, '/ui/login');
 });
 
@@ -49,6 +58,9 @@ router.get('/ui/dashboard', sendPage('dashboard.html'));
 router.get('/ui/portal', sendPage('portal.html'));
 router.get('/ui/portal/', sendPage('portal.html'));
 
+router.get('/admin/embed/attendance/monthly', sendPage('attendance-monthly.html'));
+router.get('/admin/embed/attendance/monthly/', sendPage('attendance-monthly.html'));
+
 router.get('/ui/attendance', sendPage('attendance.html'));
 router.get('/ui/attendance/monthly', sendPage('attendance-monthly.html'));
 router.get('/ui/attendance/monthly/', sendPage('attendance-monthly.html'));
@@ -61,12 +73,24 @@ router.get('/ui/employees/', sendPage('admin.html'));
 
 router.get('/admin/attendance/monthly', sendPage('admin-attendance-monthly.html'));
 router.get('/admin/attendance/monthly/', sendPage('admin-attendance-monthly.html'));
+router.get('/admin/attendance/adjust-requests', sendPage('admin-attendance-adjust-requests.html'));
+router.get('/admin/attendance/adjust-requests/', sendPage('admin-attendance-adjust-requests.html'));
 router.get(/^\/admin(?:\/.*)?$/, sendPage('admin.html'));
 
 router.get('/ui/overtime', sendPage('overtime.html'));
-router.get('/ui/leave', sendPage('leave.html'));
+router.get('/ui/leave', (req, res) => {
+  return res.redirect(302, '/ui/requests');
+});
+router.get('/ui/leave-ledger', sendPage('leave-ledger.html'));
+router.get('/ui/requests', sendPage('requests.html'));
 router.get('/ui/salary', sendPage('salary.html'));
 router.get('/ui/chatbot', sendPage('chatbot.html'));
+router.get('/ui/change-password', sendPage('change-password.html'));
+// React SPA entry (built by Vite to /static/react-app)
+router.get('/ui/app', (req, res) => {
+  const p = path.join(__dirname, '..', 'static', 'react-app', 'index.html');
+  return res.sendFile(p);
+});
 
 router.get('/ui/:page.html', (req, res) => {
   const page = String(req.params.page || '').replace(/[^a-z0-9_-]/gi, '');

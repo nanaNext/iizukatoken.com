@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>交通費計算 ログイン</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/login.css">
+  <link rel="stylesheet" href="/static/css/expenses-login.css">
+  <style>
+    .topbar,.subbar,.subnav,#mobileDrawer,#drawerBackdrop{display:none!important;}
+  </style>
+  <script>
+    window.LOGIN_NEXT = '/ui/expenses';
+  </script>
+  <script type="module" src="/static/js/pages/login.page.js"></script>
+  <link rel="icon" href="data:,">
+  </head>
+<body>
+  <div class="hero"></div>
+  <div class="wrapper">
+    <div class="card">
+      <div class="card-header">
+        <img src="/static/images/logoten.png" alt="" class="card-logo">
+        <div class="login-lead">ログインはこちらから</div>
+      </div>
+      <div class="card-content">
+        <div id="error" role="alert" aria-live="assertive" class="login-error"></div>
+        <form id="loginForm" novalidate method="post">
+          <div class="input-group">
+            <div class="input-with-icon">
+              <input id="email" name="login_email" type="email" placeholder="ログインID（メールアドレス）" autocomplete="off" autocapitalize="none" spellcheck="false" class="short-input" required>
+            </div>
+            <div class="input-with-icon">
+              <input id="password" name="login_password" type="password" placeholder="パスワード" autocomplete="off" class="short-input" required>
+              <button type="button" id="togglePassword" class="icon-btn" aria-label="toggle"></button>
+            </div>
+          </div>
+          <div class="form-row actions"><button type="submit" id="loginBtn" class="btn">ログイン</button></div>
+          <div class="forgot-note"><a href="#" aria-label="forgot">パスワードを忘れた方はこちら</a></div>
+          <div class="sep">または</div>
+          <div class="alt-logins">
+            <button type="button" class="oauth-btn"><span class="oauth-ico">G</span> Googleでログイン</button>
+            <button type="button" class="oauth-btn"><span class="oauth-ico ms">■</span> Microsoft 365でログイン</button>
+            <button type="button" class="subdomain-btn">サブドメインを入力</button>
+          </div>
+          <div id="success"></div>
+          <div id="status" aria-live="polite"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

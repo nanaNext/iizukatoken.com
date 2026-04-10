@@ -67,10 +67,15 @@ async function attachUserActivity(req, fallbackDecoded) {
 
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  let token = '';
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else {
+    token = req.cookies?.session_token || '';
+  }
+  if (!token) {
     return res.status(401).json({ message: 'No token provided' });
   }
-  const token = authHeader.split(' ')[1];
   try {
     req.user = await authenticateToken(token);
   } catch (e) {
@@ -98,8 +103,11 @@ async function authenticateFromCookie(req, res, next) {
 
 // Phân quyền theo role
 function authorize(...allowedRoles) {
+    const allowed = new Set((allowedRoles || []).map(r => String(r).toLowerCase()));
     return (req, res, next) => {
-        if (!req.user || !allowedRoles.includes(req.user.role)) {
+        const role = String(req.user?.role || '').toLowerCase();
+        const ok = role && (allowed.has(role) || (role === 'manager' && allowed.has('admin')));
+        if (!ok) {
             return res.status(403).json({ message: 'Forbidden: Access denied' });
         }
         next();

@@ -7,7 +7,7 @@ const repo = require('./payslip.repository');
 const userRepo = require('../users/user.repository');
 const auditRepo = require('../audit/audit.repository');
 const fs = require('fs');
-const { rateLimit } = require('../../core/middleware/rateLimit');
+const { rateLimit, rateLimitNamed } = require('../../core/middleware/rateLimit');
 const { payslipEncKey, payslipKeyVersion } = require('../../config/env');
 const settingsService = require('../settings/settings.service');
 const crypto = require('crypto');
@@ -23,7 +23,12 @@ function setAttachmentFilename(res, filename) {
   res.setHeader('Content-Disposition', `attachment; filename="payslip.pdf"; filename*=UTF-8''${rfc5987Encode(name)}`);
 }
 
-router.post('/admin/upload', authenticate, authorize('admin','manager'), uploadPdf.single('file'), async (req, res) => {
+router.post('/admin/upload',
+  rateLimitNamed('payslip_admin_upload', { windowMs: 60_000, max: 5 }),
+  authenticate,
+  authorize('admin','manager'),
+  uploadPdf.single('file'),
+  async (req, res) => {
   try {
     const t0 = Date.now();
     const flags = await settingsService.getFlags();
@@ -229,7 +234,11 @@ router.get('/my/:id/download', authenticate, authorize('employee','manager','adm
   }
 });
 
-router.delete('/admin/:id', authenticate, authorize('admin','manager'), async (req, res) => {
+router.delete('/admin/:id',
+  rateLimitNamed('payslip_admin_delete', { windowMs: 60_000, max: 10 }),
+  authenticate,
+  authorize('admin','manager'),
+  async (req, res) => {
   try {
     const maintenanceMode = !!(await settingsService.getFlags()).maintenanceMode;
     if (maintenanceMode) {
@@ -264,7 +273,12 @@ router.delete('/admin/:id', authenticate, authorize('admin','manager'), async (r
   }
 });
 
-router.post('/admin/replace/:id', authenticate, authorize('admin','manager'), uploadPdf.single('file'), async (req, res) => {
+router.post('/admin/replace/:id',
+  rateLimitNamed('payslip_admin_replace', { windowMs: 60_000, max: 5 }),
+  authenticate,
+  authorize('admin','manager'),
+  uploadPdf.single('file'),
+  async (req, res) => {
   try {
     const flags = await settingsService.getFlags();
     const maintenanceMode = !!flags.maintenanceMode;
@@ -326,7 +340,12 @@ router.post('/admin/replace/:id', authenticate, authorize('admin','manager'), up
   }
 });
 
-router.post('/admin/replace-by-month', authenticate, authorize('admin','manager'), uploadPdf.single('file'), async (req, res) => {
+router.post('/admin/replace-by-month',
+  rateLimitNamed('payslip_admin_replace_by_month', { windowMs: 60_000, max: 5 }),
+  authenticate,
+  authorize('admin','manager'),
+  uploadPdf.single('file'),
+  async (req, res) => {
   try {
     const flags2 = await settingsService.getFlags();
     const maintenanceMode2 = !!flags2.maintenanceMode;
@@ -389,7 +408,7 @@ router.post('/admin/replace-by-month', authenticate, authorize('admin','manager'
 // - 404 "File missing": bản ghi có nhưng file vật lý thiếu
 // - Luôn gửi Authorization: Bearer {accessToken}
 router.get('/me/file/:id',
-  rateLimit({ windowMs: 60_000, max: 10 }),
+  rateLimitNamed('payslip_me_file', { windowMs: 60_000, max: 10 }),
   authenticate,
   authorize('employee','manager','admin'),
   async (req, res) => {
@@ -445,7 +464,7 @@ router.get('/me/file/:id',
 // - 403 "Forbidden: cross-department access": manager khác phòng ban với user của payslip
 // - 404 "File missing": bản ghi có nhưng file vật lý thiếu
 router.get('/admin/file/:id',
-  rateLimit({ windowMs: 60_000, max: 20 }),
+  rateLimitNamed('payslip_admin_file', { windowMs: 60_000, max: 20 }),
   authenticate,
   authorize('admin','manager'),
   async (req, res) => {

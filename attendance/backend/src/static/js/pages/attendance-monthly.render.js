@@ -66,6 +66,7 @@
       const workKubunSet = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
       const effectiveKubun = kubunInit || plannedKubun;
       const isWorkDay = workKubunSet.has(effectiveKubun);
+      const isHolidayKubun = effectiveKubun === '休日' || effectiveKubun === '代替休日';
       
       const inHm = fromDateTime(seg?.checkIn);
       const outHm = fromDateTime(seg?.checkOut);
@@ -135,12 +136,28 @@
 
       const statusStr = String(state.currentMonthStatus || '');
       const approved = statusStr === 'approved';
-      const submitted = statusStr === 'submitted';
       const approverName = String(detail?.monthStatus?.approverName || '').trim();
+      const isAdminView = String(profile?.role || '').toLowerCase() === 'admin' || String(profile?.role || '').toLowerCase() === 'manager';
+      const hasAny = !!(finalIn || finalOut);
+      let text = '未承認';
+      let cls = 'warn';
+      if (isPlanned && !hasActual) {
+        text = '未申請';
+        cls = 'warn';
+      } else if (approved) {
+        text = '承認済み';
+        cls = 'ok';
+      } else if (hasActual) {
+        text = isAdminView ? '承認待ち' : '未確認';
+        cls = 'warn';
+      } else {
+        text = '—';
+        cls = 'warn';
+      }
       const st = {
-        text: approved ? '承認済み' : (submitted ? '承認待ち' : '未承認'),
-        cls: approved ? 'ok' : 'warn',
-        approver: approverName || '—'
+        text,
+        cls,
+        approver: approved ? (approverName || '—') : '—'
       };
 
       const tr = document.createElement('tr');
@@ -159,17 +176,20 @@
       tr.dataset.clientId = tr.dataset.id ? '' : makeClientId();
       tr.dataset.primary = primary ? '1' : '0';
       tr.dataset.kubunConfirmed = Number(daily?.kubunConfirmed || 0) === 1 ? '1' : '';
+      tr.dataset.shiftStart = shiftStartOk ? shiftStart : '08:00';
 
       const wtVal = (() => {
+        if (isHolidayKubun) return '';
         const v = String(seg?.workType || (primary ? daily?.workType : '') || '').trim();
-        return (v === 'onsite' || v === 'remote' || v === 'satellite') ? v : (isWorkDay && primary ? 'onsite' : '');
+        // Không tự động gán '出社' cho ngày 予定出勤; chỉ hiển thị khi có giá trị thực tế
+        return (v === 'onsite' || v === 'remote' || v === 'satellite') ? v : '';
       })();
       tr.dataset.workType = wtVal;
       
-      const dLoc = String(daily?.location || '');
-      const dMemo = String(daily?.memo || '');
+      const dLoc = isHolidayKubun ? '' : String(daily?.location || '');
+      const dMemo = isHolidayKubun ? '' : String(daily?.memo || '');
       const dReason = effectiveKubun === '欠勤' ? String(daily?.reason || '') : '';
-      const dNotes = String(daily?.notes || '');
+      const dNotes = isHolidayKubun ? '' : String(daily?.notes || '');
       const brVal = brMin === 45 ? '0:45' : brMin === 30 ? '0:30' : brMin === 0 ? '0:00' : '1:00';
       const nbVal = nbMin === 60 ? '1:00' : nbMin === 30 ? '0:30' : '0:00';
 
@@ -221,7 +241,7 @@
       </td>
       <td data-field="worked" class="${workAutoCls}" style="font-weight:900;color:#0f172a;">${esc(workHm)}</td>
       <td data-field="excess" class="${otAutoCls}" style="text-align:center;color:#0f172a;font-weight:900;">${esc(otHm)}</td>
-      <td data-field="lateEarly" style="text-align:center;color:#64748b;">—</td>
+      <td data-field="lateEarly" style="text-align:center;color:#64748b;">${(() => { const inM = parseHm(finalIn); const stM = parseHm(shiftStart); const outM = parseHm(finalOut); const etM = parseHm(shiftEnd); const late = (inM!=null && stM!=null && inM>stM); const early = (() => { if (outM==null || stM==null || etM==null) return false; const overnight = etM < stM; const endAbs = overnight ? (etM + 24*60) : etM; const outAbs = overnight && outM < stM ? (outM + 24*60) : outM; return outAbs < endAbs; })(); return late && early ? '遅刻/早退' : late ? '遅刻' : early ? '早退' : '—'; })()}</td>
       <td>
         <select class="se-select" data-field="reason" ${effectiveKubun === '欠勤' && state.editableMonth ? '' : 'disabled'} style="width:140px;${effectiveKubun === '欠勤' ? '' : 'visibility:hidden;'}">
           <option value=""></option>
@@ -257,55 +277,12 @@
       tbody.appendChild(buildTr(dateStr, isOff, shift, daily, seg, true));
     }
     table.appendChild(tbody);
-    const thead = table.querySelector('thead');
-    const headWrapTop = document.createElement('div');
-    headWrapTop.className = 'se-sticky-month-head se-sticky-month-head-top';
-    if (thead) {
-      const headTableTop = document.createElement('table');
-      headTableTop.id = 'monthTableHeadReal';
-      headTableTop.className = 'se-month-table-head-real';
-      headTableTop.appendChild(thead.cloneNode(true));
-      headWrapTop.appendChild(headTableTop);
-      // thead.style.display = 'none'; // Tạm thời không ẩn để kiểm tra (Ưu tiên 1)
-      const syncCols = (attempt = 0) => {
-        try {
-          const first = table.querySelector('tbody tr');
-          const cells = first ? Array.from(first.children) : [];
-          const widths = cells.map(td => Math.max(0, td.offsetWidth || 0));
-          const ok = widths.length && widths.every(w => w > 0);
-          if (!ok && attempt < 20) {
-            requestAnimationFrame(() => syncCols(attempt + 1));
-            return;
-          }
-          if (!ok) return;
-          thead.style.display = 'none'; // Chỉ ẩn khi đã sync xong
-          const total = widths.reduce((a, b) => a + b, 0);
-          const buildColgroup = () => {
-            const cg = document.createElement('colgroup');
-            for (const w of widths) {
-              const col = document.createElement('col');
-              col.style.width = `${Math.max(1, w)}px`;
-              cg.appendChild(col);
-            }
-            return cg;
-          };
-          for (const t of [headTableTop, table]) {
-            t.querySelector('colgroup')?.remove();
-            t.insertAdjacentElement('afterbegin', buildColgroup());
-            t.style.tableLayout = 'fixed';
-            t.style.width = `${total}px`;
-          }
-        } catch {}
-      };
-      syncCols();
-    }
+    // Use native sticky header via CSS; avoid cloning header to prevent drift
     host.innerHTML = '';
     const isLocked = !state.editableMonth;
     const wrapClass = isLocked ? 'se-month-table-wrap is-locked' : 'se-month-table-wrap';
     const container = document.createElement('div');
     container.className = wrapClass;
-    
-    container.appendChild(headWrapTop);
     const scrollWrap = document.createElement('div');
     scrollWrap.className = 'se-month-scroll';
     scrollWrap.appendChild(table);
@@ -318,6 +295,66 @@
         container.classList.add('is-locked-ready');
       });
     }
+
+    // Sync column widths to avoid drift across environments
+    const syncCols = (attempt = 0) => {
+      try {
+        const active = document.activeElement;
+        if (active && table.contains(active)) {
+          const tag = String(active.tagName || '').toLowerCase();
+          const type = tag === 'input' ? String(active.getAttribute('type') || '').toLowerCase() : '';
+          if (type === 'time') return;
+        }
+        const first = table.querySelector('tbody tr');
+        const cells = first ? Array.from(first.children) : [];
+        const widthsMeasured = cells.map(td => Math.max(1, Math.round(td.getBoundingClientRect().width)));
+        const ok = widthsMeasured.length && widthsMeasured.every(w => w > 0);
+        if (!ok && attempt < 20) {
+          requestAnimationFrame(() => syncCols(attempt + 1));
+          return;
+        }
+        const defaultWidths = [
+          90, 120, 70, 70, 120, 220, 240, 100, 100, 100, 100, 100, 100, 100, 140, 220, 120, 120, 80, 80
+        ]; // 20 columns
+        const widths = ok ? widthsMeasured : defaultWidths.slice(0, cells.length);
+        const cg = document.createElement('colgroup');
+        for (const w of widths) {
+          const col = document.createElement('col');
+          col.style.width = `${w}px`;
+          cg.appendChild(col);
+        }
+        table.querySelector('colgroup')?.remove();
+        table.insertAdjacentElement('afterbegin', cg);
+        table.style.tableLayout = 'fixed';
+      } catch {}
+    };
+    requestAnimationFrame(syncCols);
+    try {
+      const key = '__seMonthlyColSync';
+      const w = window;
+      if (!w[key]) {
+        w[key] = { handlers: new Set() };
+        window.addEventListener('resize', () => {
+          try {
+            requestAnimationFrame(() => {
+              const hs = w[key]?.handlers;
+              if (!hs) return;
+              for (const fn of Array.from(hs)) {
+                try { fn(); } catch {}
+              }
+            });
+          } catch {}
+        }, { passive: true });
+      }
+      const reg = () => {
+        if (!table.isConnected) {
+          try { w[key]?.handlers?.delete(reg); } catch {}
+          return;
+        }
+        syncCols();
+      };
+      w[key].handlers.add(reg);
+    } catch {}
   };
 
   const renderTable = (host, detail, profile) => {
@@ -359,6 +396,7 @@
       const worked = rowEl.querySelector('[data-field="worked"]');
       const excess = rowEl.querySelector('[data-field="excess"]');
       const lateEarly = rowEl.querySelector('[data-field="lateEarly"]');
+      const statusWrap = rowEl.querySelector('.se-status-wrap');
 
       const idVal = String(rowEl.dataset.id || '').trim();
       const confirmed = String(rowEl.dataset.kubunConfirmed || '') === '1';
@@ -374,6 +412,31 @@
 
       if (clsSel) {
         clsSel.classList.toggle('is-planned', !cls);
+      }
+
+      if (statusWrap) {
+        const roleStr = String(root.State?.profile?.role || '').toLowerCase();
+        const isAdminView = roleStr === 'admin' || roleStr === 'manager';
+        const monthApproved = String(state.currentMonthStatus || '') === 'approved';
+        const hasActualNow = !!(idVal || (inEl && String(inEl.value).trim()) || (outEl && String(outEl.value).trim()));
+        let stText = '未承認';
+        let stCls = 'warn';
+        if (isPlanned && !hasActualNow) {
+          stText = '未申請';
+        } else if (monthApproved) {
+          stText = '承認済み';
+          stCls = 'ok';
+        } else if (hasActualNow) {
+          stText = isAdminView ? '承認待ち' : '未確認';
+        } else {
+          stText = '未申請';
+        }
+        const stSpan = statusWrap.querySelector('span.se-status');
+        if (stSpan) {
+          if (stSpan.textContent !== stText) stSpan.textContent = stText;
+          stSpan.classList.remove('ok','warn','danger');
+          stSpan.classList.add(stCls);
+        }
       }
 
       // Update Planned option visibility/disability (Admin/Manager can always select Planned)

@@ -3,6 +3,7 @@ const attendanceService = require('../attendance/attendance.service');
 const leaveRepo = require('../leave/leave.repository');
 const env = require('../../config/env');
 const salaryRepo = require('./salary.repository');
+const { calculatePaidLeaveEntitlement } = require('../../utils/leaveRules');
 
 function roundToStep(value, step, mode) {
   if (!step || step <= 0) return value;
@@ -106,9 +107,39 @@ async function computePayslipForUser(userId, month, options = null) {
 
   const user = await userRepo.getUserById(userId);
   const dept = user?.departmentId ? await userRepo.getDepartmentById(user.departmentId).catch(() => null) : null;
+  
+  // Improved calculation from both attendance and daily status
+  const attendanceRepo = require('../attendance/attendance.repository');
+  const dailyRows = await attendanceRepo.listDailyBetween(userId, from, to).catch(() => []);
+  const attendanceRows = await attendanceRepo.listByUserBetween(userId, from, to).catch(() => []);
+  
+  const workKubunSet = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
+  const workDaysSet = new Set();
+  let paidLeaveDaysFromDaily = 0;
+
+  for (const r of dailyRows) {
+    const date = String(r.date || '').slice(0, 10);
+    const kubun = String(r.kubun || '').trim();
+    if (workKubunSet.has(kubun)) {
+      workDaysSet.add(date);
+    }
+    if (kubun === '有給休暇') {
+      paidLeaveDaysFromDaily++;
+    }
+  }
+  for (const r of attendanceRows) {
+    const date = String(r.checkIn || r.checkOut || '').slice(0, 10);
+    if (date) workDaysSet.add(date);
+  }
+
   const ts = await attendanceService.timesheet(userId, from, to);
-  const workDays = Array.isArray(ts.days) ? ts.days.length : 0;
-  const paidLeaveDays = await computePaidLeaveDays(userId, from, to);
+  const workDays = workDaysSet.size;
+  
+  // Use either leave requests or manual daily entry for paid leave
+  const paidLeaveDaysFromRequests = await computePaidLeaveDays(userId, from, to);
+  const paidLeaveDays = Math.max(paidLeaveDaysFromDaily, paidLeaveDaysFromRequests);
+  
+  const paidLeaveEntitlement = calculatePaidLeaveEntitlement(user?.join_date || user?.hire_date);
 
   const year = y;
   const conf = await salaryRepo.getConfigByYear(year);
@@ -344,6 +375,7 @@ async function computePayslipForUser(userId, month, options = null) {
     半日出勤日数: Object.prototype.hasOwnProperty.call(kOverride, '半日出勤日数') ? yen(kOverride['半日出勤日数']) : 0,
     欠勤日数: kAbsentDays,
     有給休暇: kPaidLeaveDays,
+    有給休暇付与: Object.prototype.hasOwnProperty.call(kOverride, '有給休暇付与') ? yen(kOverride['有給休暇付与']) : paidLeaveEntitlement,
     所定労働日数: scheduledWorkDays,
     就業時間: regularMin,
     法外時間外: overtimeMin,

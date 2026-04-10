@@ -17,11 +17,9 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Chỉ cho phép upload file ảnh!'), false);
-    }
+    const ok = file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf';
+    if (ok) cb(null, true);
+    else cb(new Error('Chỉ cho phép upload ảnh hoặc PDF!'), false);
   }
 });
 

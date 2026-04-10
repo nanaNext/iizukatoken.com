@@ -132,14 +132,19 @@ function sheetXml({ sheetName, columns, rows, styles, headerStyleKey }) {
     const cells = (r?.cells || []).map((raw, ci) => {
       let v = raw;
       let styleKey = '';
+      let isFormula = false;
       if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
         if (Object.prototype.hasOwnProperty.call(raw, 'v') || Object.prototype.hasOwnProperty.call(raw, 'value')) {
           v = Object.prototype.hasOwnProperty.call(raw, 'v') ? raw.v : raw.value;
           styleKey = String(raw.s || raw.style || '');
+          isFormula = !!raw.f;
         }
       }
       const addr = `${colName(ci + 1)}${rowNum}`;
       const cellStyle = styleKey && Object.prototype.hasOwnProperty.call(styles, styleKey) ? styles[styleKey] : style;
+      if (isFormula) {
+        return `<c r="${addr}" s="${cellStyle}"><f>${xmlEscape(v)}</f></c>`;
+      }
       return `<c r="${addr}" t="inlineStr" s="${cellStyle}"><is><t>${xmlEscape(v ?? '')}</t></is></c>`;
     }).join('');
     return `<row r="${rowNum}">${cells}</row>`;

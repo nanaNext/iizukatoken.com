@@ -21,7 +21,6 @@ module.exports = {
     `);
   },
   async writeLog(data) {
-    await this.ensureTable();
     const sql = `
       INSERT INTO audit_logs (userId, action, path, method, ip, userAgent, beforeData, afterData)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -38,7 +37,6 @@ module.exports = {
     ]);
   },
   async listLogs({ userId, action, from, to, page = 1, pageSize = 50 }) {
-    await this.ensureTable();
     const where = [];
     const params = [];
     if (userId) { where.push('userId = ?'); params.push(userId); }

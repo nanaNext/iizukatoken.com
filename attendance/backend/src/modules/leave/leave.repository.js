@@ -111,8 +111,8 @@ async function ensureSchema() {
 }
 
 module.exports = {
+  ensureSchema,
   async create({ userId, startDate, endDate, type, reason }) {
-    await ensureSchema();
     const sql = `
       INSERT INTO leave_requests (userId, startDate, endDate, type, reason)
       VALUES (?, ?, ?, ?, ?)
@@ -121,7 +121,6 @@ module.exports = {
     return res.insertId;
   },
   async listMine(userId) {
-    await ensureSchema();
     const sql = `
       SELECT * FROM leave_requests
       WHERE userId = ?
@@ -131,7 +130,6 @@ module.exports = {
     return rows;
   },
   async listByUser(userId) {
-    await ensureSchema();
     const sql = `
       SELECT * FROM leave_requests
       WHERE userId = ?
@@ -141,7 +139,6 @@ module.exports = {
     return rows;
   },
   async listAllPending() {
-    await ensureSchema();
     const sql = `
       SELECT * FROM leave_requests
       WHERE status = 'pending'
@@ -151,7 +148,6 @@ module.exports = {
     return rows;
   },
   async updateStatus(id, status) {
-    await ensureSchema();
     const sql = `
       UPDATE leave_requests
       SET status = ?
@@ -160,7 +156,6 @@ module.exports = {
     await db.query(sql, [status, id]);
   },
   async upsertGrant({ userId, type = 'paid', grantDate, daysGranted, expiryDate }) {
-    await ensureSchema();
     const [[row]] = await db.query(`
       SELECT table_name AS name
       FROM information_schema.tables
@@ -177,7 +172,6 @@ module.exports = {
     await db.query(sql, [userId, type, grantDate, daysGranted, expiryDate]);
   },
   async listGrants(userId, type = 'paid') {
-    await ensureSchema();
     const [[row]] = await db.query(`
       SELECT table_name AS name
       FROM information_schema.tables
@@ -194,7 +188,6 @@ module.exports = {
     return rows;
   },
   async listApprovedPaidLeaves(userId, fromDate, toDate) {
-    await ensureSchema();
     const [rows] = await db.query(`
       SELECT id, userId, startDate, endDate, type, status
       FROM leave_requests

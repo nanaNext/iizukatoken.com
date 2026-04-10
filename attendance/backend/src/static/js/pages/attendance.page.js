@@ -32,13 +32,8 @@ async function ensureAuthProfile() {
   if (token) { try { profile = await me(token); } catch {} }
   if (!profile) {
     try {
-      const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-      const r = await refresh(rt || undefined);
+      const r = await refresh();
       sessionStorage.setItem('accessToken', r.accessToken);
-      try {
-        sessionStorage.setItem('refreshToken', r.refreshToken || rt);
-        localStorage.setItem('refreshToken', r.refreshToken || rt);
-      } catch {}
       profile = await me(r.accessToken);
     } catch {}
   }
@@ -66,10 +61,7 @@ const wireUserMenu = () => {
     try { menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); } catch {}
   });
   $('#btnLogout')?.addEventListener('click', async () => {
-    try {
-      const rt = sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken') || '';
-      await logout(rt || undefined);
-    } catch {}
+    try { await logout(); } catch {}
     try { sessionStorage.removeItem('accessToken'); sessionStorage.removeItem('refreshToken'); sessionStorage.removeItem('user'); } catch {}
     try { localStorage.removeItem('refreshToken'); localStorage.removeItem('user'); } catch {}
     window.location.replace('/ui/login');
@@ -80,18 +72,16 @@ const wireTopNavDropdowns = () => {
   const btns = Array.from(document.querySelectorAll('.kintai-nav-btn[data-dd]'));
   const panels = Array.from(document.querySelectorAll('.kintai-dd[data-dd-panel]'));
   if (!btns.length || !panels.length) return;
-  try {
-    const hoverFine = window.matchMedia('(hover:hover) and (pointer:fine)').matches;
-    if (hoverFine) return;
-  } catch {}
+  try { document.body.classList.add('nav-js'); } catch {}
 
   const closeAll = () => {
     for (const b of btns) {
       try { b.setAttribute('aria-expanded', 'false'); } catch {}
     }
     for (const p of panels) {
-      try { p.setAttribute('hidden', ''); } catch {}
+      try { p.setAttribute('hidden', ''); p.style.display = ''; } catch {}
     }
+    document.querySelectorAll('.kintai-nav-dd').forEach(dd => { try { dd.classList.remove('open'); } catch {} });
   };
 
   const openOne = (key) => {
@@ -100,7 +90,15 @@ const wireTopNavDropdowns = () => {
     const panel = panels.find(p => p.dataset.ddPanel === key);
     if (!btn || !panel) return;
     try { btn.setAttribute('aria-expanded', 'true'); } catch {}
-    try { panel.removeAttribute('hidden'); } catch {}
+    try { panel.removeAttribute('hidden'); panel.style.display = 'block'; } catch {}
+    try { btn.closest('.kintai-nav-dd')?.classList.add('open'); } catch {}
+    try {
+      panel.style.position = '';
+      panel.style.left = '';
+      panel.style.top = '';
+      panel.style.maxWidth = '';
+      panel.style.width = '';
+    } catch {}
   };
 
   for (const b of btns) {
@@ -112,6 +110,22 @@ const wireTopNavDropdowns = () => {
       if (isOpen) closeAll();
       else openOne(key);
     });
+    b.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const key = b.dataset.dd;
+      const panel = panels.find(p => p.dataset.ddPanel === key);
+      const isOpen = panel && !panel.hasAttribute('hidden');
+      if (isOpen) closeAll();
+      else openOne(key);
+    }, { passive: false });
+    b.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      const key = b.dataset.dd;
+      const panel = panels.find(p => p.dataset.ddPanel === key);
+      const isOpen = panel && !panel.hasAttribute('hidden');
+      if (isOpen) closeAll();
+      else openOne(key);
+    }, { passive: false });
   }
 
   document.addEventListener('click', (e) => {
@@ -209,21 +223,15 @@ const renderNotice = async (profile) => {
     <div class="kintai-notice-section" id="noticeBody" ${isVisible ? '' : 'hidden'}>
       ${listHtml}
     </div>
-    <div class="kintai-notice-links" id="noticeLinks" ${isVisible ? '' : 'hidden'}>
-      <a href="/ui/portal">共通機能へ</a>
-    </div>
   `;
 
   try {
     host.querySelector('#btnNoticeToggle')?.addEventListener('click', () => {
       const body = host.querySelector('#noticeBody');
-      const links = host.querySelector('#noticeLinks');
       const curHidden = !!body?.hasAttribute?.('hidden');
       const nextHidden = !curHidden;
       if (nextHidden) body?.setAttribute?.('hidden', '');
       else body?.removeAttribute?.('hidden');
-      if (nextHidden) links?.setAttribute?.('hidden', '');
-      else links?.removeAttribute?.('hidden');
       try { localStorage.setItem(prefKey, nextHidden ? '0' : '1'); } catch {}
       try { host.querySelector('#btnNoticeToggle').textContent = nextHidden ? '表示' : '非表示'; } catch {}
     });
@@ -323,8 +331,8 @@ const renderAttendance = async () => {
               </select>
             </td>
           </tr>
-          <tr><th>出勤</th><td>${esc(fmtTime(last?.checkIn))}</td></tr>
-          <tr><th>退勤</th><td>${esc(fmtTime(last?.checkOut))}</td></tr>
+          <tr id="rowCheckIn"><th>出勤</th><td>${esc(fmtTime(last?.checkIn))}</td></tr>
+          <tr id="rowCheckOut"><th>退勤</th><td>${esc(fmtTime(last?.checkOut))}</td></tr>
         </tbody>
       </table>
       <div class="kintai-actions kintai-actions-split">
@@ -359,11 +367,35 @@ const renderAttendance = async () => {
         } catch {}
       });
     } catch {}
+    const hideKubunSet = new Set(['欠勤', '有給休暇', '半休', '無給休暇']);
+    const toggleWorkTypeRow = () => {
+      const kubun = String($('#kubun')?.value || defaultKubun);
+      const tr = $('#workType')?.closest('tr');
+      const hide = hideKubunSet.has(kubun);
+      if (tr) tr.style.display = hide ? 'none' : '';
+      const rIn = document.getElementById('rowCheckIn');
+      const rOut = document.getElementById('rowCheckOut');
+      if (rIn) rIn.style.display = hide ? 'none' : '';
+      if (rOut) rOut.style.display = hide ? 'none' : '';
+      const btnIn = $('#btnCheckIn');
+      const btnOut = $('#btnCheckOut');
+      if (btnIn) btnIn.disabled = hide ? true : btnIn.disabled;
+      if (btnOut) btnOut.disabled = hide ? true : btnOut.disabled;
+      if (hide) {
+        const wtSel = $('#workType');
+        if (wtSel) wtSel.value = '';
+      } else {
+        const wtSel = $('#workType');
+        if (wtSel && !wtSel.value) wtSel.value = loadWT();
+      }
+    };
+    toggleWorkTypeRow();
     try {
       const sel2 = $('#kubun');
       sel2?.addEventListener('change', async () => {
         const kubun = String(sel2.value || defaultKubun);
-        const wt = String($('#workType')?.value || loadWT());
+        const wt = hideKubunSet.has(kubun) ? null : (String($('#workType')?.value || loadWT()) || null);
+        toggleWorkTypeRow();
         showErr('');
         showSpinner();
         try {
@@ -379,8 +411,8 @@ const renderAttendance = async () => {
       showErr('');
       showSpinner();
       try {
-        const wt = String($('#workType')?.value || loadWT());
         const kubun = String($('#kubun')?.value || defaultKubun);
+        const wt = hideKubunSet.has(kubun) ? null : (String($('#workType')?.value || loadWT()) || null);
         await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/daily`, { method: 'PUT', body: JSON.stringify({ kubun, workType: wt }) });
         await fetchJSONAuth('/api/attendance/checkin', { method: 'POST', body: JSON.stringify({ workType: wt }) });
         await renderAttendance();
@@ -394,8 +426,8 @@ const renderAttendance = async () => {
       showErr('');
       showSpinner();
       try {
-        const wt = String($('#workType')?.value || loadWT());
         const kubun = String($('#kubun')?.value || defaultKubun);
+        const wt = hideKubunSet.has(kubun) ? null : (String($('#workType')?.value || loadWT()) || null);
         await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/daily`, { method: 'PUT', body: JSON.stringify({ kubun, workType: wt }) });
         await fetchJSONAuth('/api/attendance/checkout', { method: 'POST', body: JSON.stringify({}) });
         await renderAttendance();
@@ -409,8 +441,8 @@ const renderAttendance = async () => {
       showErr('');
       showSpinner();
       try {
-        const wt = String($('#workType')?.value || loadWT());
         const kubun = String($('#kubun')?.value || defaultKubun);
+        const wt = hideKubunSet.has(kubun) ? null : (String($('#workType')?.value || loadWT()) || null);
         await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/daily`, { method: 'PUT', body: JSON.stringify({ kubun, workType: wt }) });
         await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/submit`, { method: 'POST', body: JSON.stringify({}) }).catch(() => null);
         await renderAttendance();
@@ -429,6 +461,22 @@ const renderAttendance = async () => {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
+    const params = (() => { try { return new URLSearchParams(String(window.location.search||'')); } catch { return new URLSearchParams(); } })();
+    const isBack = params.get('back') === '1';
+    const ref = String(document.referrer || '');
+    const fromSimple = ref.includes('/ui/attendance/simple');
+    if (isMobile && !isBack && !fromSimple) {
+      window.location.href = '/ui/attendance/simple';
+      return;
+    }
+  } catch {}
+  try {
+    const prevent = () => { try { history.pushState(null, '', location.href); } catch {} };
+    prevent();
+    window.addEventListener('popstate', () => { prevent(); });
+  } catch {}
   showErr('');
   wireUserMenu();
   wireTopNavDropdowns();

@@ -1,4 +1,43 @@
 const db = require('../../core/database/mysql');
+
+const mergeLabels = (...values) => {
+  const set = new Set();
+  for (const value of values) {
+    const parts = String(value || '').split(',').map(s => s.trim()).filter(Boolean);
+    for (const part of parts) set.add(part);
+  }
+  return set.size ? Array.from(set).join(',') : null;
+};
+
+// Helper function to calculate daily status
+const calculateDailyStatus = (isWorkDay, hasCheckIn, hasCheckOut, monthStatus) => {
+  // monthStatus values: 'draft', 'submitted', 'approved'
+  // daily status values: '未入力' (not entered), '未承認' (not approved), '遅刻' (late), '承認待ち' (waiting), '承認済み' (approved)
+  
+  if (isWorkDay && !hasCheckIn && !hasCheckOut) {
+    return '未入力'; // Working day with no time entry
+  }
+  
+  // Check for tardiness (遅刻) - if check-in is after standard time
+  // Standard start time is 08:00
+  // This will be detected later in bulkUpsertAttendance
+  
+  if (monthStatus === 'approved') {
+    if ((isWorkDay && hasCheckIn && hasCheckOut) || !isWorkDay) {
+      return '承認済み'; // Approved
+    }
+    return '未承認'; // Not approved
+  }
+  
+  if (monthStatus === 'submitted') {
+    if ((isWorkDay && hasCheckIn && hasCheckOut) || !isWorkDay) {
+      return '承認待ち'; // Waiting for approval
+    }
+    return '未承認'; // Not approved
+  }
+  
+  return '未承認'; // Default: not approved
+};
 async function ensureAttendanceSchema() {
   try {
     await db.query(`
@@ -145,10 +184,21 @@ async function ensureAttendanceDailySchema() {
     if (!set.has('memo')) alters.push(`ADD COLUMN memo VARCHAR(255) NULL`);
     if (!set.has('break_minutes')) alters.push(`ADD COLUMN break_minutes INT NULL`);
     if (!set.has('night_break_minutes')) alters.push(`ADD COLUMN night_break_minutes INT NULL`);
+    if (!set.has('status')) alters.push(`ADD COLUMN status ENUM('未入力','未承認','遅刻','承認待ち','承認済み') NULL DEFAULT '未入力'`);
     if (!set.has('created_at')) alters.push(`ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
     if (!set.has('updated_at')) alters.push(`ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`);
     if (alters.length) {
       try { await db.query(`ALTER TABLE attendance_daily ${alters.join(', ')}`); } catch {}
+    }
+    // Ensure 遅刻 is in the status ENUM (in case column exists but was created before this value was added)
+    if (set.has('status')) {
+      try {
+        const [typeCols] = await db.query(`SELECT COLUMN_TYPE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'attendance_daily' AND COLUMN_NAME = 'status'`);
+        const colType = typeCols && typeCols[0] ? String(typeCols[0].COLUMN_TYPE) : '';
+        if (colType && !colType.includes('遅刻')) {
+          await db.query(`ALTER TABLE attendance_daily MODIFY COLUMN status ENUM('未入力','未承認','遅刻','承認待ち','承認済み') NULL DEFAULT '未入力'`);
+        }
+      } catch {}
     }
   } catch {}
 }
@@ -370,15 +420,57 @@ module.exports = {
     await ensureAttendanceSchema();
     await ensureAttendanceDailySchema();
     await ensureAttendanceMonthStatusSchema();
+    await ensureWorkDetailsSchema();
+    await ensureAttendanceMonthSummarySchema();
     await this.ensureShiftTables();
+    await this.ensureAttendancePlanSchema();
     return { ok: true };
+  },
+  async ensureAttendancePlanSchema() {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS attendance_plan (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        userId BIGINT UNSIGNED NOT NULL,
+        date DATE NOT NULL,
+        shiftId BIGINT UNSIGNED NULL,
+        work_type VARCHAR(24) NULL,
+        location VARCHAR(120) NULL,
+        memo VARCHAR(255) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_user_date (userId, date),
+        INDEX idx_user_date (userId, date),
+        CONSTRAINT fk_attendance_plan_user FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  },
+  async listPlanBetween(userId, fromDate, toDate) {
+    const [rows] = await db.query(
+      `SELECT * FROM attendance_plan WHERE userId = ? AND date >= ? AND date <= ? ORDER BY date ASC`,
+      [userId, String(fromDate).slice(0, 10), String(toDate).slice(0, 10)]
+    );
+    return rows;
+  },
+  async upsertPlan(userId, dateStr, plan) {
+    const date = String(dateStr).slice(0, 10);
+    const p = plan || {};
+    const [res] = await db.query(
+      `INSERT INTO attendance_plan (userId, date, shiftId, work_type, location, memo)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         shiftId = VALUES(shiftId),
+         work_type = VALUES(work_type),
+         location = VALUES(location),
+         memo = VALUES(memo)`,
+      [userId, date, p.shiftId || null, p.workType || null, p.location || null, p.memo || null]
+    );
+    return { ok: true, affectedRows: res.affectedRows };
   },
   async ensureMonthStatusTable() {
     await ensureAttendanceMonthStatusSchema();
     return { ok: true };
   },
   async getMonthStatus(userId, year, month) {
-    await ensureAttendanceMonthStatusSchema();
     const y = parseInt(String(year), 10);
     const m = parseInt(String(month), 10);
     if (!userId || !y || !m) return null;
@@ -395,7 +487,6 @@ module.exports = {
     return rows && rows[0] ? rows[0] : null;
   },
   async getMonthStatusBulk(userIds, year, month) {
-    await ensureAttendanceMonthStatusSchema();
     const y = parseInt(String(year), 10);
     const m = parseInt(String(month), 10);
     if (!Array.isArray(userIds) || !userIds.length || !y || !m) return [];
@@ -411,7 +502,6 @@ module.exports = {
     return rows || [];
   },
   async setMonthStatus(userId, year, month, status, actorId) {
-    await ensureAttendanceMonthStatusSchema();
     const y = parseInt(String(year), 10);
     const m = parseInt(String(month), 10);
     const st = String(status || '').trim();
@@ -572,7 +662,6 @@ module.exports = {
     return rows;
   },
   async setWorkTypeForUserDate(userId, dateStr, workType) {
-    await ensureAttendanceSchema();
     const set = await getAttendanceColumnSet();
     if (!set.has('work_type')) return { updated: 0 };
     const sql = `
@@ -587,14 +676,12 @@ module.exports = {
     return { updated: Number(res?.affectedRows || 0) };
   },
   async setWorkTypeById(attendanceId, workType) {
-    await ensureAttendanceSchema();
     const set = await getAttendanceColumnSet();
     if (!set.has('work_type')) return { updated: 0 };
     const [res] = await db.query(`UPDATE attendance SET work_type = ? WHERE id = ?`, [workType || null, attendanceId]);
     return { updated: Number(res?.affectedRows || 0) };
   },
   async upsertShiftDefinition({ name, start_time, end_time, break_minutes, working_days }) {
-    await this.ensureShiftTables();
     const s = String(start_time || '').split(':').map(Number);
     const e = String(end_time || '').split(':').map(Number);
     const std = Math.max(0, (e[0]*60+e[1]) - (s[0]*60+s[1]) - (break_minutes || 0));
@@ -607,17 +694,44 @@ module.exports = {
     return rows[0];
   },
   async listShiftDefinitions() {
-    await this.ensureShiftTables();
     const [rows] = await db.query(`SELECT * FROM shift_definitions ORDER BY id ASC`);
     return rows;
   },
   async getShiftById(id) {
-    await this.ensureShiftTables();
     const [rows] = await db.query(`SELECT * FROM shift_definitions WHERE id = ? LIMIT 1`, [id]);
     return rows[0];
   },
+  async deleteShiftDefinitionById(id) {
+    const xid = Number(id);
+    if (!xid) return { deleted: 0, notFound: true };
+    const def = await this.getShiftById(xid);
+    if (!def) return { deleted: 0, notFound: true };
+    let assignedCount = 0;
+    try {
+      const set = await getUSAColumnSet();
+      if (set.has('shiftId')) {
+        const [rows] = await db.query(`SELECT COUNT(*) AS c FROM user_shift_assignments WHERE shiftId = ?`, [xid]);
+        assignedCount = rows && rows[0] ? Number(rows[0].c || 0) : 0;
+      } else if (set.has('shift')) {
+        const [rows] = await db.query(`SELECT COUNT(*) AS c FROM user_shift_assignments WHERE shift = ?`, [String(def.name || '')]);
+        assignedCount = rows && rows[0] ? Number(rows[0].c || 0) : 0;
+      }
+    } catch {}
+    if (assignedCount > 0) {
+      return { deleted: 0, inUse: true, assignedCount };
+    }
+    try {
+      const [res] = await db.query(`DELETE FROM shift_definitions WHERE id = ?`, [xid]);
+      return { deleted: Number(res?.affectedRows || 0) };
+    } catch (err) {
+      const msg = String(err?.message || '');
+      if (msg.toLowerCase().includes('foreign key') || msg.toLowerCase().includes('constraint')) {
+        return { deleted: 0, inUse: true, assignedCount: null };
+      }
+      throw err;
+    }
+  },
   async assignShiftToUser(userId, shiftId, startDate, endDate) {
-    await this.ensureShiftTables();
     const set = await getUSAColumnSet();
     const hasShiftId = set.has('shiftId');
     const hasShiftName = set.has('shift');
@@ -696,7 +810,6 @@ module.exports = {
     return { ok: true };
   },
   async updateShiftAssignment(id, userId, patch) {
-    await this.ensureShiftTables();
     const xid = parseInt(String(id), 10);
     const uid = parseInt(String(userId), 10);
     if (!xid || !uid) return { ok: false, updated: 0 };
@@ -733,7 +846,6 @@ module.exports = {
     return { ok: true, updated: Number(res?.affectedRows || 0) };
   },
   async deleteShiftAssignment(id, userId) {
-    await this.ensureShiftTables();
     const xid = parseInt(String(id), 10);
     const uid = parseInt(String(userId), 10);
     if (!xid || !uid) return { ok: false, deleted: 0 };
@@ -741,7 +853,6 @@ module.exports = {
     return { ok: true, deleted: Number(res?.affectedRows || 0) };
   },
   async getActiveAssignment(userId, dateStr) {
-    await this.ensureShiftTables();
     const set = await getUSAColumnSet();
     const startCol = getUSAStartCol(set);
     const hasEnd = set.has('end_date');
@@ -759,7 +870,6 @@ module.exports = {
     return rows[0];
   },
   async listShiftAssignmentsBetween(userId, fromDate, toDate) {
-    await this.ensureShiftTables();
     const set = await getUSAColumnSet();
     const startCol = getUSAStartCol(set);
     const hasEnd = set.has('end_date');
@@ -785,8 +895,6 @@ module.exports = {
     return rows || [];
   },
   async backfillShiftIdForUserRange(userId, fromDate, toDate) {
-    await ensureAttendanceSchema();
-    await this.ensureShiftTables();
     const set = await getUSAColumnSet();
     const startCol = getUSAStartCol(set);
     const hasEnd = set.has('end_date');
@@ -810,8 +918,6 @@ module.exports = {
     return { ok: true };
   },
   async createCheckIn(userId, time, loc, labels, workType) {
-    await ensureAttendanceSchema();
-    await this.ensureShiftTables();
     const dateStr = String(time).slice(0, 10);
     const assign = await this.getActiveAssignment(userId, dateStr);
     const set = await getAttendanceColumnSet();
@@ -839,8 +945,6 @@ module.exports = {
     return result.insertId;
   },
   async createCheckInTx(userId, time, loc, labels, workType) {
-    await ensureAttendanceSchema();
-    await this.ensureShiftTables();
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();
@@ -908,7 +1012,6 @@ module.exports = {
     return rows[0];
   },
   async setCheckOut(attendanceId, time, loc, labels) {
-    await ensureAttendanceSchema();
     const set = await getAttendanceColumnSet();
     const updates = ['checkOut = ?'];
     const vals = [time];
@@ -956,6 +1059,41 @@ module.exports = {
     if (!inV && outV) {
       throw new Error('Missing checkIn');
     }
+    const current = await this.getById(attendanceId);
+    if (!current) return;
+    const currentUserId = parseInt(String(current.userId || 0), 10);
+    if (!currentUserId) return;
+    const nextIn = inV;
+    const [dups] = await db.query(
+      `SELECT id, checkOut, work_type, labels, shiftId FROM attendance WHERE userId = ? AND checkIn = ? AND id <> ? ORDER BY id ASC LIMIT 1`,
+      [currentUserId, nextIn, attendanceId]
+    );
+    const dup = dups && dups[0] ? dups[0] : null;
+    if (dup) {
+      await db.query(`DELETE FROM attendance WHERE id = ?`, [dup.id]);
+      const mergedLabels = mergeLabels(current.labels, dup.labels);
+      const mergedShiftId = current.shiftId != null ? current.shiftId : dup.shiftId;
+      await db.query(
+        `
+          UPDATE attendance
+          SET checkIn = ?,
+              checkOut = ?,
+              work_type = ?,
+              labels = ?,
+              shiftId = ?
+          WHERE id = ?
+        `,
+        [
+          nextIn,
+          outV || null,
+          current.work_type || dup.work_type || null,
+          mergedLabels,
+          mergedShiftId != null ? mergedShiftId : null,
+          attendanceId
+        ]
+      );
+      return;
+    }
     const sql = `
       UPDATE attendance
       SET checkIn = ?,
@@ -965,7 +1103,6 @@ module.exports = {
     await db.query(sql, [inV, outV || null, attendanceId]);
   },
   async getMonthSummary(userId, year, month) {
-    await ensureAttendanceMonthSummarySchema();
     const uid = parseInt(String(userId), 10);
     const y = parseInt(String(year), 10);
     const m = parseInt(String(month), 10);
@@ -977,7 +1114,6 @@ module.exports = {
     return rows && rows[0] ? rows[0] : null;
   },
   async upsertMonthSummary(userId, year, month, summaryAll, summaryInhouse, actorId) {
-    await ensureAttendanceMonthSummarySchema();
     const uid = parseInt(String(userId), 10);
     const y = parseInt(String(year), 10);
     const m = parseInt(String(month), 10);
@@ -1003,7 +1139,6 @@ module.exports = {
     return { ok: true };
   },
   async listWorkDetailsBetween(userId, fromDate, toDate) {
-    await ensureWorkDetailsSchema();
     const uid = parseInt(String(userId), 10);
     const from = String(fromDate || '').slice(0, 10);
     const to = String(toDate || '').slice(0, 10);
@@ -1021,14 +1156,12 @@ module.exports = {
     return rows || [];
   },
   async getWorkDetailById(id) {
-    await ensureWorkDetailsSchema();
     const xid = parseInt(String(id), 10);
     if (!xid) return null;
     const [rows] = await db.query(`SELECT * FROM user_work_details WHERE id = ? LIMIT 1`, [xid]);
     return rows && rows[0] ? rows[0] : null;
   },
   async createWorkDetail(userId, data) {
-    await ensureWorkDetailsSchema();
     const uid = parseInt(String(userId), 10);
     if (!uid) return null;
     const d = data && typeof data === 'object' ? data : {};
@@ -1047,7 +1180,6 @@ module.exports = {
     return res?.insertId || null;
   },
   async updateWorkDetail(id, userId, data) {
-    await ensureWorkDetailsSchema();
     const xid = parseInt(String(id), 10);
     const uid = parseInt(String(userId), 10);
     if (!xid || !uid) return { ok: false, updated: 0 };
@@ -1079,6 +1211,34 @@ module.exports = {
    */
   async bulkUpsertAttendance(userId, { updates, dailyUpdates }) {
     const conn = await db.getConnection();
+
+    // Helper: parse "HH:MM" → minutes from midnight
+    const hmToMin = (hm) => {
+      const m = /^(\d{1,2}):(\d{2})$/.exec(String(hm || ''));
+      return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
+    };
+
+    // Helper: derive status from kubun + whether checkIn exists + whether late
+    const deriveStatus = (kubun, checkInTime, shiftStart) => {
+      const workKubunSet = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
+      const nonWorkKubunSet = new Set(['休日', '代替休日', '有給休暇', '無給休暇', '欠勤']);
+      const k = String(kubun || '').trim();
+
+      if (k && nonWorkKubunSet.has(k)) return '未承認';
+
+      if (!checkInTime) {
+        // No check-in: 未入力 only for actual working days
+        if (!k || workKubunSet.has(k)) return '未入力';
+        return '未承認';
+      }
+
+      // Has check-in — compare against shift start time
+      const ciMin = hmToMin(checkInTime);
+      const ssMin = hmToMin(shiftStart || '08:00') ?? (8 * 60);
+      const isLate = ciMin != null && ciMin > ssMin;
+      return isLate ? '遅刻' : '未承認';
+    };
+
     try {
       await conn.beginTransaction();
 
@@ -1087,17 +1247,108 @@ module.exports = {
       let segUpdated = 0;
       const createdIds = [];
 
-      // 1. Xử lý dailyUpdates
+      // Build a map of date → checkInTime from the updates payload (segments being saved)
+      // This is used so dailyUpdates can compute status against the NEW check-in, not DB state.
+      const checkInByDate = new Map();
+      if (Array.isArray(updates)) {
+        for (const u of updates) {
+          if (u?.delete === true) continue;
+          const ci = String(u?.checkIn || '').trim();
+          if (!ci) continue;
+          // checkIn is "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DDTHH:MM:SS"
+          const dateStr = ci.slice(0, 10);
+          const timePart = ci.slice(11, 16); // "HH:MM"
+          if (dateStr && timePart && !checkInByDate.has(dateStr)) {
+            checkInByDate.set(dateStr, timePart);
+          }
+        }
+      }
+
+      // 1. Process segments FIRST so that status calculation sees final state
+      if (Array.isArray(updates)) {
+        for (const u of updates) {
+          if (u.id) {
+            if (u.delete === true) {
+              await conn.query(`DELETE FROM attendance WHERE id = ? AND userId = ?`, [u.id, userId]);
+              segUpdated++;
+              continue;
+            }
+            const [currentRows] = await conn.query(
+              `SELECT id, checkIn, checkOut, work_type, labels, shiftId FROM attendance WHERE id = ? AND userId = ? LIMIT 1`,
+              [u.id, userId]
+            );
+            const current = currentRows && currentRows[0] ? currentRows[0] : null;
+            if (!current) continue;
+            const nextCheckIn = u.checkIn ? String(u.checkIn) : null;
+            if (nextCheckIn) {
+              const [dupRows] = await conn.query(
+                `SELECT id, checkOut, work_type, labels, shiftId FROM attendance WHERE userId = ? AND checkIn = ? AND id <> ? ORDER BY id ASC LIMIT 1`,
+                [userId, nextCheckIn, u.id]
+              );
+              const dup = dupRows && dupRows[0] ? dupRows[0] : null;
+              if (dup) {
+                await conn.query(`DELETE FROM attendance WHERE id = ? AND userId = ?`, [dup.id, userId]);
+                const mergedLabels = mergeLabels(current.labels, dup.labels);
+                const mergedShiftId = current.shiftId != null ? current.shiftId : dup.shiftId;
+                await conn.query(
+                  `UPDATE attendance SET checkIn=?,checkOut=?,work_type=?,labels=?,shiftId=? WHERE id=? AND userId=?`,
+                  [nextCheckIn, u.checkOut||null, u.workType||current.work_type||dup.work_type||null, mergedLabels, mergedShiftId!=null?mergedShiftId:null, u.id, userId]
+                );
+                segUpdated++;
+                continue;
+              }
+            }
+            const fields = ['checkIn = ?', 'checkOut = ?', 'work_type = ?'];
+            const vals = [u.checkIn||null, u.checkOut||null, u.workType||null, u.id, userId];
+            await conn.query(`UPDATE attendance SET ${fields.join(', ')} WHERE id = ? AND userId = ?`, vals);
+            segUpdated++;
+          } else if (u.checkIn) {
+            const [res] = await conn.query(
+              `INSERT INTO attendance (userId, checkIn, checkOut, work_type) VALUES (?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id),checkOut=VALUES(checkOut),work_type=VALUES(work_type)`,
+              [userId, u.checkIn, u.checkOut||null, u.workType||null]
+            );
+            const newId = Number(res?.insertId||0)||null;
+            const affected = Number(res?.affectedRows||0);
+            if (affected===1) segCreated++;
+            else segUpdated++;
+            if (u.clientId && newId) {
+              createdIds.push({ clientId: u.clientId, id: newId, checkIn: u.checkIn, checkOut: u.checkOut||null });
+            }
+          }
+        }
+      }
+
+      // 2. Process dailyUpdates — now segments are already committed in same transaction
       if (Array.isArray(dailyUpdates)) {
         for (const d of dailyUpdates) {
           const date = String(d?.date || '').slice(0, 10);
           if (!date) continue;
 
-          // Reuse logic upsertDaily nhưng dùng connection của transaction
+          // Use checkIn from request payload; fall back to DB only if not in payload
+          let checkInTime = checkInByDate.get(date) || null;
+          if (!checkInTime && d.checkInTime) {
+            checkInTime = String(d.checkInTime).slice(0, 5); // "HH:MM"
+          }
+          if (!checkInTime) {
+            // Fall back: query DB for existing attendance
+            const [attRows] = await conn.query(
+              `SELECT checkIn FROM attendance WHERE userId = ? AND DATE(checkIn) = ? LIMIT 1`,
+              [userId, date]
+            );
+            if (attRows?.[0]?.checkIn) {
+              const ci = String(attRows[0].checkIn);
+              checkInTime = ci.slice(11, 16); // "HH:MM"
+            }
+          }
+
+          const shiftStart = String(d.shiftStart || '08:00').trim();
+          const status = deriveStatus(d.kubun, checkInTime, shiftStart);
+
           await conn.query(
             `
-            INSERT INTO attendance_daily (userId, date, kubun, kubun_confirmed, work_type, location, reason, memo, break_minutes, night_break_minutes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO attendance_daily (userId, date, kubun, kubun_confirmed, work_type, location, reason, memo, break_minutes, night_break_minutes, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
               kubun = VALUES(kubun),
               kubun_confirmed = VALUES(kubun_confirmed),
@@ -1106,7 +1357,8 @@ module.exports = {
               reason = VALUES(reason),
               memo = VALUES(memo),
               break_minutes = VALUES(break_minutes),
-              night_break_minutes = VALUES(night_break_minutes)
+              night_break_minutes = VALUES(night_break_minutes),
+              status = VALUES(status)
           `,
             [
               userId,
@@ -1118,61 +1370,11 @@ module.exports = {
               d.reason || null,
               d.memo || null,
               d.breakMinutes || null,
-              d.nightBreakMinutes || null
+              d.nightBreakMinutes || null,
+              status
             ]
           );
           dailySaved++;
-        }
-      }
-
-      // 2. Xử lý updates (segments)
-      if (Array.isArray(updates)) {
-        for (const u of updates) {
-          if (u.id) {
-            if (u.delete === true) {
-              await conn.query(`DELETE FROM attendance WHERE id = ? AND userId = ?`, [u.id, userId]);
-              segUpdated++;
-              continue;
-            }
-            // Update existing segment
-            const fields = ['checkIn = ?', 'checkOut = ?', 'work_type = ?'];
-            const vals = [u.checkIn || null, u.checkOut || null, u.workType || null, u.id, userId];
-            await conn.query(`UPDATE attendance SET ${fields.join(', ')} WHERE id = ? AND userId = ?`, vals);
-            segUpdated++;
-          } else if (u.checkIn) {
-            // Create or Update new segment (Handle Double Submit race condition)
-            try {
-              // Thử chèn mới trước
-              const [res] = await conn.query(
-                `INSERT INTO attendance (userId, checkIn, checkOut, work_type) VALUES (?, ?, ?, ?)`,
-                [userId, u.checkIn, u.checkOut || null, u.workType || null]
-              );
-              segCreated++;
-              if (u.clientId) {
-                createdIds.push({ clientId: u.clientId, id: res.insertId, checkIn: u.checkIn, checkOut: u.checkOut || null });
-              }
-            } catch (err) {
-              if (err.code === 'ER_DUP_ENTRY') {
-                // Nếu trùng (Double Submit), chúng ta CẬP NHẬT lại dữ liệu mới nhất (Ưu tiên 1)
-                // Điều này cực kỳ quan trọng khi người dùng sửa giờ nhanh trước khi nhận được ID
-                await conn.query(
-                  `UPDATE attendance SET checkOut = ?, work_type = ? WHERE userId = ? AND checkIn = ?`,
-                  [u.checkOut || null, u.workType || null, userId, u.checkIn]
-                );
-                
-                const [existing] = await conn.query(
-                  `SELECT id FROM attendance WHERE userId = ? AND checkIn = ?`,
-                  [userId, u.checkIn]
-                );
-                if (existing && existing[0]) {
-                  createdIds.push({ clientId: u.clientId, id: existing[0].id, checkIn: u.checkIn, checkOut: u.checkOut || null });
-                  segUpdated++;
-                }
-                continue;
-              }
-              throw err;
-            }
-          }
         }
       }
 
@@ -1190,7 +1392,6 @@ module.exports = {
     }
   },
   async deleteWorkDetail(id, userId) {
-    await ensureWorkDetailsSchema();
     const xid = parseInt(String(id), 10);
     const uid = parseInt(String(userId), 10);
     if (!xid || !uid) return { ok: false, deleted: 0 };
