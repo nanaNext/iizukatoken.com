@@ -95,3 +95,17 @@ export async function logout() {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
+
+export async function forgotPassword({ email, birthDate, employeeCode }) {
+  return fetchJSON(`${AUTH_BASE}/forgot-password`, {
+    method: 'POST',
+    body: JSON.stringify({ email, birthDate, employeeCode })
+  });
+}
+
+export async function resetPassword({ token, newPassword }) {
+  return fetchJSON(`${AUTH_BASE}/reset-password`, {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword })
+  });
+}

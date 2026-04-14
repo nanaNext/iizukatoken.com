@@ -20,6 +20,10 @@ const authorizePage = (...roles) => (req, res, next) => {
 router.get('/ui/login', sendPage('login.html'));
 router.get('/login', sendPage('login.html'));
 router.get('/login.html', sendPage('login.html'));
+router.get('/ui/forgot-password', sendPage('forgot-password.html'));
+router.get('/forgot-password', sendPage('forgot-password.html'));
+router.get('/ui/reset-password', sendPage('reset-password.html'));
+router.get('/reset-password', sendPage('reset-password.html'));
 // Public standalone login for Expenses
 router.get('/ui/expenses-login', sendPage('expenses-login.html'));
 router.get('/expenses-login', sendPage('expenses-login.html'));

@@ -79,12 +79,14 @@ router.post('/signup',
 router.post('/forgot-password',
   rateLimit({ windowMs: 60_000, max: 10 }),
   body('email').isEmail(),
+  body('birthDate').isISO8601().withMessage('birthDate must be YYYY-MM-DD'),
+  body('employeeCode').isLength({ min: 2 }).withMessage('employeeCode is required'),
   authController.forgotPassword
 );
 router.post('/reset-password',
   rateLimit({ windowMs: 60_000, max: 10 }),
   body('token').isLength({ min: 10 }),
-  body('newPassword').isLength({ min: 8 }),
+  body('newPassword').isStrongPassword({ minLength: 8, minLowercase: 1, minUppercase: 1, minNumbers: 1, minSymbols: 0 }),
   authController.resetPassword
 );
 router.post('/super-reset',

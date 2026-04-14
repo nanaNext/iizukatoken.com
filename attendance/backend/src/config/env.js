@@ -2,6 +2,7 @@ require('./loadEnv');
 
 module.exports = {
   port: process.env.PORT,
+  appBaseUrl: process.env.APP_BASE_URL || '',
   dbUrl: process.env.DB_URL,
   jwtSecret: process.env.JWT_SECRET,
   jwtSecretCurrent: process.env.JWT_SECRET_CURRENT || process.env.JWT_SECRET,
@@ -30,6 +31,10 @@ module.exports = {
   salaryTaxRate: parseFloat(process.env.SALARY_TAX_RATE || '0'),
   salaryRentDeduction: parseInt(process.env.SALARY_RENT_DEDUCTION || '0', 10)
   ,
+  mailProvider: process.env.MAIL_PROVIDER || '',
+  mailApiKey: process.env.MAIL_API_KEY || '',
+  mailFrom: process.env.MAIL_FROM || '',
+  companySupportEmail: process.env.COMPANY_SUPPORT_EMAIL || '',
   disablePayslipUpload: String(process.env.DISABLE_PAYSLIP_UPLOAD || '').toLowerCase() === 'true',
   disablePayslipDownload: String(process.env.DISABLE_PAYSLIP_DOWNLOAD || '').toLowerCase() === 'true',
   maintenanceMode: String(process.env.MAINTENANCE_MODE || '').toLowerCase() === 'true'

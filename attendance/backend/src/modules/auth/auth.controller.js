@@ -2,11 +2,12 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const authRepository = require('./auth.repository');
-const { jwtSecretCurrent, bcryptRounds, accessTokenExpires, refreshTokenExpiresDays, idleTimeoutSeconds } = require('../../config/env');
+const { jwtSecretCurrent, bcryptRounds, accessTokenExpires, refreshTokenExpiresDays, idleTimeoutSeconds, resetTokenExpiresMinutes, appBaseUrl } = require('../../config/env');
 const refreshRepo = require('./refresh.repository');
 const crypto = require('crypto');
 const userRepo = require('../users/user.repository');
 const auditRepo = require('../audit/audit.repository');
+const { sendPasswordResetEmail, canSendMail } = require('../../core/notifications/email.service');
 // Controller xác thực: đăng ký và đăng nhập
 
 function isHttpsRequest(req) {
@@ -25,6 +26,21 @@ function setSessionCookie(req, res, token) {
 
 function clearSessionCookie(res) {
   res.clearCookie('session_token', { path: '/' });
+}
+
+function normalizeDateLike(input) {
+  const s = String(input || '').trim();
+  if (!s) return '';
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : s;
+}
+
+function buildResetUrl(req, token) {
+  const base = String(appBaseUrl || '').trim()
+    || `${isHttpsRequest(req) ? 'https' : 'http'}://${req.get('host')}`;
+  const u = new URL('/reset-password', base);
+  u.searchParams.set('token', token);
+  return u.toString();
 }
 
 // Đăng ký tài khoản mới
@@ -157,14 +173,24 @@ exports.me = async (req, res) => {
 
 // Quên mật khẩu: nhận email, phản hồi 202 (stub)
 exports.forgotPassword = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
   try {
-    const { email } = req.body || {};
-    if (!email) return res.status(400).json({ message: 'Missing email' });
+    const { email, birthDate, employeeCode } = req.body || {};
+    if (!email || !birthDate || !employeeCode) return res.status(400).json({ message: 'Missing email/birthDate/employeeCode' });
     const user = await authRepository.findUserByEmail(email);
     if (!user) {
       return res.status(202).json({ ok: true });
     }
-    const { resetTokenExpiresMinutes } = require('../../config/env');
+    const normalizedInputBirthDate = normalizeDateLike(birthDate);
+    const normalizedUserBirthDate = normalizeDateLike(user.birth_date || user.birthDate);
+    const normalizedInputEmployeeCode = String(employeeCode || '').trim().toLowerCase();
+    const normalizedUserEmployeeCode = String(user.employee_code || user.employeeCode || '').trim().toLowerCase();
+    if (normalizedInputBirthDate !== normalizedUserBirthDate || normalizedInputEmployeeCode !== normalizedUserEmployeeCode) {
+      return res.status(202).json({ ok: true });
+    }
     const token = require('crypto').randomBytes(32).toString('base64url');
     const expires = new Date(Date.now() + (resetTokenExpiresMinutes || 30) * 60 * 1000);
     const pr = require('./password_reset.repository');
@@ -176,6 +202,23 @@ exports.forgotPassword = async (req, res) => {
       userAgent: req.headers['user-agent'],
       ip: req.ip
     });
+    const resetUrl = buildResetUrl(req, token);
+    try {
+      const sent = await sendPasswordResetEmail({
+        to: user.email,
+        resetUrl,
+        expiresMinutes: resetTokenExpiresMinutes || 30
+      });
+      if (!sent) {
+        console.warn('[forgot-password] mail provider not configured; reset link generated but not emailed');
+        console.warn('[forgot-password] reset link for user', user.id, resetUrl);
+      }
+    } catch (mailErr) {
+      console.error('[forgot-password] email send failed:', mailErr && mailErr.message ? mailErr.message : mailErr);
+      if (!canSendMail()) {
+        console.warn('[forgot-password] mail provider not configured; set MAIL_PROVIDER/MAIL_API_KEY/MAIL_FROM');
+      }
+    }
     try { require('../../core/metrics').inc('forgot_password_requests', 1); } catch {}
     res.status(202).json({ ok: true });
   } catch (err) {
@@ -185,6 +228,10 @@ exports.forgotPassword = async (req, res) => {
 
 // Reset mật khẩu: xác thực token (stub) và đặt mật khẩu mới
 exports.resetPassword = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
   try {
     const { token, newPassword } = req.body || {};
     if (!token || !newPassword) return res.status(400).json({ message: 'Missing token/newPassword' });
