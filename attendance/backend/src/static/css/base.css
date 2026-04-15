@@ -7,6 +7,9 @@ body {
 html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    /* Keep vertical scrollbar space reserved to prevent horizontal "jump" between pages */
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
 }
 
 body {

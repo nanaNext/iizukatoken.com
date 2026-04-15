@@ -16,35 +16,19 @@ const wireExpandingSearch = () => {
     const input = box.querySelector('input[type="search"]');
     const closeBtn = box.querySelector('.search-close');
     const hint = box.querySelector('.search-hint');
-    const open = () => {
-      box.classList.add('active');
-      try { input && input.focus(); input && input.select(); } catch {}
-    };
-    const close = () => {
-      box.classList.remove('active');
-      try { input && input.blur(); } catch {}
-    };
-    if (input) input.addEventListener('focus', open);
-    if (hint) hint.addEventListener('click', (e) => { e.preventDefault(); open(); });
-    if (closeBtn) closeBtn.addEventListener('click', (e) => { e.preventDefault(); close(); });
+    box.classList.remove('active');
+    if (hint) hint.style.display = 'none';
+    if (closeBtn) closeBtn.style.display = 'none';
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { close(); return; }
       const isCtrlK = (e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey);
-      const isPlainK = (e.key === 'k' || e.key === 'K') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
-      if (isCtrlK || isPlainK) {
+      if (isCtrlK) {
         const t = e.target;
         const tag = (t && t.tagName) ? t.tagName.toLowerCase() : '';
         const editable = (t && (t.isContentEditable || tag === 'input' || tag === 'textarea' || tag === 'select'));
-        if (editable && !isCtrlK) return;
+        if (editable) return;
         e.preventDefault();
-        open();
+        try { input && input.focus({ preventScroll: true }); input && input.select(); } catch {}
       }
-    });
-    document.addEventListener('click', (e) => {
-      if (!box.classList.contains('active')) return;
-      const t = e && e.target;
-      if (t && t.closest && t.closest('.topbar-inner .search')) return;
-      close();
     });
   } catch {}
 };
@@ -253,15 +237,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="title">申請</div>
           </a>
           <a class="tile" href="/ui/attendance" target="_blank" rel="noopener noreferrer">
+            <div class="icon">🕒</div>
             <div class="title">勤怠入力</div>
           </a>
-          <a class="tile" href="/ui/adjust">
-            <div class="icon">💳</div>
-            <div class="title">調整申請</div>
-          </a>
           <a class="tile" href="/expenses-login" target="_blank" rel="noopener noreferrer">
-            <div class="icon"></div>
-            <div class="title">交通費計算</div>
+            <div class="icon">💳</div>
+            <div class="title">経費精算</div>
+          </a>
+          <a class="tile" href="/ui/adjust">
+            <div class="icon">⏲</div>
+            <div class="title">調整申請</div>
           </a>
         </div>
         <div class="emp-tiles-2">

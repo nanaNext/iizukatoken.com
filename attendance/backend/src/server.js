@@ -1,5 +1,6 @@
 const app = require('./app');
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 const disableSchedulers = String(process.env.DISABLE_SCHEDULERS || '').toLowerCase() === 'true';
 function initAutoGrantScheduler() {
   try {
@@ -35,8 +36,9 @@ function initAutoGrantScheduler() {
 async function start() {
   try {
     await require('./core/bootstrap').init();
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+    app.listen(PORT, HOST, () => {
+      const shownHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
+      console.log(`Server is running at http://${shownHost}:${PORT} (bind ${HOST})`);
     });
     if (!disableSchedulers) initAutoGrantScheduler();
   } catch (e) {

@@ -5,8 +5,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>申請</title>
-  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260314">
-  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260411-searchhint">
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260415-perf1">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260415-perf1">
   <style>
     .req-page {
       max-width: 1200px;
@@ -178,10 +178,6 @@
     }
     .req-new-wrap { position: relative; display: inline-block; }
 
-    .subbar .subnav a[aria-current="page"] {
-      font-weight: 900;
-      border-color: #fff;
-    }
     .req-list-btn {
       border: 1px solid #d1d5db;
       background: #fff;
@@ -207,6 +203,31 @@
       width: 420px;
       max-width: 92vw;
       z-index: 1700;
+    }
+
+    .req-page.persistent-list .req-head {
+      align-items: flex-start;
+    }
+
+    .req-page.persistent-list .req-title {
+      display: block;
+    }
+
+    .req-page.persistent-list .req-list-btn {
+      display: none;
+    }
+
+    .req-page.persistent-list .req-list-menu {
+      position: static;
+      top: auto;
+      left: auto;
+      display: block !important;
+      width: min(420px, 96vw);
+      max-width: none;
+      margin-top: 8px;
+      max-height: 55vh;
+      overflow: auto;
+      z-index: auto;
     }
 
     .req-list-menu .head {
@@ -262,6 +283,170 @@
 
     .req-list-item[aria-selected="true"] .check {
       visibility: visible;
+    }
+
+    @media (max-width: 480px) {
+      .req-page {
+        max-width: 100%;
+      }
+
+      .req-head {
+        gap: 6px;
+        margin: 2px 0 6px;
+      }
+
+      .req-ico {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        font-size: 10px;
+      }
+
+      .req-title .main {
+        font-size: 14px;
+      }
+
+      .pin {
+        padding: 3px 5px;
+        border-radius: 6px;
+        font-size: 11px;
+      }
+
+      .req-toolbar {
+        gap: 6px;
+        padding: 4px 0;
+      }
+
+      .req-new {
+        padding: 5px 8px;
+        border-radius: 7px;
+        font-size: 11px;
+      }
+
+      .btn-tool {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        font-size: 12px;
+      }
+
+      .req-search input {
+        padding: 5px 8px;
+        border-radius: 7px;
+        font-size: 11px;
+      }
+
+      .req-table {
+        font-size: 11px;
+      }
+
+      .req-table th,
+      .req-table td {
+        padding: 5px;
+      }
+
+      .req-card {
+        width: min(92vw, 390px);
+        border-radius: 10px;
+        padding: 10px;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .content {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+      .req-page {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 0 4px;
+        box-sizing: border-box;
+        overflow-x: auto;
+      }
+
+      .req-head {
+        gap: 4px;
+        margin: 0 0 4px;
+      }
+
+      .req-ico {
+        width: 20px;
+        height: 20px;
+        border-radius: 5px;
+        font-size: 9px;
+      }
+
+      .req-title .main {
+        font-size: 12px;
+      }
+
+      .pin {
+        padding: 2px 4px;
+        font-size: 10px;
+      }
+
+      .req-toolbar {
+        gap: 4px;
+        padding: 3px 0;
+      }
+
+      .req-new {
+        padding: 4px 6px;
+        border-radius: 6px;
+        font-size: 10px;
+      }
+
+      .btn-tool {
+        width: 24px;
+        height: 24px;
+        border-width: 1px;
+        border-radius: 6px;
+        font-size: 10px;
+      }
+
+      .req-search input {
+        padding: 4px 6px;
+        border-width: 1px;
+        border-radius: 6px;
+        font-size: 10px;
+      }
+
+      .req-table {
+        font-size: 10px;
+        table-layout: auto;
+        width: 100%;
+        min-width: 620px;
+      }
+
+      .req-table th,
+      .req-table td {
+        padding: 4px;
+        white-space: nowrap;
+      }
+
+      /* Remove hardcoded desktop widths on mobile and let table auto-size */
+      .req-table th[style] {
+        width: auto !important;
+      }
+
+      .req-list-btn {
+        padding: 2px 4px;
+        border-radius: 6px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .req-title {
+        gap: 4px;
+      }
+      .req-list-btn {
+        display: none;
+      }
+      #listMenu {
+        display: none !important;
+      }
     }
   </style>
   <script src="/static/js/pages/session-idle.js?v=navy-20260324-1" defer></script>
@@ -329,9 +514,9 @@
             aria-controls="listMenu">▾</button>
           <div id="listMenu" class="req-list-menu" hidden>
             <div class="head"><input id="listFilter" type="search" placeholder="リストを検索…"></div>
-            <div class="section">最近のリストビュー</div>
+            <div id="listRecentSection" class="section">最近のリストビュー</div>
             <div id="listRecent" class="items"></div>
-            <div class="section">その他のすべてのリスト</div>
+            <div id="listAllSection" class="section">申請済みリスト</div>
             <div id="listAll" class="items"></div>
           </div>
         </div>

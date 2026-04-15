@@ -801,14 +801,20 @@ button.secondary {
     }
 
     .form-label-ja {
-        width: 72px;
-        min-width: 72px;
+        width: 92px;
+        min-width: 92px;
         display: flex;
         align-items: center;
-        gap: 4px;
-        font-size: 13px;
+        gap: 3px;
+        font-size: 12px;
         white-space: nowrap;
-        margin-right: 8px;
+        margin-right: 6px;
+    }
+
+    .label-icon-img,
+    .label-icon-img-user {
+        width: 22px;
+        height: 22px;
     }
 
     .form-row input {

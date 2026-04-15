@@ -94,12 +94,16 @@ async function renderMyRequests() {
     `;
     const q = document.getElementById('leaveSearch');
     if (q) {
+      let t = 0;
       q.addEventListener('input', () => {
-        const text = String(q.value || '').trim().toLowerCase();
-        box.querySelectorAll('.adj-table tbody tr').forEach(tr => {
-          const hit = tr.textContent.toLowerCase().includes(text);
-          tr.style.display = hit ? '' : 'none';
-        });
+        try { clearTimeout(t); } catch {}
+        t = setTimeout(() => {
+          const text = String(q.value || '').trim().toLowerCase();
+          box.querySelectorAll('.adj-table tbody tr').forEach(tr => {
+            const hit = tr.textContent.toLowerCase().includes(text);
+            tr.style.display = hit ? '' : 'none';
+          });
+        }, 180);
       });
     }
   } catch (err) {

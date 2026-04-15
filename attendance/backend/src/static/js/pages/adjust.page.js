@@ -316,13 +316,17 @@ const renderList = async () => {
       }
       const searchInput = document.getElementById('adjustSearch');
       if (searchInput) {
+        let t = 0;
         searchInput.addEventListener('input', () => {
-          const q = String(searchInput.value || '').trim().toLowerCase();
-          const rows = host.querySelectorAll('.adj-table tbody tr');
-          rows.forEach(tr => {
-            const text = tr.textContent.toLowerCase();
-            tr.style.display = text.includes(q) ? '' : 'none';
-          });
+          try { clearTimeout(t); } catch {}
+          t = setTimeout(() => {
+            const q = String(searchInput.value || '').trim().toLowerCase();
+            const rows = host.querySelectorAll('.adj-table tbody tr');
+            rows.forEach(tr => {
+              const text = tr.textContent.toLowerCase();
+              tr.style.display = text.includes(q) ? '' : 'none';
+            });
+          }, 180);
         });
       }
       const newBtn = document.getElementById('adjustNewBtn');

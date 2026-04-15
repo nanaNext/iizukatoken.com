@@ -3,6 +3,7 @@ import { listMyRequests, createRequest } from '../api/requests.api.js';
 const $ = (s) => document.querySelector(s);
 
 const pinKey = 'se.req.pin';
+const shouldAutoFocus = () => false;
 
 function loadPin() {
   try { return localStorage.getItem(pinKey) === '1'; } catch { return false; }
@@ -35,12 +36,27 @@ function renderRows(rows) {
   }).join('');
 }
 
-async function load(q = '') {
+let requestSeq = 0;
+let lastLoadedQuery = null;
+
+async function load(q = '', options = {}) {
+  const force = !!(options && options.force);
+  const query = String(q || '').trim();
+  if (!force && lastLoadedQuery === query) return;
+  const seq = ++requestSeq;
   const res = await listMyRequests(q);
-  renderRows(res?.data || []);
+  if (seq !== requestSeq) return;
+  const rows = res?.data || [];
+  renderRows(rows);
+  lastLoadedQuery = query;
+  try {
+    if (typeof window.__reqRecentHook === 'function') window.__reqRecentHook(rows);
+  } catch {}
 }
 
 function bindUI() {
+  const openListByDefault = false;
+  const keepNewListOpen = false;
   const modal = $('#reqModal');
   const btnNew = $('#btnNew');
   const btnCancel = $('#btnCancel');
@@ -52,6 +68,7 @@ function bindUI() {
   const listRecent = $('#listRecent');
   const listAll = $('#listAll');
   const listFilter = $('#listFilter');
+  const listAllSection = $('#listAllSection');
   const newListMenu = $('#newListMenu');
   const newListAll = $('#newListAll');
   const newListFilter = $('#newListFilter');
@@ -72,37 +89,54 @@ function bindUI() {
   const setColumns = $('#setColumns');
   const setDelete = $('#setDelete');
   const setResetWidth = $('#setResetWidth');
+  if (listMenu) listMenu.hidden = !openListByDefault;
+  if (listBtn) listBtn.setAttribute('aria-expanded', openListByDefault ? 'true' : 'false');
   // New button now opens the full-list picker
   if (btnNew) {
+    const ensureNewListOpen = () => {
+      if (!newListMenu) return;
+      try {
+        const renderNewList = (filterText = '') => {
+          const q = String(filterText || '').toLowerCase();
+          const sel = loadSel();
+          const mk = (it) => `<div class="req-list-item" role="option" data-name="${it.name}" aria-selected="${sel===it.name?'true':'false'}"><span class="check">✓</span><span class="label">${it.display}</span></div>`;
+          if (newListAll) newListAll.innerHTML = allItems.filter(it => (it.display.toLowerCase().includes(q) || it.label.toLowerCase().includes(q))).map(mk).join('');
+        };
+        if (newListFilter && !newListFilter.dataset.boundInput) {
+          newListFilter.dataset.boundInput = '1';
+          newListFilter.oninput = () => {
+            renderNewList(newListFilter.value || '');
+          };
+        }
+        renderNewList(newListFilter?.value || '');
+      } catch {}
+      newListMenu.hidden = false;
+      btnNew.setAttribute('aria-expanded', 'true');
+      if (!keepNewListOpen && shouldAutoFocus()) {
+        try { newListFilter?.focus(); } catch {}
+      }
+    };
+
+    if (keepNewListOpen) setTimeout(ensureNewListOpen, 0);
+
     btnNew.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!newListMenu) return;
+      if (keepNewListOpen) {
+        ensureNewListOpen();
+        return;
+      }
       const open = btnNew.getAttribute('aria-expanded') === 'true';
       if (open) {
         newListMenu.hidden = true;
         btnNew.setAttribute('aria-expanded', 'false');
       } else {
-        try {
-          const renderNewList = (filterText = '') => {
-            const q = String(filterText || '').toLowerCase();
-            const sel = loadSel();
-            const mk = (it) => `<div class="req-list-item" role="option" data-name="${it.name}" aria-selected="${sel===it.name?'true':'false'}"><span class="check">✓</span><span class="label">${it.display}</span></div>`;
-            if (newListAll) newListAll.innerHTML = allItems.filter(it => (it.display.toLowerCase().includes(q) || it.label.toLowerCase().includes(q))).map(mk).join('');
-          };
-          renderNewList('');
-          if (newListFilter) {
-            newListFilter.value = '';
-            newListFilter.oninput = () => {
-              renderNewList(newListFilter.value || '');
-            };
-          }
-        } catch {}
-        newListMenu.hidden = false;
-        btnNew.setAttribute('aria-expanded', 'true');
-        try { newListFilter?.focus(); } catch {}
+        if (newListFilter) newListFilter.value = '';
+        ensureNewListOpen();
       }
     });
     document.addEventListener('click', (e) => {
+      if (keepNewListOpen) return;
       if (!newListMenu || newListMenu.hidden) return;
       const inside = newListMenu.contains(e.target) || e.target === btnNew;
       if (!inside) {
@@ -120,7 +154,7 @@ function bindUI() {
       try {
         await createRequest({ recordType, detail, office });
         if (modal) modal.hidden = true;
-        await load($('#searchInput')?.value || '');
+        await load($('#searchInput')?.value || '', { force: true });
       } catch (e) {
         alert(e?.message || '保存に失敗しました');
       }
@@ -137,12 +171,22 @@ function bindUI() {
     });
   }
   if (searchInput) {
-    const on = async () => { await load(searchInput.value || ''); };
-    searchInput.addEventListener('input', on);
-    searchInput.addEventListener('change', on);
+    let searchTimer = null;
+    const runSearch = async () => { await load(searchInput.value || ''); };
+    const onInput = () => {
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { runSearch(); }, 220);
+    };
+    searchInput.addEventListener('input', onInput);
+    searchInput.addEventListener('change', runSearch);
   }
   const keySel = 'se.req.list.sel';
-  const recentItems = ['最近参照したデータ'];
+  const recentKey = (() => {
+    const uname = String(window.userName || $('#userName')?.textContent || 'guest').trim() || 'guest';
+    return `se.req.recent.${uname}`;
+  })();
+  let recentItems = [];
+  let appliedItems = [];
   const allRaw = [
     '01_私の月次コミュニケーションシート',
     '02_私のファイル提出',
@@ -189,6 +233,54 @@ function bindUI() {
     });
   };
   const allItems = uniqueSortedItems(allRaw);
+  const loadRecent = () => {
+    try {
+      const raw = localStorage.getItem(recentKey) || '[]';
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return [];
+      return arr.map(v => String(v || '').trim()).filter(Boolean).slice(0, 8);
+    } catch {
+      return [];
+    }
+  };
+  const saveRecent = (arr) => {
+    try { localStorage.setItem(recentKey, JSON.stringify((arr || []).slice(0, 8))); } catch {}
+  };
+  const mergeRecent = (arr) => {
+    const seen = new Set();
+    const out = [];
+    for (const v of arr || []) {
+      const s = String(v || '').trim();
+      if (!s) continue;
+      const k = s.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(s);
+      if (out.length >= 8) break;
+    }
+    recentItems = out;
+    saveRecent(out);
+  };
+  const updateRecentFromRows = (rows) => {
+    const fromRows = (rows || []).map((r) => {
+      const type = r?.record_type || r?.recordType || '';
+      const no = r?.request_no || r?.requestNo || '';
+      return String(type || no || '').trim();
+    }).filter(Boolean);
+    if (!fromRows.length) return;
+    mergeRecent([...fromRows, ...recentItems]);
+    const typed = (rows || []).map((r) => String(r?.record_type || r?.recordType || '').trim()).filter(Boolean);
+    const seen = new Set();
+    appliedItems = [];
+    for (const t of typed) {
+      const k = t.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      appliedItems.push(t);
+      if (appliedItems.length >= 50) break;
+    }
+  };
+  recentItems = loadRecent();
   const saveSel = (v) => { try { localStorage.setItem(keySel, v); } catch {} };
   const loadSel = () => { try { return localStorage.getItem(keySel) || ''; } catch { return '' } };
   const renderList = (filter = '') => {
@@ -196,14 +288,27 @@ function bindUI() {
     const sel = loadSel();
     const mk = (it) => `<div class="req-list-item" role="option" data-name="${it.name}" aria-selected="${sel===it.name?'true':'false'}"><span class="check">✓</span><span class="label">${it.display}</span></div>`;
     if (listRecent) listRecent.innerHTML = recentItems.filter(n => n.toLowerCase().includes(q)).map(n => mk({ name: n, label: n, display: n })).join('');
-    if (listAll) listAll.innerHTML = allItems.filter(it => (it.display.toLowerCase().includes(q) || it.label.toLowerCase().includes(q))).map(mk).join('');
+    if (listAll) {
+      listAll.innerHTML = appliedItems
+        .filter(n => n.toLowerCase().includes(q))
+        .map(n => mk({ name: n, label: n, display: n }))
+        .join('');
+    }
+    if (listAllSection) listAllSection.style.display = appliedItems.length ? '' : 'none';
   };
+  window.__reqRecentHook = (rows) => {
+    updateRecentFromRows(rows);
+    renderList(listFilter?.value || '');
+  };
+  renderList('');
   const openMenu = () => {
     if (!listMenu) return;
     listMenu.hidden = false;
     listBtn?.setAttribute('aria-expanded','true');
     renderList('');
-    listFilter?.focus();
+    if (shouldAutoFocus()) {
+      listFilter?.focus();
+    }
   };
   const closeMenu = () => {
     if (!listMenu) return;
@@ -230,6 +335,7 @@ function bindUI() {
       if (!el) return;
       const name = el.getAttribute('data-name');
       saveSel(name);
+      mergeRecent([name, ...recentItems]);
       renderList(listFilter?.value || '');
       closeMenu();
       await load(name);
@@ -248,7 +354,7 @@ function bindUI() {
         await createRequest({ recordType, detail, office });
         if (newListMenu) newListMenu.hidden = true;
         btnNew?.setAttribute('aria-expanded', 'false');
-        await load(searchInput?.value || '');
+        await load(searchInput?.value || '', { force: true });
       } catch (e) {
         alert(e?.message || '保存に失敗しました');
       }
@@ -257,7 +363,7 @@ function bindUI() {
 
   if (toolRefresh) {
     toolRefresh.addEventListener('click', async () => {
-      await load(searchInput?.value || '');
+      await load(searchInput?.value || '', { force: true });
     });
   }
   if (toolEdit && modal) {
@@ -315,5 +421,5 @@ function bindUI() {
 document.addEventListener('DOMContentLoaded', async () => {
   try { window.userName = $('#userName')?.textContent || ''; } catch {}
   bindUI();
-  await load('');
+  await load('', { force: true });
 });
