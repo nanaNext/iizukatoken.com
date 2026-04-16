@@ -1,5 +1,5 @@
-import { logout } from '/static/js/api/auth.api.js';
-import { fetchJSONAuth } from '/static/js/api/http.api.js';
+import { logout } from '/static/js/api/auth.api.js?v=20260416-1';
+import { fetchJSONAuth } from '/static/js/api/http.api.js?v=20260416-1';
 const $ = (sel) => document.querySelector(sel);
 const showErr = (m) => { const el = $('#error'); if (!el) return; if (!m) { el.style.display='none'; el.textContent=''; return; } el.style.display='block'; el.textContent=String(m); };
 let sc = 0;
