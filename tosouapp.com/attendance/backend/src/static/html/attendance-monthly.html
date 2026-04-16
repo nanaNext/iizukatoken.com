@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=0.75,minimum-scale=0.75,maximum-scale=3,user-scalable=yes">
+  <title>月次勤怠入力</title>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260408-1">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=navy-20260408-1">
+  <link rel="stylesheet" href="/static/css/attendance-monthly.css?v=navy-20260413-2">
+  <link rel="icon" href="data:,">
+  <script src="/static/js/pages/session-idle.js?v=navy-20260403-1" defer></script>
+  <script src="/static/js/pages/kintai-topbar-links.js?v=navy-20260408-2" defer></script>
+  <script src="/static/js/pages/attendance-monthly.auth.js?v=navy-20260403-1" defer></script>
+  <script src="/static/js/pages/attendance-monthly.core.js?v=navy-20260403-1" defer></script>
+  <script src="/static/js/pages/attendance-monthly.render.js?v=navy-20260413-3" defer></script>
+  <script src="/static/js/pages/attendance-monthly.api.js?v=navy-20260403-1" defer></script>
+  <script src="/static/js/pages/attendance-monthly.sections-render.js?v=navy-20260403-1" defer></script>
+  <script src="/static/js/pages/attendance-monthly.draft.js?v=navy-20260403-1" defer></script>
+  <script src="/static/js/pages/attendance-monthly.controller.js?v=navy-20260403-1" defer></script>
+  <script src="/static/js/pages/attendance-monthly.events.js?v=navy-20260413-1" defer></script>
+  <script src="/static/js/pages/attendance-monthly.page.js?v=navy-20260403-1" defer></script>
+</head>
+<body class="nav-js">
+  <div id="pageSpinner" class="kintai-spinner" hidden>
+    <div class="lds-spinner" aria-hidden="true">
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+    </div>
+  </div>
+  <header class="kintai-top">
+    <div class="kintai-top-inner">
+      <div class="kintai-brand">
+        <div class="kintai-logo">スマートE勤怠</div>
+      </div>
+      <nav class="kintai-nav" aria-label="main">
+        <div class="kintai-nav-dd">
+          <button class="kintai-nav-btn active" type="button" data-dd="att" aria-haspopup="true" aria-expanded="false">
+            勤怠入力 <span class="kintai-caret">▾</span>
+          </button>
+          <div class="kintai-dd" data-dd-panel="att" hidden>
+            
+            
+            <a href="/ui/attendance">個人カレンダー登録画面</a>
+            <a href="/ui/attendance/monthly">月次勤怠入力へ</a>
+            <a href="/ui/attendance/simple">簡易登録画面</a>
+          </div>
+        </div>
+        <div class="kintai-nav-dd">
+          <button class="kintai-nav-btn" type="button" data-dd="leave" aria-haspopup="true" aria-expanded="false">
+            有休管理 <span class="kintai-caret">▾</span>
+          </button>
+          <div class="kintai-dd" data-dd-panel="leave" hidden>
+            <a href="/ui/leave-ledger">休暇欠勤台帳</a>
+          </div>
+        </div>
+        <div class="kintai-nav-dd">
+          <button class="kintai-nav-btn" type="button" data-dd="common" aria-haspopup="true" aria-expanded="false">
+            共通機能 <span class="kintai-caret">▾</span>
+          </button>
+          <div class="kintai-dd" data-dd-panel="common" hidden>
+            <a href="/ui/change-password">パスワード変更画面</a>
+          </div>
+        </div>
+      </nav>
+      <div class="kintai-user">
+        <div class="kintai-top-links">
+          <a class="kintai-top-link" href="/ui/manual">操作マニュアル</a>
+          <a class="kintai-top-link" href="/ui/faq">よくある質問</a>
+          <a class="kintai-top-link logout-link" href="/ui/logout">ログアウト</a>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main class="kintai-main">
+    <div id="error" class="kintai-error" style="display:none;"></div>
+    <div class="layout-container">
+      <div class="layout-main">
+        <div class="layout-header"></div>
+        <div class="layout-contents">
+          <form id="workingForm" action="#" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="_csrf" value="">
+            <input type="hidden" name="formId" value="">
+            <div id="workingStart" class="toggleTarget">
+              <div class="se-page-head">
+                <div class="se-page-title">月次勤怠入力</div>
+                <div class="se-target-month">
+                  <div class="se-target-label">対象年月</div>
+                  <input id="monthPicker" class="se-target-input" type="month">
+                  <select id="targetDateSelect" class="se-target-select" style="width:120px;"></select>
+                </div>
+              </div>
+              <div class="se-employee-bar se-employee-bar-sample">
+                <div class="se-employee-left">
+                  <div class="se-avatar" aria-hidden="true"><img src="/static/images/logoten.png" alt="" class="se-avatar-img"></div>
+                  <div class="se-employee-meta">
+                    <div class="se-employee-line">
+                      <span class="se-employee-k">社員番号</span>
+                      <span class="se-employee-v" id="empCode">—</span>
+                    </div>
+                    <div class="se-employee-line">
+                      <span class="se-employee-k">スタッフ名</span>
+                      <span class="se-employee-v" id="staffName">—</span>
+                    </div>
+                    <div class="se-employee-line">
+                      <span class="se-employee-k">オフィスコード</span>
+                      <span class="se-employee-v" id="officeCode">—</span>
+                    </div>
+                    <div class="se-employee-line">
+                      <span class="se-employee-k">オフィス名</span>
+                      <span class="se-employee-v" id="officeName">—</span>
+                    </div>
+                    <div class="se-employee-line">
+                      <span class="se-employee-k">所属</span>
+                      <span class="se-employee-v" id="empDept">—</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="se-target-month se-target-month-sample" aria-label="対象年月">
+                  <div class="se-target-label-sample">対象年月</div>
+                  <input id="monthPicker2" class="se-target-input-sample" type="month">
+                </div>
+              </div>
+            </div>
+            <div id="contractList" class="toggleTarget">
+              <div class="se-shortcuts" aria-label="ショートカット">
+                <a class="se-btn primary se-btn-wide" href="/ui/attendance/simple" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;">
+                  <span aria-hidden="true">📱</span>
+                  <span>簡易登録画面へ</span>
+                </a>
+              </div>
+              <section class="se-section" id="contractSection">
+                <div class="se-section-head se-contract-head">
+                  <div class="se-daily-title">
+                    <button type="button" class="se-daily-switch" id="contractToggle" aria-label="契約先一覧を折りたたむ" aria-pressed="false"></button>
+                    <span class="se-daily-text">契約先一覧</span>
+                  </div>
+                  <div class="se-tabs se-tabs-seg" role="tablist" aria-label="契約先">
+                    <button type="button" class="se-tab active" data-tab="contractDetail">契約内容</button>
+                    <button type="button" class="se-tab" data-tab="workDetail">業務内容</button>
+                  </div>
+                </div>
+                <div class="se-section-body">
+                  <div id="contractTable" class="se-table"></div>
+                  <div id="workDetailTable" class="se-table" hidden></div>
+                </div>
+              </section>
+            </div>
+            <div id="monthSummary" class="toggleTarget">
+              <section class="se-section" id="summarySection">
+                <div class="se-section-head se-summary-head">
+                  <div class="se-daily-title">
+                    <button type="button" class="se-daily-switch" id="summaryToggle" aria-label="当月サマリを折りたたむ" aria-pressed="false"></button>
+                    <span class="se-daily-text">当月サマリ</span>
+                  </div>
+                  <div class="se-tabs se-tabs-seg" role="tablist" aria-label="サマリ対象">
+                    <button type="button" class="se-tab active" data-tab="sumAll">全体</button>
+                    <button type="button" class="se-tab" data-tab="sumInhouse">社内勤務</button>
+                  </div>
+                </div>
+                <div class="se-section-body">
+                  <div id="monthSummaryTable" class="se-summary" aria-live="polite"></div>
+                </div>
+              </section>
+            </div>
+            <div id="attendance" class="toggleTarget">
+              <section class="se-section" id="dailySection">
+                <div class="se-section-head se-daily-head">
+                  <div class="se-daily-title">
+                    <button type="button" class="se-daily-switch" id="dailyToggle" aria-label="日次実績を折りたたむ" aria-pressed="false"></button>
+                    <span class="se-daily-text">日次実績</span>
+                  </div>
+                  <div class="se-tabs se-tabs-seg" role="tablist" aria-label="日次">
+                    <button type="button" class="se-tab active" data-tab="actual">実績</button>
+                    <button type="button" class="se-tab" data-tab="plan" disabled>予定</button>
+                  </div>
+                </div>
+                <div class="se-section-body">
+                  <div class="common-buttons">
+                    <div class="se-toolbar">
+                      <button type="button" class="se-btn primary se-btn-wide lastMonthBtn" id="btnPrevMonth">≪ 前月</button>
+                      <button type="button" class="se-btn primary se-btn-wide nextMonthBtn" id="btnNextMonth">翌月 ≫</button>
+                      <button type="button" class="se-btn primary se-btn-wide" id="btnExportWeek" disabled>就業状況通知書出力</button>
+                      <div class="se-toolbar-field">
+                        <span class="se-toolbar-label">通知書出力対象</span>
+                        <select class="se-toolbar-select" id="noticeTarget" disabled>
+                          <option value="all">全体</option>
+                        </select>
+                      </div>
+                      <a class="se-btn primary se-btn-wide" href="/ui/attendance" style="text-decoration:none;">個人カレンダー登録画面へ</a>
+                    </div>
+                  </div>
+                  <div id="monthTable" class="se-table"></div>
+                  
+                </div>
+              </section>
+            </div>
+            <div class="common-card w-100P"></div>
+            <div class="dummy" style="margin: 33px"></div>
+            <div id="yearSummary" class="toggleTarget">
+              <section class="se-section" id="annualSection">
+                <div class="se-section-head se-daily-head">
+                  <div class="se-daily-title">
+                    <button type="button" class="se-daily-switch" id="annualToggle" aria-label="年間サマリを折りたたむ" aria-pressed="false"></button>
+                    <span class="se-daily-text">年間サマリ</span>
+                  </div>
+                </div>
+                <div class="se-section-body">
+                  <div id="yearSummaryTable" class="se-summary" aria-live="polite"></div>
+                </div>
+              </section>
+            </div>
+            <div class="dummy mar-b-10"></div>
+            <div class="common-buttons fixed-contents-footer">
+              <div class="se-bottombar">
+                <button type="button" class="se-btn primary se-bottom-back" id="btnBackBottom">戻る</button>
+                <div class="se-bottom-center">
+                  <button type="button" class="se-btn primary exportBtn" id="btnExportMonthBottom" disabled>入力用Excel出力</button>
+                  <input type="file" class="se-file" id="importFile" disabled>
+                  <button type="button" class="se-btn primary importBtn" id="btnImportMonthBottom" disabled>入力用Excel取込</button>
+                </div>
+                <button type="button" class="se-btn primary se-bottom-confirm saveBtn" id="btnSaveBottom">保存</button>
+              </div>
+            </div>
+          </form>
+          <button type="button" data-toggle="modal" data-target="#workingHistoryModal" data-backdrop="static" id="showWorkingHistoryModalBtn" style="display: none"></button>
+          <div id="workingHistoryModalTarget"></div>
+          <div id="monthHScroll" class="se-hscroll" aria-hidden="true">
+            <div class="se-hscroll-inner"></div>
+          </div>
+          <div id="monthVScroll" class="se-vscroll" aria-hidden="true">
+            <div class="se-vscroll-inner"></div>
+          </div>
+        </div>
+        <div class="layout-footer"></div>
+      </div>
+    </div>
+    <div class="page-loading" style="display: none;"></div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<div class="user">
+  <div class="user-menu">
+    <button class="user-btn" aria-haspopup="true" aria-expanded="false">
+      <div class="ud-avatar sm" id="userBtnInitial"></div>
+      <span id="userName" class="sr-only"></span>
+    </button>
+    <div class="dropdown" id="userDropdown" hidden>
+      <div class="ud-head">
+        <div class="ud-avatar" id="userInitial"></div>
+        <div class="ud-name" id="userDropdownName"></div>
+      </div>
+      <a href="/admin/system/settings" class="item"><span>Account settings</span></a>
+      <button class="item item-next" id="btnTheme" type="button"><span class="ud-ico">🌓</span><span>Theme</span></button>
+      <button class="item" id="btnLogout" type="button"><span>Sign out</span></button>
+      <div class="subdropdown" id="themeDropdown" hidden>
+        <button class="item ud-back" type="button" id="themeBack">‹ Back</button>
+        <button class="item theme-item" type="button" data-value="system"><span class="ud-ico">⚙</span><span>System</span><span class="tick" aria-hidden="true">✓</span></button>
+        <button class="item theme-item" type="button" data-value="light"><span class="ud-ico">☀</span><span>Light</span><span class="tick" aria-hidden="true">✓</span></button>
+        <button class="item theme-item" type="button" data-value="dark"><span class="ud-ico">🌙</span><span>Dark</span><span class="tick" aria-hidden="true">✓</span></button>
+      </div>
+    </div>
+  </div>
+</div>

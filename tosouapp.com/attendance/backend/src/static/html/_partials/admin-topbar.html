@@ -1,0 +1,58 @@
+<header class="topbar">
+  <button id="mobileMenuBtn" class="mobile-btn" aria-label="menu" aria-expanded="false" aria-controls="mobileDrawer">☰</button>
+  <div class="topbar-inner">
+    <!--#include file="admin-brand.html" -->
+    <div class="search">
+      <div class="search-prefix"><span class="ico">⚙</span><span class="txt">Projects</span></div>
+      <input type="search" placeholder="Search..." aria-label="Search">
+      <span class="search-hint" aria-hidden="true">^ K</span>
+      <div class="search-meta" aria-hidden="true">
+        <button type="button" class="search-close" title="Close">×</button>
+        <span class="search-esc">ESC</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button type="button" class="icon-btn" id="btnAdminNew">+ New</button>
+      <button type="button" class="icon-btn" id="btnAdminUpgrade">Upgrade</button>
+      <button type="button" class="icon-btn" id="btnAdminHelp">?</button>
+    </div>
+    <!--#include file="admin-user-menu.html" -->
+  </div>
+</header>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  try{
+    var btn=document.getElementById('userBtnInitial');
+    var dd=document.getElementById('userInitial');
+    var nameEl=document.getElementById('userName');
+    var userStr=sessionStorage.getItem('user')||localStorage.getItem('user')||'';
+    var full='';
+    try{ if(userStr){ var u=JSON.parse(userStr); full=(u&&u.username)||(u&&u.email)||''; } }catch{}
+    if(!full && nameEl && nameEl.textContent) full=nameEl.textContent.trim();
+    var firstChar=function(s){ try{var t=String(s||'').trim(); if(!t) return ''; var arr=Array.from(t); return arr.length?arr[0]:'';}catch{return '';} };
+    var ch=firstChar(full);
+    if(btn){ btn.textContent=''; btn.setAttribute('data-initial',ch); }
+    if(dd){ dd.textContent=''; dd.setAttribute('data-initial',ch); }
+    if(!ch){
+      fetch('/api/auth/me',{credentials:'include',cache:'no-store'}).then(function(r){ if(!r.ok) return null; return r.json(); })
+      .then(function(p){
+        if(!p) return;
+        try{ sessionStorage.setItem('user', JSON.stringify(p)); }catch{}
+        var full2=(String(p.username||'').trim()) || (String(p.email||'').trim());
+        var c=firstChar(full2);
+        if(nameEl && full2 && !nameEl.textContent) nameEl.textContent=full2;
+        if(btn){ btn.textContent=''; btn.setAttribute('data-initial',c); }
+        if(dd){ dd.textContent=''; dd.setAttribute('data-initial',c); }
+      }).catch(function(){});
+      setTimeout(function(){
+        try{
+          var cur=nameEl&&nameEl.textContent?nameEl.textContent.trim():'';
+          var c2=firstChar(cur);
+          if(btn && !btn.getAttribute('data-initial')){ btn.textContent=''; btn.setAttribute('data-initial',c2); }
+          if(dd && !dd.getAttribute('data-initial')){ dd.textContent=''; dd.setAttribute('data-initial',c2); }
+        }catch{}
+      },400);
+    }
+  }catch{}
+});
+</script>

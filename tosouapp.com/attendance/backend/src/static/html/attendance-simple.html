@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>簡易登録画面</title>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260317">
+  <link rel="stylesheet" href="/static/css/attendance-simple.css?v=navy-20260413-2">
+  <link rel="icon" href="data:,">
+  <script src="/static/js/pages/session-idle.js?v=navy-20260324-1" defer></script>
+  <script type="module" src="/static/js/pages/attendance-simple.page.js?v=navy-20260413-5"></script>
+</head>
+<body>
+  <div id="pageSpinner" class="simple-spinner" hidden>
+    <div class="lds-spinner" aria-hidden="true">
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+      <div></div><div></div><div></div><div></div><div></div><div></div>
+    </div>
+  </div>
+
+  <header class="simple-top">
+    <button id="btnPrev" class="simple-nav-btn" type="button" aria-label="prev">‹</button>
+    <div class="simple-top-mid">
+      <div id="topDate" class="simple-date"></div>
+      <div class="simple-sub">
+        <span>ステータス：</span><span id="topStatus" class="simple-status"></span>
+      </div>
+    </div>
+    <button id="btnNext" class="simple-nav-btn" type="button" aria-label="next">›</button>
+  </header>
+
+  <nav class="simple-tabs" aria-label="tabs">
+    <a class="simple-tab" href="/ui/attendance">勤怠入力</a>
+    <a class="simple-tab active" href="/ui/attendance/simple">簡易登録画面</a>
+    <a class="simple-tab" href="/ui/portal">共通機能</a>
+  </nav>
+
+  <main class="simple-main">
+    <div id="error" class="simple-error" style="display:none;"></div>
+    <div id="toast" class="simple-toast" hidden></div>
+
+    <section class="simple-panel">
+      <div class="simple-panel-head">
+        <div id="noticeTitle" class="simple-panel-title">お知らせ（最終更新日：—）</div>
+        <label class="simple-switch" aria-label="お知らせ 表示/非表示">
+          <input id="toggleNotice" type="checkbox" checked>
+          <span class="simple-switch-track" aria-hidden="true"></span>
+        </label>
+      </div>
+      <div class="simple-panel-body" id="noticeBox"></div>
+    </section>
+
+    <section class="simple-panel">
+      <div class="simple-panel-head">
+        <div class="simple-panel-title">実績</div>
+        <div class="simple-panel-head-right">
+          <div class="simple-head-right">ステータス：<span id="panelStatus" class="simple-status"></span></div>
+          <label class="simple-switch" aria-label="実績 表示/非表示">
+            <input id="toggleActuals" type="checkbox" checked>
+            <span class="simple-switch-track" aria-hidden="true"></span>
+          </label>
+        </div>
+      </div>
+      <div id="actualsBody" class="simple-panel-body is-actuals">
+        <div id="shiftInfo" class="simple-shift-info" hidden></div>
+        <div class="simple-actuals">
+          <div class="simple-actuals-left">
+            <div class="simple-form">
+              <div class="simple-row">
+                <label class="simple-label">勤務区分</label>
+                <select id="kubun" class="simple-select">
+                  <option value="出勤">出勤</option>
+                  <option value="休日">休日</option>
+                  <option value="半休">半休</option>
+                  <option value="欠勤">欠勤</option>
+                  <option value="有給休暇">有給休暇</option>
+                  <option value="無給休暇">無給休暇</option>
+                  <option value="代替休日">代替休日</option>
+                  <option value="休日出勤">休日出勤</option>
+                  <option value="代替出勤">代替出勤</option>
+                </select>
+              </div>
+              <div class="simple-row">
+                <input id="workType" type="hidden" value="">
+              </div>
+              <div class="simple-row">
+                <label class="simple-label">企業名</label>
+                <select id="company" class="simple-select">
+                  <option value=""></option>
+                  <option value="iizuka">飯塚塗研</option>
+                </select>
+              </div>
+              <div class="simple-stamp-stack" aria-label="打刻">
+                <div class="simple-stamp-row">
+                  <div class="simple-label">開始時間</div>
+                  <input id="startTime" type="time" class="simple-stamp-time" value="08:00">
+                  <button id="btnStartStamp" class="simple-stamp-btn" type="button">開始打刻</button>
+                </div>
+                <div class="simple-stamp-row">
+                  <div class="simple-label">終了時間</div>
+                  <input id="endTime" type="time" class="simple-stamp-time" value="">
+                  <button id="btnEndStamp" class="simple-stamp-btn" type="button">終了打刻</button>
+                </div>
+              </div>
+              <div class="simple-grid2">
+                <div class="simple-time">
+                  <label class="simple-label">休憩時間</label>
+                  <select id="breakMin" class="simple-select">
+                    <option value="60">1:00</option>
+                    <option value="45">0:45</option>
+                    <option value="30">0:30</option>
+                    <option value="0">0:00</option>
+                  </select>
+                </div>
+                <div class="simple-time">
+                  <label class="simple-label">深夜時間</label>
+                  <select id="nightBreakMin" class="simple-select">
+                    <option value="0">0:00</option>
+                    <option value="30">0:30</option>
+                    <option value="60">1:00</option>
+                  </select>
+                </div>
+              </div>
+              <div class="simple-row">
+                <label class="simple-label">実働時間</label>
+                <div id="workMinutes" class="simple-static">—</div>
+              </div>
+
+              <div class="simple-worktype-buttons" role="group" aria-label="勤務区分クイック選択">
+                <button type="button" class="simple-wt-btn" data-worktype="onsite">
+                  <div class="simple-wt-title">出社</div>
+                  <div class="simple-wt-box" aria-hidden="true"></div>
+                </button>
+                <button type="button" class="simple-wt-btn" data-worktype="remote">
+                  <div class="simple-wt-title">在宅</div>
+                  <div class="simple-wt-box" aria-hidden="true"></div>
+                </button>
+                <button type="button" class="simple-wt-btn" data-worktype="satellite">
+                  <div class="simple-wt-title">現場/出張</div>
+                  <div class="simple-wt-box" aria-hidden="true"></div>
+                </button>
+              </div>
+
+              <div class="simple-work-report">
+                <div class="simple-row">
+                  <label class="simple-label">現場（任意）</label>
+                  <input id="workSite" class="simple-input" placeholder="現場名（未入力可）">
+                </div>
+                <div class="simple-row">
+                  <label class="simple-label">作業内容</label>
+                  <textarea id="workContent" class="simple-textarea" placeholder="本日の作業内容を入力してください"></textarea>
+                </div>
+              </div>
+
+              <div class="simple-actions">
+                <button id="btnSave" class="simple-btn primary" type="button">登録</button>
+                <button id="btnReload" class="simple-btn" type="button">再読込</button>
+                <a class="simple-btn" href="/ui/attendance?back=1" style="text-decoration:none;display:inline-flex;align-items:center;">戻る</a>
+              </div>
+            </div>
+          </div>
+          <div class="simple-actuals-right" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="simple-panel">
+      <div class="simple-panel-head">
+        <div class="simple-panel-title">詳細入力</div>
+        <label class="simple-switch" aria-label="詳細入力 表示/非表示">
+          <input id="toggleDetails" type="checkbox" checked>
+          <span class="simple-switch-track" aria-hidden="true"></span>
+        </label>
+      </div>
+      <div id="detailPanelBody" class="simple-panel-body">
+        <div class="simple-form">
+          <div class="simple-grid2">
+            <div class="simple-time">
+              <label class="simple-label">遅刻</label>
+              <input id="lateMin" type="number" class="simple-number" min="0" value="0">
+            </div>
+            <div class="simple-time">
+              <label class="simple-label">早退</label>
+              <input id="earlyMin" type="number" class="simple-number" min="0" value="0">
+            </div>
+          </div>
+          <div class="simple-row">
+            <label class="simple-label">社内業務</label>
+            <select id="taskType" class="simple-select">
+              <option value="internal">社内業務</option>
+            </select>
+          </div>
+          <div class="simple-row">
+            <label class="simple-label">備考</label>
+            <input id="memo" class="simple-input" placeholder="">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="simple-bottom">
+      <a class="simple-monthly-link" href="/ui/attendance/monthly">
+        月次勤怠入力へ
+        <svg class="simple-icon-pc" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 5h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"></path>
+          <path d="M8 21h8"></path>
+          <path d="M12 18v3"></path>
+        </svg>
+      </a>
+      <button class="simple-btn primary" id="btnConfirm" type="button">確定</button>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,60 @@
+services:
+  - type: web
+    name: iizuka-attendance
+    env: node
+    plan: starter
+    region: singapore
+    buildCommand: |
+      npm ci --omit=dev
+    startCommand: |
+      npm start
+    repoPath: .
+    healthCheckPath: /ping
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY_HOPS
+        value: "2"
+      - key: ENFORCE_CSRF
+        value: "true"
+      - key: ENABLE_HSTS
+        value: "true"
+      - key: COMPANY_NAME
+        value: Iizuka Token
+      - key: ACCESS_TOKEN_EXPIRES
+        value: "900"
+      - key: IDLE_TIMEOUT_SECONDS
+        value: "1500"
+      - key: REFRESH_TOKEN_EXPIRES_DAYS
+        value: "7"
+      # CORS: thêm origin tĩnh nếu bạn chạy frontend ngoài Render
+      # Ví dụ: https://nananext.github.io
+      - key: ALLOWED_ORIGINS
+        sync: false
+      # JWT secrets
+      - key: JWT_SECRET_CURRENT
+        sync: false
+      - key: JWT_SECRET_PREVIOUS
+        sync: false
+      # MySQL connection (khuyến nghị dùng Railway MySQL và điền biến dưới)
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: SUPER_ADMIN_NAME
+        value: Super Admin
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/src/attendance/backend/src/uploads
+      sizeGB: 1

@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>申請</title>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260415-perf1">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260415-perf1">
+  <style>
+    .req-page {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .req-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0 12px;
+    }
+
+    .req-ico {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #b85b82;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .req-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .req-title .label {
+      font-size: 12px;
+      color: #374151;
+    }
+
+    .req-title .main {
+      font-size: 18px;
+      font-weight: 800;
+      color: #111827;
+      letter-spacing: .02em;
+      display: inline-block;
+      text-decoration: none;
+    }
+
+    .req-title .main:hover {
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      text-decoration-thickness: 2px;
+    }
+
+    .pin {
+      border: 1px solid #cfe0f5;
+      background: #fff;
+      color: #0b2c66;
+      border-radius: 8px;
+      padding: 6px 8px;
+      cursor: pointer;
+    }
+
+    .pin[aria-pressed="true"] {
+      background: #0b2c66;
+      color: #fff;
+    }
+
+    .req-toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .req-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .req-table th {
+      background: #0b2c66;
+      color: #fff;
+      padding: 8px;
+      text-align: left;
+    }
+
+    .req-table td {
+      background: #fff;
+      color: #0f172a;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 8px;
+    }
+
+    .req-search {
+      flex: 1;
+    }
+
+    .req-search input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 2px solid #cbd5e1;
+      border-radius: 10px;
+      box-shadow: 0 1px 0 rgba(0,0,0,.05);
+    }
+
+    .req-new {
+      padding: 8px 12px;
+      border: 1px solid #0b2c66;
+      background: #0b2c66;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .req-tools { display: flex; gap: 6px; align-items: center; }
+    .req-tools .tool-wrap { position: relative; }
+    .btn-tool { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 2px solid #cbd5e1; background: #fff; color: #0b2c66; border-radius: 10px; cursor: pointer; font-weight: 800; box-shadow: 0 1px 0 rgba(0,0,0,.05); }
+    .btn-tool:hover { background: #f1f5f9; border-color: #94a3b8; box-shadow: 0 2px 0 rgba(0,0,0,.06); }
+    .btn-tool[disabled]{ opacity: .5; cursor: default; }
+    .req-tip[hidden]{ display:none; }
+    .req-tip { position:absolute; top:-42px; right:0; background:#0b2c66; color:#fff; border-radius:10px; padding:6px 10px; font-size:13px; font-weight:800; white-space:nowrap; box-shadow:0 10px 24px rgba(0,0,0,.18); }
+    .req-tip .tip-arrow { position:absolute; bottom:-6px; right:18px; width:12px; height:12px; background:#0b2c66; transform: rotate(45deg); }
+    .req-settings-menu[hidden]{ display:none; }
+    .req-settings-menu { position:absolute; top: calc(100% + 6px); right: 0; background:#fff; border:2px solid #e5e7eb; border-radius: 12px; box-shadow: 0 12px 28px rgba(0,0,0,.18); min-width: 240px; z-index: 1800; padding: 6px 0; }
+    .req-set-item { width:100%; text-align:left; background:#fff; border:0; padding:10px 14px; cursor:pointer; color:#0b2c66; font-weight:800; font-size:14px; }
+    .req-set-item:hover { background:#eef2f7; }
+    .req-set-item[disabled] { opacity:.95; cursor: default; color:#0b2c66; font-weight:800; }
+
+    .req-modal[hidden] {
+      display: none;
+    }
+
+    .req-modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, .2);
+      z-index: 1600;
+    }
+
+    .req-card {
+      background: #fff;
+      width: 520px;
+      max-width: 90vw;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, .12);
+    }
+
+    .req-form-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .req-form-row input,
+    .req-form-row select,
+    .req-form-row textarea {
+      border: 1px solid #cfe0f5;
+      border-radius: 8px;
+      padding: 8px;
+    }
+
+    .req-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .req-new-wrap { position: relative; display: inline-block; }
+
+    .req-list-btn {
+      border: 1px solid #d1d5db;
+      background: #fff;
+      color: #111827;
+      border-radius: 8px;
+      padding: 4px 6px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .req-list-menu[hidden] {
+      display: none;
+    }
+
+    .req-list-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, .16);
+      width: 420px;
+      max-width: 92vw;
+      z-index: 1700;
+    }
+
+    .req-page.persistent-list .req-head {
+      align-items: flex-start;
+    }
+
+    .req-page.persistent-list .req-title {
+      display: block;
+    }
+
+    .req-page.persistent-list .req-list-btn {
+      display: none;
+    }
+
+    .req-page.persistent-list .req-list-menu {
+      position: static;
+      top: auto;
+      left: auto;
+      display: block !important;
+      width: min(420px, 96vw);
+      max-width: none;
+      margin-top: 8px;
+      max-height: 55vh;
+      overflow: auto;
+      z-index: auto;
+    }
+
+    .req-list-menu .head {
+      padding: 10px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .req-list-menu .head input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+    }
+    .req-quick { padding: 10px; border-bottom: 1px solid #f1f5f9; display: grid; gap: 8px; }
+    .req-quick select, .req-quick textarea, .req-quick input { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; }
+    .req-quick .actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    .req-list-menu .section {
+      padding: 10px 10px 4px;
+      font-weight: 800;
+      color: #111827;
+      font-size: 13px;
+    }
+
+    .req-list-menu .items {
+      max-height: 280px;
+      overflow: auto;
+      padding: 4px 0 10px;
+    }
+
+    .req-list-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      color: #0f172a;
+    }
+
+    .req-list-item:hover {
+      background: #f8fafc;
+    }
+
+    .req-list-item .check {
+      width: 16px;
+      height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #0b2c66;
+      visibility: hidden;
+    }
+
+    .req-list-item[aria-selected="true"] .check {
+      visibility: visible;
+    }
+
+    @media (max-width: 480px) {
+      .req-page {
+        max-width: 100%;
+      }
+
+      .req-head {
+        gap: 6px;
+        margin: 2px 0 6px;
+      }
+
+      .req-ico {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        font-size: 10px;
+      }
+
+      .req-title .main {
+        font-size: 14px;
+      }
+
+      .pin {
+        padding: 3px 5px;
+        border-radius: 6px;
+        font-size: 11px;
+      }
+
+      .req-toolbar {
+        gap: 6px;
+        padding: 4px 0;
+      }
+
+      .req-new {
+        padding: 5px 8px;
+        border-radius: 7px;
+        font-size: 11px;
+      }
+
+      .btn-tool {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        font-size: 12px;
+      }
+
+      .req-search input {
+        padding: 5px 8px;
+        border-radius: 7px;
+        font-size: 11px;
+      }
+
+      .req-table {
+        font-size: 11px;
+      }
+
+      .req-table th,
+      .req-table td {
+        padding: 5px;
+      }
+
+      .req-card {
+        width: min(92vw, 390px);
+        border-radius: 10px;
+        padding: 10px;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .content {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+      .req-page {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 0 4px;
+        box-sizing: border-box;
+        overflow-x: auto;
+      }
+
+      .req-head {
+        gap: 4px;
+        margin: 0 0 4px;
+      }
+
+      .req-ico {
+        width: 20px;
+        height: 20px;
+        border-radius: 5px;
+        font-size: 9px;
+      }
+
+      .req-title .main {
+        font-size: 12px;
+      }
+
+      .pin {
+        padding: 2px 4px;
+        font-size: 10px;
+      }
+
+      .req-toolbar {
+        gap: 4px;
+        padding: 3px 0;
+      }
+
+      .req-new {
+        padding: 4px 6px;
+        border-radius: 6px;
+        font-size: 10px;
+      }
+
+      .btn-tool {
+        width: 24px;
+        height: 24px;
+        border-width: 1px;
+        border-radius: 6px;
+        font-size: 10px;
+      }
+
+      .req-search input {
+        padding: 4px 6px;
+        border-width: 1px;
+        border-radius: 6px;
+        font-size: 10px;
+      }
+
+      .req-table {
+        font-size: 10px;
+        table-layout: auto;
+        width: 100%;
+        min-width: 620px;
+      }
+
+      .req-table th,
+      .req-table td {
+        padding: 4px;
+        white-space: nowrap;
+      }
+
+      /* Remove hardcoded desktop widths on mobile and let table auto-size */
+      .req-table th[style] {
+        width: auto !important;
+      }
+
+      .req-list-btn {
+        padding: 2px 4px;
+        border-radius: 6px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .req-title {
+        gap: 4px;
+      }
+      .req-list-btn {
+        display: none;
+      }
+      #listMenu {
+        display: none !important;
+      }
+    }
+  </style>
+  <script src="/static/js/pages/session-idle.js?v=navy-20260324-1" defer></script>
+  <script type="module" src="/static/js/pages/portal.page.js"></script>
+  <script type="module" src="/static/js/pages/requests.page.js"></script>
+</head>
+
+<body>
+  <header class="topbar">
+    <button id="mobileMenuBtn" class="mobile-btn" aria-label="menu" aria-expanded="false"
+      aria-controls="mobileDrawer">☰</button>
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="/static/images/logo1.png" alt="logo" class="icon">
+        <span class="logo">IIZUKA</span>
+      </div>
+      <div class="search">
+        <input type="search" placeholder="Search..." aria-label="Search">
+        <span class="search-hint" aria-hidden="true">^ K</span>
+        <div class="search-meta" aria-hidden="true">
+          <button class="search-close" title="Close" type="button">×</button>
+          <span class="search-esc">ESC</span>
+        </div>
+      </div>
+      <div class="user">
+        <div class="user-menu">
+          <button class="user-btn" aria-haspopup="true" aria-expanded="false">
+            <img src="/static/images/logoten.png" alt="user" class="user-icon">
+            <span id="userName"></span>
+            <span class="caret">▾</span>
+          </button>
+          <div class="dropdown" id="userDropdown" hidden>
+            <a href="/ui/portal" class="item">ホーム</a>
+            <a href="/ui/dashboard" class="item">現在の登録情報</a>
+            <a href="/ui/admin?tab=settings" class="item">各種設定</a>
+            <button class="item" id="btnLogout" type="button">ログアウト</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+  <div id="mobileDrawer" class="mobile-drawer" hidden>
+    <div class="drawer-header">
+      <button id="mobileClose" class="mobile-close" aria-label="close">✕</button>
+    </div>
+    <a href="/ui/portal" class="drawer-item">ホーム</a>
+    <a href="/ui/requests" class="drawer-item" aria-current="page">申請</a>
+    <a href="/ui/contact" class="drawer-item">お問い合わせ先</a>
+  </div>
+  <div class="subbar">
+    <nav class="subnav">
+      <a href="/ui/portal">ホーム</a>
+      <a href="/ui/requests" aria-current="page">申請</a>
+      <a href="/ui/contact">お問い合わせ先</a>
+    </nav>
+  </div>
+  <main class="content">
+    <div class="req-page">
+      <div class="req-head">
+        <div class="req-ico">▲</div>
+        <div class="req-title" style="position:relative;">
+          <div class="main">最近参照したデータ</div>
+          <button id="listBtn" class="req-list-btn" type="button" aria-expanded="false"
+            aria-controls="listMenu">▾</button>
+          <div id="listMenu" class="req-list-menu" hidden>
+            <div class="head"><input id="listFilter" type="search" placeholder="リストを検索…"></div>
+            <div id="listRecentSection" class="section">最近のリストビュー</div>
+            <div id="listRecent" class="items"></div>
+            <div id="listAllSection" class="section">申請済みリスト</div>
+            <div id="listAll" class="items"></div>
+          </div>
+        </div>
+        <button id="pinBtn" class="pin" type="button" aria-pressed="false" title="ピン留め">📌</button>
+      </div>
+      <div class="req-toolbar">
+        <div class="req-new-wrap">
+          <button id="btnNew" class="req-new" aria-expanded="false" aria-controls="newListMenu">新規</button>
+          <div id="newListMenu" class="req-list-menu" hidden>
+            <div class="section">新規作成</div>
+            <div class="req-quick">
+              <select id="quickType">
+                <option value="01_月次コミュニケーションシート">月次コミュニケーションシート</option>
+                <option value="95_退職届">退職届</option>
+                <option value="休暇申請">休暇申請</option>
+                <option value="残業申請">残業申請</option>
+              </select>
+              <div class="actions">
+                <button id="quickCreateBtn" class="req-new" type="button">作成</button>
+              </div>
+            </div>
+            <div class="head"><input id="newListFilter" type="search" placeholder="リストを検索…"></div>
+            <div class="section">その他のすべてのリスト</div>
+            <div id="newListAll" class="items"></div>
+          </div>
+        </div>
+        <div class="req-search"><input id="searchInput" type="search" placeholder="このリストを検索…"></div>
+        <div class="req-tools" aria-label="リスト操作">
+          <div class="tool-wrap">
+            <button class="btn-tool" id="toolSettings" title="設定">⚙</button>
+            <div id="settingsTip" class="req-tip" hidden>リストビューコントロール<span class="tip-arrow"></span></div>
+            <div id="settingsMenu" class="req-settings-menu" hidden role="menu" aria-label="設定">
+              <button class="req-set-item" id="setNew" role="menuitem">新規</button>
+              <button class="req-set-item" id="setCopy" role="menuitem" disabled>コピー</button>
+              <button class="req-set-item" id="setRename" role="menuitem" disabled>名前を変更</button>
+              <button class="req-set-item" id="setShare" role="menuitem" disabled>共有設定</button>
+              <button class="req-set-item" id="setColumns" role="menuitem" disabled>表示する項目を選択</button>
+              <button class="req-set-item" id="setDelete" role="menuitem" disabled>削除</button>
+              <button class="req-set-item" id="setResetWidth" role="menuitem">列幅をリセット</button>
+            </div>
+          </div>
+          <button class="btn-tool" id="toolView" title="表示切替">▦</button>
+          <button class="btn-tool" id="toolRefresh" title="更新">↻</button>
+          <button class="btn-tool" id="toolEdit" title="編集">✎</button>
+          <button class="btn-tool" id="toolClock" title="履歴">⏱</button>
+        </div>
+      </div>
+      <table class="req-table" aria-label="申請一覧">
+        <thead>
+          <tr>
+            <th style="width:140px;">申請番号</th>
+            <th style="width:120px;">ステータス</th>
+            <th style="width:220px;">レコードタイプ</th>
+            <th>申請詳細</th>
+            <th style="width:160px;">スタッフ名</th>
+            <th style="width:160px;">申請者所属オフィス</th>
+            <th style="width:44px;"></th>
+          </tr>
+        </thead>
+        <tbody id="reqBody"></tbody>
+      </table>
+    </div>
+  </main>
+  <div id="reqModal" class="req-modal" hidden>
+    <div class="req-card" role="dialog" aria-modal="true" aria-labelledby="reqTitle">
+      <h3 id="reqTitle" style="margin:0 0 10px;">新規申請</h3>
+      <div class="req-form-row">
+        <label>レコードタイプ</label>
+        <select id="recordType">
+          <option value="01_月次コミュニケーションシート">月次コミュニケーションシート</option>
+          <option value="95_退職届">退職届</option>
+          <option value="休暇申請">休暇申請</option>
+          <option value="残業申請">残業申請</option>
+        </select>
+      </div>
+      <div class="req-form-row">
+        <label>申請詳細</label>
+        <textarea id="detail" rows="4" placeholder="内容を入力…"></textarea>
+      </div>
+      <div class="req-form-row">
+        <label>申請者所属オフィス</label>
+        <input id="office" placeholder="例: 山形ＴＣ">
+      </div>
+      <div class="req-actions">
+        <button id="btnCancel" type="button">キャンセル</button>
+        <button id="btnCreate" class="req-new" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

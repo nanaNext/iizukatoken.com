@@ -1,0 +1,69 @@
+.adjust-error {
+  display: none;
+  color: #b00020;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.adjust-card {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.adjust-title {
+  margin: 0 0 12px;
+}
+
+.adjust-desc {
+  color: #475569;
+  font-weight: 650;
+  margin-bottom: 12px;
+}
+
+.adjust-spacer {
+  height: 14px;
+}
+
+.adjust-grid {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 10px 12px;
+  align-items: center;
+  max-width: 860px;
+}
+
+.adjust-label {
+  color: #475569;
+  font-weight: 650;
+}
+
+.adjust-input {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.adjust-input.full {
+  width: 100%;
+}
+
+.adjust-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.adjust-status {
+  color: #475569;
+  font-weight: 650;
+  align-self: center;
+}
+
+.adjust-table-wrap {
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+}

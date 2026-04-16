@@ -1,0 +1,1293 @@
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+:root {
+  --mobile-drawer-w: 280px;
+}
+
+.kintai-spinner {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.kintai-spinner[hidden] {
+  display: none;
+}
+
+.kintai-top {
+  background: #0b2c66;
+  color: #fff;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  position: sticky;
+  top: 0;
+  z-index: 2500;
+}
+
+.mobile-btn {
+  display: none;
+}
+
+.kintai-top-inner {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.kintai-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+  margin-left: -12px;
+}
+
+.kintai-logo {
+  font-weight: 800;
+  letter-spacing: .2px;
+  font-size: 34px;
+  line-height: 48px;
+  height: 48px;
+  padding-left: 12px;
+  white-space: nowrap;
+}
+
+.kintai-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.kintai-nav-dd {
+  position: relative;
+}
+
+.kintai-nav-btn {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, .92);
+  font-weight: 800;
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background .12s ease, color .12s ease, box-shadow .12s ease;
+}
+
+.kintai-nav-btn:hover {
+  background: rgba(255, 255, 255, .18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .12) inset;
+}
+
+.kintai-nav-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, .7);
+  outline-offset: 2px;
+}
+
+.kintai-nav-btn.active {
+  background: transparent;
+}
+
+.kintai-nav-btn.active:hover {
+  background: rgba(255, 255, 255, .18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .12) inset;
+}
+
+.kintai-nav-btn:active,
+.kintai-nav-btn[aria-expanded="true"] {
+  background: rgba(255, 255, 255, .18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .12) inset;
+}
+
+.kintai-nav-btn.active:active,
+.kintai-nav-btn.active[aria-expanded="true"] {
+  background: rgba(255, 255, 255, .18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .12) inset;
+}
+
+.kintai-caret {
+  font-size: 12px;
+  opacity: .9;
+}
+
+.kintai-dd {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: max-content;
+  background: #1f3553;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+  padding: 6px;
+  z-index: 2601;
+}
+
+.kintai-nav-dd .kintai-nav-btn[aria-expanded="true"]+.kintai-dd {
+  display: block !important;
+}
+
+.kintai-nav-dd:focus-within .kintai-dd {
+  display: block !important;
+}
+
+.kintai-nav-dd.open .kintai-dd {
+  display: block !important;
+}
+
+/* JS-controlled dropdown mode */
+body.nav-js .kintai-dd {
+  display: none !important;
+}
+
+body.nav-js .kintai-nav-dd .kintai-nav-btn[aria-expanded="true"]+.kintai-dd {
+  display: block !important;
+}
+
+body.nav-js .kintai-nav-dd .kintai-nav-btn[aria-expanded="true"]+.kintai-dd[hidden] {
+  display: block !important;
+}
+
+body.nav-js .kintai-nav-dd.open .kintai-dd {
+  display: block !important;
+}
+
+body.nav-js .kintai-dd.show {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+body.nav-js .kintai-nav-dd:focus-within .kintai-dd {
+  display: none !important;
+}
+
+body.nav-js .kintai-nav-dd:not(.open) .kintai-dd {
+  display: none !important;
+}
+
+/* Ensure visibility and interaction when open */
+body.nav-js .kintai-nav-dd.open .kintai-dd {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+@media (max-width: 900px) {
+  body.nav-js .kintai-nav-dd .kintai-nav-btn:focus+.kintai-dd {
+    display: block !important;
+  }
+
+  body.nav-js .kintai-nav-dd .kintai-nav-btn:focus+.kintai-dd[hidden] {
+    display: block !important;
+  }
+
+  /* Avoid clipping dropdown on mobile */
+  .kintai-nav {
+    overflow-y: visible;
+  }
+}
+
+.kintai-nav-dd::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 10px;
+}
+
+.kintai-dd a {
+  display: block;
+  color: rgba(255, 255, 255, .95);
+  text-decoration: none;
+  font-weight: 900;
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.kintai-dd a:hover {
+  background: rgba(255, 255, 255, .10);
+}
+
+.kintai-dd a:active {
+  background: rgba(255, 255, 255, .12);
+}
+
+@media (hover:hover) and (pointer:fine) {
+  .kintai-nav-dd:hover .kintai-dd {
+    display: block;
+  }
+
+  .kintai-nav-dd:hover .kintai-dd[hidden] {
+    display: block;
+  }
+
+  body.nav-js .kintai-nav-dd:hover .kintai-dd {
+    display: none !important;
+  }
+
+  body.nav-js .kintai-nav-dd:hover .kintai-dd[hidden] {
+    display: none !important;
+  }
+}
+
+.kintai-user {
+  position: relative;
+}
+
+.kintai-top-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-right: 10px;
+}
+
+.kintai-top-link {
+  color: rgba(255, 255, 255, .95);
+  text-decoration: none;
+  font-weight: 900;
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.kintai-top-link:hover {
+  background: rgba(255, 255, 255, .10);
+}
+
+.kintai-user-btn {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.kintai-user-btn:hover {
+  background: rgba(255, 255, 255, .10);
+}
+
+.kintai-user-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 180px;
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .10);
+  padding: 8px;
+  z-index: 100;
+}
+
+.kintai-user-menu a,
+.kintai-user-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #0f172a;
+  text-decoration: none;
+  font-weight: 650;
+}
+
+.kintai-user-menu a:hover,
+.kintai-user-menu button:hover {
+  background: #f1f5f9;
+}
+
+.kintai-main {
+  background: #f5f6f8;
+  min-height: calc(100vh - 48px);
+  padding: 12px 12px 24px;
+}
+
+.mobile-menu-btn {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .kintai-top {
+    height: 44px;
+  }
+
+  .kintai-top-inner {
+    max-width: none;
+    padding: 0 8px;
+    gap: 4px;
+    position: relative;
+  }
+
+  .kintai-top {
+    border-bottom: 0;
+  }
+
+  .kintai-brand {
+    min-width: auto;
+  }
+
+  .kintai-brand {
+    margin-left: 0;
+  }
+
+  .kintai-logo {
+    font-size: 16px;
+    line-height: 44px;
+    height: 44px;
+    padding-left: 8px;
+  }
+
+  .mobile-btn {
+    display: none !important;
+    padding: 6px 10px;
+    border: 1px solid #a9c6e8;
+    background: #d0e8ff;
+    color: #0d2c5b;
+    font-size: 16px;
+    font-weight: 800;
+    margin-right: 8px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 6px;
+    position: relative;
+    left: 6px;
+    z-index: 3201;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .06);
+  }
+
+  .mobile-btn:hover {
+    background: #dbeafe;
+    border-color: #7fb3ff;
+  }
+
+  .mobile-btn:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+
+  .kintai-nav {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    overflow: visible !important;
+    /* Tránh cuộn ngang gây "chuyển động" khi chạm */
+    scroll-snap-type: none !important;
+  }
+
+  /* Remove edge gradients on mobile to avoid color bleed */
+  .kintai-top-inner::before,
+  .kintai-top-inner::after {
+    content: none;
+    display: none;
+  }
+
+  .kintai-user {
+    margin-left: auto;
+  }
+
+  .kintai-top-links {
+    justify-content: flex-end;
+  }
+
+  .kintai-nav.mobile-open {
+    display: none;
+  }
+
+  .kintai-dd {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 4px);
+  }
+
+  .kintai-nav-btn {
+    font-size: 14px;
+    padding: 3px 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+    scroll-snap-align: none !important;
+  }
+
+  .kintai-caret {
+    font-size: 12px;
+  }
+
+  .kintai-top-link {
+    font-size: 14px;
+    padding: 8px 10px;
+  }
+
+  .mobile-drawer-backdrop {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: var(--mobile-drawer-w);
+    top: 0;
+    background: rgba(0, 0, 0, .35);
+    z-index: 2950;
+    display: none;
+    pointer-events: auto;
+  }
+
+  .mobile-drawer {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--mobile-drawer-w);
+    background: #eaf2ff;
+    border-right: 1px solid #cbd5e1;
+    box-shadow: none;
+    z-index: 3000;
+    transform: translateX(-100%);
+    transition: transform .2s ease;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 10px;
+  }
+
+  body.mobile-drawer-open .mobile-drawer {
+    transform: translateX(0);
+  }
+
+  body.mobile-drawer-open .mobile-drawer-backdrop {
+    display: block;
+  }
+
+  body.mobile-drawer-open {
+    overflow-x: hidden;
+  }
+
+  body.mobile-drawer-open .kintai-top,
+  body.mobile-drawer-open .kintai-top-inner,
+  body.mobile-drawer-open .kintai-brand,
+  body.mobile-drawer-open .kintai-user,
+  body.mobile-drawer-open .kintai-top-links {
+    transform: translateX(var(--mobile-drawer-w)) !important;
+    transition: transform .2s ease !important;
+  }
+
+  body.mobile-drawer-open .kintai-main,
+  body.mobile-drawer-open .layout-main,
+  body.mobile-drawer-open .layout-contents {
+    transform: translateX(var(--mobile-drawer-w)) !important;
+    transition: transform .2s ease !important;
+  }
+
+  body.mobile-drawer-open .layout-container,
+  body.mobile-drawer-open .se-month-table-wrap,
+  body.mobile-drawer-open .se-month-scroll {
+    transform: translateX(var(--mobile-drawer-w)) !important;
+    transition: transform .2s ease !important;
+  }
+
+  /* Đảm bảo đẩy toàn bộ trang sang phải trên mọi màn hình kintai */
+  body.mobile-drawer-open> :not(#mobileDrawer):not(#mobileDrawerBackdrop) {
+    transform: translateX(var(--mobile-drawer-w)) !important;
+    transition: transform .2s ease !important;
+  }
+
+  .mobile-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .mobile-drawer-title {
+    font-weight: 900;
+    color: #0b2c66;
+  }
+
+  .mobile-drawer-close {
+    border: 0;
+    background: transparent;
+    color: #0b2c66;
+    font-size: 18px;
+    font-weight: 900;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+  }
+
+  .mobile-drawer-search {
+    width: calc(100% - 20px);
+    height: 32px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 0 10px;
+    margin: 0 10px;
+    font-size: 13px;
+    background: #fff;
+    color: #0f172a;
+    box-sizing: border-box;
+  }
+
+  .mobile-drawer-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-drawer-user-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .mobile-drawer-user-name {
+    font-size: 13px;
+    font-weight: 900;
+    color: #0b2c66;
+  }
+
+  .mobile-menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow: auto;
+  }
+
+  .drawer-group {
+    padding: 6px 0;
+  }
+
+  .drawer-group-btn {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: #0b2c66;
+    font-weight: 900;
+    font-size: 15px;
+    padding: 10px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 8px;
+    transition: background .12s ease, color .12s ease, box-shadow .12s ease;
+  }
+
+  .drawer-group-btn .drawer-chev {
+    font-size: 16px;
+    transform: rotate(0deg);
+    transition: transform .12s ease;
+  }
+
+  .drawer-group-btn.open .drawer-chev {
+    transform: rotate(90deg);
+  }
+
+  .drawer-group-btn:hover {
+    background: #dff1ff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .06);
+  }
+
+  .drawer-group-btn:active {
+    background: #dbeafe;
+  }
+
+  .drawer-group-btn.open {
+    background: #eaf6ff;
+  }
+
+  .drawer-group-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 6px 8px;
+  }
+
+  .drawer-group-list[hidden] {
+    display: none !important;
+  }
+
+  .drawer-group-list a {
+    display: block;
+    color: #0b2c66;
+    text-decoration: none;
+    font-weight: 900;
+    font-size: 14px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    transition: background .12s ease, transform .06s ease;
+    position: relative;
+  }
+
+  .drawer-group-list a:hover {
+    background: #e8f0ff;
+    transform: translateX(2px);
+  }
+
+  .drawer-group-list a::after {
+    content: '›';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+    opacity: 0;
+    color: #0b2c66;
+    transition: opacity .12s ease, transform .12s ease;
+  }
+
+  .drawer-group-list a:hover::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+
+  /* Ensure form texts are clearly visible on mobile monthly page */
+  #monthTable input.se-input,
+  #monthTable select.se-select,
+  #monthTable input.se-time {
+    background: #fff;
+    color: #0f172a;
+  }
+
+  #monthTable input.se-input::placeholder,
+  #monthTable input.se-time::placeholder {
+    color: #64748b;
+    opacity: 1;
+  }
+
+  .se-time-hint {
+    display: none !important;
+  }
+
+  .kintai-top-inner::before,
+  .kintai-top-inner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 14px;
+    pointer-events: none;
+  }
+
+  .kintai-top-inner::before {
+    left: 0;
+    background: linear-gradient(90deg, rgba(11, 44, 102, 1) 0%, rgba(11, 44, 102, 0) 100%);
+  }
+
+  .kintai-top-inner::after {
+    right: 0;
+    background: linear-gradient(270deg, rgba(11, 44, 102, 1) 0%, rgba(11, 44, 102, 0) 100%);
+  }
+
+  .kintai-nav-dd {
+    position: relative;
+  }
+
+  .kintai-dd {
+    position: absolute;
+    left: 0;
+    right: auto;
+    top: calc(100% + 4px);
+    width: max-content;
+    max-width: 90vw;
+    max-height: calc(100vh - 72px);
+    overflow: auto;
+    z-index: 2600;
+  }
+
+  .kintai-main {
+    padding: 6px;
+    padding-bottom: 12px;
+    box-sizing: border-box;
+  }
+
+  .kintai-top-links {
+    gap: 8px;
+  }
+
+  .kintai-top-link {
+    font-size: 12px;
+    padding: 4px 6px;
+  }
+
+  .kintai-top-links .kintai-top-link:not(.logout-link) {
+    display: none;
+  }
+
+  .kintai-user-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: #d0e8ff;
+    border: 1px solid #a9c6e8;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .06);
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.kintai-grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 360px minmax(0, 700px);
+  gap: 14px;
+}
+
+.kintai-card {
+  background: #ffffff;
+  border: 1px solid #d7dbe3;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 20px rgba(2, 6, 23, .06);
+}
+
+.kintai-card-title {
+  font-weight: 900;
+  font-size: 14px;
+  color: #0f172a;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 12px;
+}
+
+.kintai-error {
+  max-width: 1100px;
+  margin: 0 auto 10px;
+  color: #b00020;
+  font-weight: 700;
+}
+
+.kintai-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.kintai-table th,
+.kintai-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #eef2f7;
+  vertical-align: middle;
+}
+
+.kintai-table th {
+  background: #f8fafc;
+  text-align: left;
+  color: #0f172a;
+  font-weight: 900;
+  width: 150px;
+}
+
+.kintai-table tr:last-child th,
+.kintai-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.kintai-table tbody tr:nth-child(odd) td {
+  background: #fcfdff;
+}
+
+.kintai-table tbody tr:hover td {
+  background: #eef5ff;
+}
+
+.kintai-table select,
+.kintai-table input[type="text"],
+.kintai-table input[type="time"],
+.kintai-table input {
+  font-size: 16px;
+  height: 40px;
+  min-height: 40px;
+  line-height: normal;
+  padding: 8px 12px;
+  border: 1px solid #cfd6e3;
+  border-radius: 6px;
+  background: #fff;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.kintai-table td {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.kintai-notice-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.kintai-notice-meta-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.kintai-notice-meta-label {
+  font-size: 12px;
+  font-weight: 900;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.kintai-notice-meta-value {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.kintai-notice-section {
+  margin-top: 10px;
+}
+
+.kintai-notice-toolbar {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.kintai-notice-toggle {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0b2c66;
+  font-weight: 900;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.kintai-notice-toggle:hover {
+  background: #f8fafc;
+}
+
+.kintai-notice-list {
+  display: grid;
+  gap: 8px;
+}
+
+.kintai-notice-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.kintai-notice-item.is-unread {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .18), 0 10px 24px rgba(2, 6, 23, .08);
+}
+
+.kintai-notice-item.is-read {
+  border-color: #e5e7eb;
+}
+
+.kintai-notice-item[open] {
+  border-color: #93c5fd;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, .06);
+}
+
+.kintai-notice-item.is-unread .kintai-notice-summary {
+  background: linear-gradient(180deg, #dbeafe 0%, #ffffff 100%);
+}
+
+.kintai-notice-item.is-unread .kintai-notice-preview {
+  color: #0b2c66;
+  font-weight: 900;
+}
+
+.kintai-notice-item.is-unread .kintai-notice-tag {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.kintai-notice-item.is-read .kintai-notice-summary {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.kintai-notice-item.is-read .kintai-notice-preview {
+  color: #334155;
+  font-weight: 800;
+}
+
+.kintai-notice-item.is-read .kintai-notice-tag {
+  border-color: #e2e8f0;
+  background: #fff;
+  color: #334155;
+}
+
+.kintai-notice-item.is-unread .kintai-notice-time {
+  color: #1d4ed8;
+  font-weight: 900;
+}
+
+.kintai-notice-item.is-unread .kintai-notice-time::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #ef4444;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.kintai-notice-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.kintai-notice-summary::-webkit-details-marker {
+  display: none;
+}
+
+.kintai-notice-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.kintai-notice-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0b2c66;
+  font-weight: 900;
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+
+.kintai-notice-new {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-weight: 900;
+  font-size: 10px;
+  flex: 0 0 auto;
+}
+
+.kintai-notice-preview {
+  font-weight: 900;
+  color: #0f172a;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 520px;
+}
+
+.kintai-notice-time {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  flex: 0 0 auto;
+}
+
+.kintai-notice-body {
+  padding: 10px 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #fff;
+}
+
+.kintai-notice-empty {
+  padding: 10px 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+}
+
+.kintai-notice-links {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.kintai-notice-links a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.kintai-notice-links a:hover {
+  text-decoration: underline;
+}
+
+.kintai-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.kintai-actions-split {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.kintai-actions-left,
+.kintai-actions-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kintai-monthly-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: #2563eb;
+  font-weight: 900;
+}
+
+.kintai-monthly-link:hover {
+  text-decoration: underline;
+}
+
+.kintai-icon-pc {
+  width: 32px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.kintai-btn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0b2c66;
+  font-weight: 800;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.kintai-btn.primary {
+  background: #0b2c66;
+  border-color: #0b2c66;
+  color: #fff;
+}
+
+.kintai-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+
+@media (max-width: 900px) {
+  .kintai-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kintai-brand {
+    min-width: 0;
+  }
+
+  .kintai-nav {
+    gap: 6px;
+  }
+
+  .kintai-nav-item {
+    padding: 6px 8px;
+  }
+}
+
+@media (max-width: 700px) {
+  .kintai-card {
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+
+  .kintai-card-title {
+    font-size: 14px;
+  }
+
+  .kintai-table {
+    font-size: 15px;
+  }
+
+  .kintai-table th,
+  .kintai-table td {
+    padding: 10px 12px;
+  }
+
+  .kintai-table th {
+    width: 120px;
+  }
+
+  .kintai-table th,
+  .kintai-table td {
+    font-size: 16px;
+  }
+
+  .kintai-table select,
+  .kintai-table input[type="text"],
+  .kintai-table input[type="time"],
+  .kintai-table input {
+    font-size: 16px;
+    height: 40px;
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+
+  .kintai-actions {
+    gap: 8px;
+  }
+
+  .kintai-btn {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+}
+
+/* ...existing code... */
+
+/* Fix attendance form buttons visibility */
+#attendanceHost {
+  padding-bottom: 120px;
+}
+
+@media (max-width: 700px) {
+  #attendanceHost {
+    padding-bottom: 150px;
+  }
+}
+
+/* ...existing code... */
+
+/* Make table cells same height */
+.kintai-table td {
+  height: 50px;
+  padding: 0;
+  vertical-align: middle;
+}
+
+.kintai-table th {
+  height: 50px;
+  vertical-align: middle;
+  padding: 8px;
+}
+
+/* Fix kubun dropdown and input height to match label */
+.kintai-table select.simple-select,
+.kintai-table input {
+  height: 100%;
+  min-height: 50px;
+  padding: 12px 14px;
+  font-size: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+@media (max-width: 700px) {
+  #attendanceHost {
+    padding-bottom: 150px;
+  }
+
+  .kintai-table td {
+    height: 56px;
+  }
+
+  .kintai-table select.simple-select,
+  .kintai-table input {
+    min-height: 56px;
+    font-size: 16px;
+  }
+}
+
+/* Mobile-friendly attendance form */
+@media (max-width: 700px) {
+
+  /* Chuyển table thành dạng block để không bị lệch */
+  .kintai-table,
+  .kintai-table tr,
+  .kintai-table td,
+  .kintai-table th {
+    display: block;
+    width: 100%;
+  }
+
+  /* Label (th) nằm trên */
+  .kintai-table th {
+    background: transparent;
+    border: 0;
+    padding: 6px 0 2px;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  /* Input nằm dưới, full width */
+  .kintai-table td {
+    border: 0;
+    padding: 0 0 12px;
+  }
+
+  .kintai-table input,
+  .kintai-table select {
+    width: 100%;
+    min-height: 48px;
+    font-size: 16px;
+    padding: 10px 12px;
+    border-radius: 6px;
+  }
+}

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>作業報告</title>
+  <style id="spinnerStyle">
+    .page-spinner{position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;z-index:3000}
+    .page-spinner[hidden]{display:none}
+  </style>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260317">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260317">
+  <link rel="stylesheet" href="/static/css/work-report.css?v=navy-20260317">
+  <script src="/static/js/pages/session-idle.js?v=navy-20260324-1" defer></script>
+  <script type="module" src="/static/js/pages/work-report.page.js?v=navy-20260317"></script>
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <div id="pageSpinner" class="page-spinner"><div class="lds-spinner" aria-hidden="true"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div></div>
+  <header class="topbar">
+    <button id="mobileMenuBtn" class="mobile-btn" aria-label="menu" aria-expanded="false" aria-controls="mobileDrawer">☰</button>
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="/static/images/logo1.png" alt="logo" class="icon">
+        <span class="logo">IIZUKA</span>
+      </div>
+      <div class="search">
+        <input type="search" placeholder="Search..." aria-label="Search" disabled>
+      </div>
+      <div class="user">
+        <div class="user-menu">
+          <button class="user-btn" aria-haspopup="true" aria-expanded="false">
+            <img src="/static/images/logoten.png" alt="user" class="user-icon">
+            <span id="userName"></span>
+            <span class="caret">▾</span>
+          </button>
+          <div class="dropdown" id="userDropdown" hidden>
+            <a href="/ui/portal" class="item">ホーム</a>
+            <a href="/ui/dashboard" class="item">現在の登録情報</a>
+            <button class="item" id="btnLogout" type="button">ログアウト</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+  <div id="mobileDrawer" class="mobile-drawer" hidden>
+    <div class="drawer-header">
+      <button id="mobileClose" class="mobile-close" aria-label="close">✕</button>
+    </div>
+    <a href="/ui/portal" class="drawer-item">ホーム</a>
+    <a href="/ui/today-work" class="drawer-item">本日の出勤</a>
+    <button id="drawerLogout" class="drawer-item" type="button">ログアウト</button>
+  </div>
+  <main class="content">
+    <div id="error" style="display:none;color:#b00020;font-weight:600;"></div>
+    <section id="workReport" class="card"></section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,25 @@
+node_modules/
+.vscode/
+.DS_Store
+*.log
+logs/
+coverage/
+dist/
+build/
+
+# Environment files
+.env
+.env.*
+attendance/**/.env
+
+# Local databases and cache
+*.sqlite
+*.db
+.cache/
+
+# Uploads and generated files
+attendance/backend/src/uploads/
+
+# Docker artifacts
+**/.dockerignore
+

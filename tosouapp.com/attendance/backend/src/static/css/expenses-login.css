@@ -1,0 +1,427 @@
+:root {
+  --exp-card-width: 360px;
+  --exp-btn-blue: #5590E9;
+  --exp-btn-blue-hover: #3b78db;
+  --exp-btn-blue-disabled: #4383e4;
+  --exp-shadow: 0 8px 24px rgba(0,0,0,.10);
+  --fieldWidth: 332px;
+}
+
+/* Responsive center wrapper */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #e9f0f3;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+/* Hide global nav bars when on expenses login */
+.topbar,
+.subbar,
+.subnav,
+#mobileDrawer,
+#drawerBackdrop {
+  display: none !important;
+}
+
+.wrapper {
+  width: 100%;
+  max-width: 420px;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.card {
+  max-width: 100%;
+  border-radius: 18px;
+  padding: 24px 22px;
+  box-shadow: var(--exp-shadow);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+.card-header {
+  margin-bottom: 2px;
+}
+
+.card-logo {
+  height: 92px;
+  display: block;
+  margin: 6px auto 4px;
+}
+
+.card-tagline {
+  display: none;
+}
+
+.card-content {
+  max-width: 360px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.form-row {
+  max-width: var(--fieldWidth);
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.card-content > * {
+  max-width: var(--fieldWidth);
+  width: var(--fieldWidth);
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+
+/* ensure button width equals inputs */
+.actions {
+  max-width: var(--fieldWidth);
+  width: var(--fieldWidth);
+  margin-left: auto;
+  margin-right: auto;
+}
+.actions .btn {
+  width: var(--fieldWidth) !important;
+  height: 40px;
+  border-radius: 10px;
+  display: block;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.input-with-icon {
+  width: var(--fieldWidth) !important;
+  max-width: var(--fieldWidth) !important;
+}
+
+
+
+/* 1. Thay .login-lead */
+.login-lead {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+  margin-top: 0px;
+  margin-bottom: 10px;
+}
+/* 2. Thay .form-row */
+.form-row {
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+}
+
+.form-row {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+}
+
+.input-group {
+  --group-bg: transparent;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  margin: 0 auto;
+  overflow: hidden;
+  width: var(--fieldWidth);
+  box-sizing: border-box;
+  position: relative;
+  max-width: var(--fieldWidth);
+}
+
+.input-group.filled {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.input-group:has(#email:not(:placeholder-shown)):has(#password:not(:placeholder-shown)) {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.input-group.success {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.input-group .input-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  padding: 8px 14px;
+  height: auto;
+  overflow: visible;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.input-group .input-with-icon:not(:first-child) {
+  margin-top: 10px;
+  padding-top: 0;
+  border-top: none;
+}
+
+.input-with-icon input {
+  border-radius: 10px;
+  background: #eef5ff;
+  height: 40px;
+  border: 1px solid #c9d6ea;
+  padding: 6px 12px;
+  width: 100%;
+  display: block;
+  box-shadow: none;
+  box-sizing: border-box;
+  margin: 0 auto;
+  color: #111827;
+  font-size: 13px;
+  background-clip: padding-box;
+}
+
+.input-with-icon input:focus {
+  outline: none;
+  border-color: #5590E9;
+  box-shadow: 0 0 0 3px rgba(85, 144, 233, .25);
+  background: #ffffff;
+}
+
+/* bigger icons */
+.form-icon {
+  width: 24px;
+  height: 24px;
+  margin-right: 6px;
+}
+.form-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2;
+}
+.label-icon-img,
+.label-icon-img-user {
+  width: 20px;
+  height: 20px;
+}
+
+.input-with-icon input::placeholder {
+  color: #9ca3af;
+}
+
+.input-with-icon input:-webkit-autofill,
+.input-with-icon input:-webkit-autofill:hover,
+.input-with-icon input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px var(--group-bg) inset !important;
+  box-shadow: 0 0 0px 1000px var(--group-bg) inset !important;
+  -webkit-text-fill-color: #111827;
+}
+
+.input-with-icon input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.icon-btn svg {
+  stroke: #666;
+}
+
+.icon-btn {
+  display: none !important;
+}
+
+/* 3. Thay .actions .btn */
+.actions .btn {
+  width: 100% !important;
+  border-radius: 14px;
+  background: var(--exp-btn-blue);
+  font-weight: 700;
+  letter-spacing: .2px;
+  transition: background .2s ease, box-shadow .2s ease;
+  height: 44px;
+  margin-top: 8px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0;
+  border: none;
+  font-size: 14px;
+}
+.actions .btn:not([disabled]):hover {
+  background: var(--exp-btn-blue-hover);
+  box-shadow: 0 6px 14px rgba(0,0,0,.12);
+}
+
+.actions .btn[disabled] {
+  background: var(--exp-btn-blue-disabled);
+  color: #ffffff;
+  cursor: default;
+}
+
+.notes, .circle {
+  display: none;
+}
+
+/* 5. Thay .policy-note */
+.policy-note {
+  font-size: 11px;
+  color: #374151;
+  margin: 4px 0 8px;
+  line-height: 1.5;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 6. Thay .forgot-note a */
+.forgot-note a {
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 11px;
+}
+
+.terms-note {
+  display: none;
+}
+
+.forgot-note {
+  text-align: center;
+  margin-top: 10px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.forgot-note a {
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+/* 7. Thay .sep */
+.sep {
+  text-align: center;
+  color: #6b7280;
+  margin: 6px 0;
+  font-size: 12px;
+}
+
+/* 8. Thay .alt-logins */
+.alt-logins {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 4. Thay .oauth-btn, .subdomain-btn */
+.oauth-btn, .subdomain-btn {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--fieldWidth);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.forgot-note,
+.sep,
+.alt-logins {
+  max-width: var(--fieldWidth);
+  width: var(--fieldWidth);
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+  box-sizing: border-box;
+}
+.oauth-ico {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+}
+
+.series {
+  margin-top: 8px;
+}
+
+.series-title {
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.series-logos {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.logo-chip {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 4px 6px;
+  font-size: 11px;
+  color: #374151;
+}
+
+.login-error {
+  color: #e11d48;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  body { padding: 12px; }
+  .card { padding: 16px; max-width: 100%; }
+}
+
+@media (max-width: 360px) {
+  body { padding: 8px; }
+  .card { padding: 12px; }
+}

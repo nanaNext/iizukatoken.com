@@ -1,0 +1,147 @@
+openapi: 3.0.3
+info:
+  title: Attendance API
+  version: 1.0.0
+  description: API for monthly attendance detail and bulk save
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/attendance/month/detail:
+    get:
+      summary: Get month detail
+      parameters:
+        - in: query
+          name: year
+          schema: { type: integer, minimum: 2000 }
+          required: true
+        - in: query
+          name: month
+          schema: { type: integer, minimum: 1, maximum: 12 }
+          required: true
+        - in: query
+          name: userId
+          schema: { type: integer }
+          required: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthDetail'
+        '4XX':
+          description: Client error
+        '5XX':
+          description: Server error
+  /api/attendance/month/bulk:
+    put:
+      summary: Save month bulk (daily + segments)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MonthBulkPayload'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  saved:
+                    type: object
+                    properties:
+                      daily: { type: integer }
+                      segmentsCreated: { type: integer }
+                      segmentsUpdated: { type: integer }
+                  created:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        clientId: { type: string }
+                        id: { type: integer }
+        '400':
+          description: Invalid payload
+        '403':
+          description: Forbidden
+        '423':
+          description: Month locked
+components:
+  schemas:
+    MonthBulkPayload:
+      type: object
+      required: [year, month, updates]
+      properties:
+        year: { type: integer }
+        month: { type: integer, minimum: 1, maximum: 12 }
+        userId: { type: integer, nullable: true }
+        updates:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              clientId: { type: string }
+              checkIn: { type: string, format: date-time, nullable: true }
+              checkOut: { type: string, format: date-time, nullable: true }
+              workType: { type: string, enum: [onsite, remote, satellite], nullable: true }
+              delete: { type: boolean }
+        dailyUpdates:
+          type: array
+          items:
+            type: object
+            required: [date]
+            properties:
+              date: { type: string, format: date }
+              kubun:
+                type: string
+                enum: ['', '出勤', '半休', '欠勤', '有給休暇', '無給休暇', '代替休日', '休日', '休日出勤', '代替出勤']
+              kubunConfirmed: { type: integer, enum: [0,1], nullable: true }
+              workType: { type: string, enum: [onsite, remote, satellite], nullable: true }
+              location: { type: string, nullable: true }
+              reason: { type: string, nullable: true }
+              memo: { type: string, nullable: true }
+              breakMinutes: { type: integer, minimum: 0, nullable: true }
+              nightBreakMinutes: { type: integer, minimum: 0, nullable: true }
+    MonthDetail:
+      type: object
+      properties:
+        year: { type: integer }
+        month: { type: integer }
+        days:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              is_off: { type: integer, enum: [0,1] }
+              shift:
+                type: object
+                properties:
+                  start_time: { type: string }
+                  end_time: { type: string }
+                  break_minutes: { type: integer }
+              daily:
+                type: object
+                properties:
+                  kubun: { type: string, nullable: true }
+                  kubunConfirmed: { type: integer, enum: [0,1] }
+                  workType: { type: string, nullable: true }
+                  location: { type: string, nullable: true }
+                  reason: { type: string, nullable: true }
+                  memo: { type: string, nullable: true }
+                  breakMinutes: { type: integer, nullable: true }
+                  nightBreakMinutes: { type: integer, nullable: true }
+              segments:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    checkIn: { type: string, format: date-time, nullable: true }
+                    checkOut: { type: string, format: date-time, nullable: true }
+                    workType: { type: string, nullable: true }

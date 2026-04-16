@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>申請</title>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260408-1">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=navy-20260408-1">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260415-perf1">
+  <link rel="stylesheet" href="/static/css/adjust.page.css">
+  <style>
+    /* Ẩn hoàn toàn menu/drawer bên trái (nếu có) trên trang 申請 dành cho nhân viên */
+    #mobileMenuBtn { display: none !important; }
+    #mobileDrawer, .mobile-drawer, .drawer-backdrop { display: none !important; }
+    body.drawer-open .topbar,
+    body.drawer-open .subbar,
+    body.drawer-open .content { transform: none !important; }
+    .req-head { display:flex; align-items:center; gap:12px; margin:8px 0 12px; }
+    .req-ico { width:32px; height:32px; border-radius:8px; background:#b85b82; color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; }
+    .req-title { display:flex; align-items:center; gap:8px; }
+    .req-title .label { font-size:12px; color:#374151; }
+    .req-title .main { font-size:18px; font-weight:800; color:#111827; letter-spacing:.02em; }
+    .pin { border:1px solid #cfe0f5; background:#fff; color:#0b2c66; border-radius:8px; padding:6px 8px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <button id="mobileMenuBtn" class="mobile-btn" aria-label="menu" aria-expanded="false" aria-controls="mobileDrawer">☰</button>
+    <div class="topbar-inner">
+      <div class="brand">
+        <img src="/static/images/logo1.png" alt="logo" class="icon">
+        <span class="logo">IIZUKA</span>
+      </div>
+      <div class="search">
+        <input type="search" placeholder="Search..." aria-label="Search">
+      </div>
+      <div class="user">
+        <div class="user-menu">
+          <button class="user-btn" aria-haspopup="true" aria-expanded="false">
+            <img src="/static/images/logoten.png" alt="user" class="user-icon">
+            <span id="userName"></span>
+            <span class="caret">▾</span>
+          </button>
+          <div class="dropdown" id="userDropdown" hidden>
+            <a href="/ui/portal" class="item">ホーム</a>
+            <a href="/ui/dashboard" class="item">現在の登録情報</a>
+            <a href="/ui/admin?tab=settings" class="item">各種設定</a>
+            <button class="item" id="btnLogout" type="button">ログアウト</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+  <div id="mobileDrawer" class="mobile-drawer" hidden>
+    <div class="drawer-header">
+      <button id="mobileClose" class="mobile-close" aria-label="close">✕</button>
+    </div>
+    <a href="/ui/portal" class="drawer-item">ホーム</a>
+    <a href="/ui/leave" class="drawer-item">申請</a>
+    <a href="/ui/contact" class="drawer-item">お問い合わせ先</a>
+  </div>
+  <div class="subbar">
+    <nav class="subnav">
+      <a href="/ui/portal">ホーム</a>
+      <a href="/ui/leave">申請</a>
+      <a href="/ui/contact">お問い合わせ先</a>
+    </nav>
+  </div>
+  <main class="content">
+    <h2>申請</h2>
+    <div class="req-head">
+      <div class="req-ico">▲</div>
+      <div class="req-title">
+        <div class="label">申請</div>
+        <div class="main">最近の申請データ</div>
+        <span>▾</span>
+      </div>
+      <button class="pin" type="button" title="ピン留め">📌</button>
+    </div>
+    <section id="apply">
+      <h3>申請</h3>
+      <form id="applyForm">
+        <input id="startDate" type="date"> 〜
+        <input id="endDate" type="date">
+        <input id="reason" placeholder="理由(任意)">
+        <button type="submit">申請</button>
+      </form>
+      <div id="applyResult"></div>
+    </section>
+  </main>
+  <script src="/static/js/pages/session-idle.js?v=navy-20260403-1" defer></script>
+  <script type="module" src="/static/js/pages/portal.page.js"></script>
+  <script type="module" src="/static/js/pages/leave.page.js"></script>
+</body>
+</html>
