@@ -1438,6 +1438,21 @@ body.mobile-compact #monthTable tbody td:nth-child(11) {
   min-width: 0;
 }
 
+/* Prevent Safari mobile from stretching single cell controls unexpectedly */
+#monthTable td input.se-input,
+#monthTable td input.se-time,
+#monthTable td select.se-select,
+#monthTable td textarea.se-input {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+}
+
+#monthTable tbody td {
+  overflow: hidden;
+}
+
 /* column min-widths compact but allow full-width input */
 #monthTable thead th:nth-child(6),
 #monthTable tbody td:nth-child(6) { min-width: 92px; }
