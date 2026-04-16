@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tiles = document.querySelector('.tiles');
     if (tiles) {
       tiles.innerHTML = `
-        <a class="tile" href="/ui/attendance"><div class="icon">⏱</div><div class="title">出退勤打刻</div></a>
+        <a class="tile" href="/ui/attendance/simple"><div class="icon">⏱</div><div class="title">出退勤打刻</div></a>
         <a class="tile" href="/ui/profile"><div class="icon">👤</div><div class="title">プロフィール</div></a>
         <a class="tile" href="/ui/salary"><div class="icon">💴</div><div class="title">給与明細など</div></a>
         <a class="tile" href="/ui/calendar"><div class="icon">📅</div><div class="title">カレンダー</div></a>
@@ -236,7 +236,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="icon">📝</div>
             <div class="title">申請</div>
           </a>
-          <a class="tile" href="/ui/attendance" target="_blank" rel="noopener noreferrer">
+          <a class="tile" href="/ui/attendance/simple" target="_blank" rel="noopener noreferrer">
             <div class="icon">🕒</div>
             <div class="title">勤怠入力</div>
           </a>
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       { key:'users', title:'ユーザー管理', icon:'👥', href:'/ui/admin?tab=users', desc:'User management', adminOnly:true, prio:12 },
       { key:'departments', title:'部門管理', icon:'🏢', href:'/admin/departments', desc:'Departments', adminOnly:true, prio:14 },
       { key:'admin', title:'社員管理', icon:'🛠', href:'/admin/employees', desc:'Admin portal', adminOnly:true, prio:16 },
-      { key:'attendance_in', title:'勤怠入力', icon:'', href:'/ui/attendance', desc:'Daily time input', prio:20, hideForAdmin:true },
+      { key:'attendance_in', title:'勤怠入力', icon:'', href:'/ui/attendance/simple', desc:'Daily time input', prio:20, hideForAdmin:true },
       { key:'paid_leave', title:'有給休暇', icon:'🏝', href:'/ui/requests', desc:'Paid leave', prio:25 },
       { key:'paid_leave_manage', title:'有給休暇管理', icon:'🏝', href:'/admin/leave/balance', desc:'Paid leave admin', adminOnly:true, prio:22 },
       { key:'leave', title:'申請', icon:'📝', href:'/ui/requests', desc:'Leave & requests', prio:30, hideForAdmin:true },

@@ -580,10 +580,17 @@ const load = async (date) => {
   showSpinner(true);
   try {
     $('#topDate').textContent = fmtJP(date);
-    await renderNotices(date);
-    state.currentMonthStatus = await loadMonthStatus(date);
-    const isOff = await getCalendarOff(date);
-    const shift = await getShiftForDate(date).catch(() => null);
+    // Parallelize initial fetches to reduce mobile cold-start latency.
+    const noticesTask = renderNotices(date).catch(() => null);
+    const monthStatusTask = loadMonthStatus(date).catch(() => 'draft');
+    const isOffTask = getCalendarOff(date).catch(() => false);
+    const shiftTask = getShiftForDate(date).catch(() => null);
+    const dailyTask = fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/daily`).catch(() => null);
+    const dayTask = fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}`).catch(() => ({ segments: [] }));
+    const reportTask = fetchJSONAuth(`/api/work-reports/my?date=${encodeURIComponent(date)}`).catch(() => null);
+
+    state.currentMonthStatus = await monthStatusTask;
+    const [isOff, shift, daily0, day] = await Promise.all([isOffTask, shiftTask, dailyTask, dayTask]);
     const shiftStart = String(shift?.start_time || FIXED_START).trim();
     const shiftEnd = String(shift?.end_time || FIXED_END).trim();
     state.shiftStart = shiftStart;
@@ -598,7 +605,6 @@ const load = async (date) => {
       shiftInfoBox.removeAttribute('hidden');
     }
 
-    const daily0 = await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/daily`).catch(() => null);
     const daily = daily0?.daily || null;
     const defaultKubun = isOff ? '休日' : '出勤';
     const kubunSaved = String(daily?.kubun || '').trim();
@@ -620,7 +626,6 @@ const load = async (date) => {
         setupSimpleCombo(selK);
       }
     } catch {}
-    const day = await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}`);
     const segments = Array.isArray(day?.segments) ? day.segments : [];
     let seg = pickLatestSegment(segments);
     const openSeg = pickOpenSegment(segments);
@@ -714,7 +719,8 @@ const load = async (date) => {
     } catch {}
 
     try {
-      const r = await fetchJSONAuth(`/api/work-reports/my?date=${encodeURIComponent(date)}`);
+      await noticesTask;
+      const r = await reportTask;
       const rep = r?.report || null;
       const siteEl = $('#workSite');
       const workEl = $('#workContent');
