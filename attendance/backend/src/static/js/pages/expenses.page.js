@@ -20,19 +20,14 @@ const fmtDT = (v) => {
   } catch { return String(v).replace('T',' ').slice(0,16); }
 };
 let formActive = false;
+let navBusy = false;
 const renderSummary = async () => {
   try {
     const m = new Date().toISOString().slice(0,7);
     const rows = await fetchJSONAuth(`/api/expenses/my?month=${encodeURIComponent(m)}`);
     const a = Array.isArray(rows) ? rows.filter(r => String(r.status) === 'applied').length : 0;
-    const ap = Array.isArray(rows) ? rows.filter(r => String(r.status) === 'approved').length : 0;
-    const rj = Array.isArray(rows) ? rows.filter(r => String(r.status) === 'rejected').length : 0;
     const sA = document.getElementById('empSumApplied');
-    const sAp = document.getElementById('empSumApproved');
-    const sR = document.getElementById('empSumRejected');
     if (sA) sA.textContent = String(a);
-    if (sAp) sAp.textContent = String(ap);
-    if (sR) sR.textContent = '差戻し: ' + String(rj);
     try {
       const latest = await fetchJSONAuth('/api/expenses/months/applied');
       const label = latest && latest.month ? String(latest.month) : '';
@@ -47,102 +42,9 @@ const renderNotices = async () => {
   try {
     const m = new Date().toISOString().slice(0,7);
     const rows = await fetchJSONAuth(`/api/expenses/my?month=${encodeURIComponent(m)}&status=rejected`);
-    const host = document.getElementById('empNoticesList');
-    if (!host) return;
-    if (!Array.isArray(rows) || rows.length === 0) { host.innerHTML = '<div style="color:#64748b;">通知なし</div>'; return; }
-    host.innerHTML = rows.slice(0, 5).map(r => {
-      const d = String(r.date || '').slice(0,10);
-      const memo = r.manager_note ? `（理由: ${r.manager_note}）` : '';
-      return `<div data-id="${String(r.id)}" style="display:flex;align-items:center;gap:6px;">
-        <span style="color:#1f2937;font-size:12px;">${d}</span>
-        <span style="color:#334155;font-size:12px;flex:1;">${(r.origin||'')}${r.via?('→'+r.via):''}${r.destination?('→'+r.destination):''} ${memo}</span>
-        <button class="btn" data-action="notice-reply" style="height:26px;">取り戻し理由</button>
-        <button class="btn" data-action="notice-edit" style="height:26px;">編集</button>
-      </div>`;
-    }).join('');
-    try {
-      const msgs = await fetchJSONAuth(`/api/expenses/my/messages?month=${encodeURIComponent(m)}`);
-      const more = Array.isArray(msgs) && msgs.length ? msgs.slice(0,5).map(c => {
-        const d = c.date ? String(c.date).slice(0,10) : '';
-        const dt = fmtDT(c.created_at);
-        const route = [c.origin || '', c.via || '', c.destination || ''].filter(Boolean).join('→');
-        const sn = c.sender_name || '';
-        return `<div data-exp-id="${String(c.expense_id)}" style="display:flex;align-items:center;gap:6px;">
-          <span style="color:#334155;font-size:12px;">${dt}</span>
-          <span style="color:#1f2937;font-weight:700;">${sn}</span>
-          <span style="color:#334155;flex:1;">${d} ${route}</span>
-          <button class="btn" data-action="open-chat" style="height:26px;">表示</button>
-        </div>`;
-      }).join('') : '';
-      host.innerHTML = more ? (more + host.innerHTML) : host.innerHTML;
-    } catch {}
-    if (!host.dataset.bound) {
-      host.dataset.bound = '1';
-      host.addEventListener('click', async (e) => {
-      const b = e.target.closest('button[data-action]');
-      if (!b) return;
-      const row = b.closest('div[data-id]');
-      const id = row ? row.getAttribute('data-id') : '';
-      const act = b.getAttribute('data-action');
-      if (act === 'open-chat') {
-        const chatRow = b.closest('div[data-exp-id]');
-        const expId = chatRow ? chatRow.getAttribute('data-exp-id') : '';
-        if (!expId) return;
-        try {
-          const rec = await fetchJSONAuth(`/api/expenses/${encodeURIComponent(expId)}`);
-          const mval = rec && rec.date ? String(rec.date).slice(0,7) : new Date().toISOString().slice(0,7);
-          const mf = document.getElementById('exFilterMonth'); if (mf) mf.value = mval;
-          await showTab('history');
-          await renderList();
-          const host2 = $('#exListHost'); const t2 = host2 ? host2.querySelector('tbody') : null;
-          const tr2 = t2 ? t2.querySelector(`tr[data-id="${CSS.escape(String(expId))}"]`) : null;
-          if (tr2) {
-            const btn2 = tr2.querySelector('button[data-action="reply"]');
-            if (btn2) btn2.click();
-          }
-        } catch {}
-        return;
-      }
-      if (!id) return;
-      if (act === 'notice-reply') {
-        const note = window.prompt('取り戻し理由を入力してください（必須）', '') || '';
-        if (!String(note).trim()) return;
-        try {
-          await fetchJSONAuth(`/api/expenses/${encodeURIComponent(id)}/reply`, { method:'POST', body: JSON.stringify({ note }) });
-        } catch (errRep) {
-          showErr(errRep?.message || '送信に失敗しました'); return;
-        }
-        await renderSummary();
-        await renderNotices();
-      } else if (act === 'notice-edit') {
-        try {
-          const r = await fetchJSONAuth(`/api/expenses/${encodeURIComponent(id)}`);
-          const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-          setVal('exDate', r.date ? String(r.date).slice(0,10) : todayISO());
-          setVal('exType', r.type || (r.category || 'train'));
-          setVal('exOrigin', r.origin || '');
-          setVal('exVia', r.via || '');
-          setVal('exDestination', r.destination || '');
-          setVal('exTripType', r.trip_type || 'one_way');
-          setVal('exTripCount', r.trip_count != null ? String(r.trip_count) : '1');
-          setVal('exKm', r.distance_km != null ? String(r.distance_km) : '');
-          setVal('exUnitPrice', r.unit_price_per_km != null ? String(r.unit_price_per_km) : '');
-          setVal('exPurpose', r.purpose || '');
-          const teikiEl = document.getElementById('exTeiki'); if (teikiEl) teikiEl.checked = !!r.teiki_flag;
-          setVal('exAmount', r.amount != null ? String(r.amount) : '');
-          setVal('exMemo', r.memo || '');
-          await renderList();
-          const tabs = document.querySelectorAll('.page-tabs .tab');
-          tabs.forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === 'home'));
-          const home = document.getElementById('homeSection'); const hist = document.getElementById('historySection');
-          if (home) home.style.display = '';
-          if (hist) hist.style.display = 'none';
-        } catch (errEd) {
-          showErr(errEd?.message || '取得に失敗しました');
-        }
-      }
-      });
-    }
+    const n = Array.isArray(rows) ? rows.length : 0;
+    const c = document.getElementById('empNoticeCount');
+    if (c) c.textContent = String(n);
   } catch {}
 };
 const wireUserMenu = () => {
@@ -163,7 +65,7 @@ const wireDrawer = () => {
   document.addEventListener('keydown',(e)=>{ if (e.key==='Escape') close(); });
 };
 const renderList = async () => {
-  const host = $('#exListHost'); if (!host) return; host.innerHTML = '<div style="color:#475569;font-weight:650;">読み込み中…</div>'; showSpinner();
+  const host = $('#exListHost'); if (!host) return; host.innerHTML = '<div style="color:#475569;font-weight:650;">読み込み中…</div>';
   try {
     const month = document.getElementById('exFilterMonth')?.value || new Date().toISOString().slice(0,7);
     const status = document.getElementById('exFilterStatus')?.value || '';
@@ -521,7 +423,7 @@ const renderList = async () => {
     }
   } catch (e) {
     host.innerHTML = `<div style="color:#b00020;font-weight:650;">取得失敗: ${String(e?.message || 'unknown')}</div>`;
-  } finally { hideSpinner(); }
+  } finally {}
 };
 const renderHistoryTitle = () => {
   // no-op: history controls are now on the toolbar row
@@ -760,81 +662,66 @@ document.addEventListener('DOMContentLoaded', async () => {
     const u = `/api/expenses/export.csv?month=${encodeURIComponent(m)}&status=${encodeURIComponent(s)}`;
     window.location.href = u;
   });
-  const tabs = document.querySelectorAll('.page-tabs .tab');
+  const navNew = document.getElementById('topNavNew');
+  const navApplied = document.getElementById('topNavApplied');
+  const navNotice = document.getElementById('topNavNotice');
   const homeSection = document.getElementById('homeSection');
   const historySection = document.getElementById('historySection');
-  const summary = document.getElementById('empSummary');
+  const setNavActive = (name) => {
+    navNew?.classList.toggle('active', name === 'new');
+    navApplied?.classList.toggle('active', name === 'applied');
+    navNotice?.classList.toggle('active', name === 'notice');
+  };
   const showTab = async (name) => {
-    if (name === 'history') {
+    if (name === 'new') {
+      formActive = true;
+      if (homeSection) homeSection.style.display = '';
+      if (historySection) historySection.style.display = 'none';
+    } else {
       if (homeSection) homeSection.style.display = 'none';
       if (historySection) historySection.style.display = '';
-      if (summary) summary.style.display = 'none';
       renderHistoryTitle();
-    } else {
-      if (homeSection) homeSection.style.display = formActive ? '' : 'none';
-      if (historySection) historySection.style.display = 'none';
-      if (summary) summary.style.display = '';
     }
-    tabs.forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === name));
+    setNavActive(name);
   };
-  tabs.forEach(b => b.addEventListener('click', async (e) => {
+  navNew?.addEventListener('click', async (e) => {
     e.preventDefault();
-    const name = b.getAttribute('data-tab') || 'home';
-    await showTab(name);
-  }));
-  await showTab('home');
+    await showTab('new');
+  });
+  navApplied?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (navBusy) return;
+    navBusy = true;
+    const m = document.getElementById('exFilterMonth');
+    const s = document.getElementById('exFilterStatus');
+    if (s) s.value = 'applied';
+    try {
+      const latest = await fetchJSONAuth('/api/expenses/months/applied');
+      if (m && latest && latest.month) m.value = String(latest.month);
+    } catch {}
+    try {
+      await showTab('applied');
+      await renderList();
+    } finally {
+      navBusy = false;
+    }
+  });
+  navNotice?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (navBusy) return;
+    navBusy = true;
+    const s = document.getElementById('exFilterStatus');
+    if (s) s.value = 'rejected';
+    try {
+      await showTab('notice');
+      await renderList();
+    } finally {
+      navBusy = false;
+    }
+  });
+  await showTab('new');
   try { await renderSummary(); } catch {}
   try {
-    const nm = document.getElementById('empNewMonth');
-    if (nm && !nm.value) {
-      try {
-        const active = await fetchJSONAuth('/api/expenses/months/active');
-        nm.value = (active && active.month) ? String(active.month) : new Date().toISOString().slice(0,7);
-      } catch { nm.value = new Date().toISOString().slice(0,7); }
-    }
-    const syncEntryDateWithMonth = () => {
-      const dateEl = document.getElementById('exDate');
-      const monthVal = String(nm?.value || '');
-      if (!dateEl || !/^\d{4}-\d{2}$/.test(monthVal)) return;
-      const cur = String(dateEl.value || '');
-      if (!cur || !cur.startsWith(monthVal + '-')) {
-        dateEl.value = `${monthVal}-01`;
-      }
-    };
-    syncEntryDateWithMonth();
-    nm?.addEventListener('change', syncEntryDateWithMonth);
-    const btnStart = document.getElementById('empNewStart');
-    btnStart?.addEventListener('click', async () => {
-      const mv = document.getElementById('empNewMonth')?.value || new Date().toISOString().slice(0,7);
-      try { await fetchJSONAuth('/api/expenses/months/start', { method:'POST', body: JSON.stringify({ month: mv }) }); } catch {}
-      try { window.location.replace('/ui/expenses?month=' + encodeURIComponent(mv)); } catch { window.location.href = '/ui/expenses?month=' + encodeURIComponent(mv); }
-    });
-    const btnForm = document.getElementById('empGoForm');
-    btnForm?.addEventListener('click', async () => {
-      let curM = new Date().toISOString().slice(0,7);
-      try {
-        const latest = await fetchJSONAuth('/api/expenses/months/applied');
-        if (latest && latest.month) curM = String(latest.month);
-        else {
-          const active = await fetchJSONAuth('/api/expenses/months/active');
-          if (active && active.month) curM = String(active.month);
-        }
-      } catch {}
-      try { await fetchJSONAuth('/api/expenses/months/start', { method:'POST', body: JSON.stringify({ month: curM }) }); } catch {}
-      try { window.location.replace('/ui/expenses?month=' + encodeURIComponent(curM)); } catch { window.location.href = '/ui/expenses?month=' + encodeURIComponent(curM); }
-    });
-    const btnHist = document.getElementById('empGoHistory');
-    btnHist?.addEventListener('click', async () => {
-      const m = document.getElementById('exFilterMonth');
-      if (m) {
-        try {
-          const active = await fetchJSONAuth('/api/expenses/months/active');
-          m.value = (active && active.month) ? String(active.month) : new Date().toISOString().slice(0,7);
-        } catch { m.value = new Date().toISOString().slice(0,7); }
-      }
-      await showTab('history');
-      await renderList();
-    });
     await renderNotices();
   } catch {}
   try {

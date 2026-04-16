@@ -243,6 +243,52 @@
       margin: 0 auto;
     }
 
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .summary-card {
+      border: 1px solid #dbe2ea;
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+      text-align: left;
+      cursor: pointer;
+      transition: box-shadow .15s ease, border-color .15s ease, transform .1s ease;
+    }
+
+    .summary-card:hover {
+      border-color: #c7d7ef;
+      box-shadow: 0 6px 16px rgba(11, 44, 102, .08);
+    }
+
+    .summary-card:active {
+      transform: translateY(1px);
+    }
+
+    .summary-card-title {
+      color: #0b2c66;
+      font-weight: 800;
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .summary-card-sub {
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.35;
+      min-height: 34px;
+    }
+
+    .summary-card-meta {
+      margin-top: 8px;
+      color: #0f172a;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
     .history-toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -886,6 +932,14 @@
         gap: 8px;
       }
 
+      #empSummary .summary-cards {
+        grid-template-columns: 1fr;
+      }
+
+      #empSummary .summary-card-title {
+        font-size: 15px;
+      }
+
       #historySection .history-filters {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -985,8 +1039,9 @@
       <div class="page-left">
         <div class="page-title">交通費計算</div>
         <div class="page-tabs" style="display:flex;gap:8px;align-items:center;">
-          <button class="tab active" data-tab="home">ホーム</button>
-          <button class="tab" data-tab="history">履歴</button>
+          <button class="tab active" id="topNavNew" type="button">新規作成</button>
+          <button class="tab" id="topNavApplied" type="button">申請</button>
+          <button class="tab" id="topNavNotice" type="button">お知らせ</button>
         </div>
       </div>
       <div class="user">
@@ -1008,43 +1063,6 @@
   <main class="content">
     <section class="card">
       <div id="error" class="adjust-error"></div>
-      <div id="empSummary" class="adj-table-card" style="margin:12px 0;">
-        <table class="adj-table">
-          <thead>
-            <tr>
-              <th style="width:160px;">機能</th>
-              <th>内容</th>
-              <th style="width:200px;">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>新規作成</td>
-              <td>月を選択して新規申請</td>
-              <td>
-                <div class="new-month-row" style="display:flex;gap:8px;align-items:center;">
-                  <input id="empNewMonth" type="month"
-                    style="height:32px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:8px;">
-                  <button id="empNewStart" class="btn" type="button" style="height:32px;">開始</button>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td>申請中</td>
-              <td><span id="empAppliedMonth" style="font-weight:700;color:#1f2937;margin-right:12px;">-</span><span
-                  id="empSumApplied" style="font-weight:800;">0</span></td>
-              <td><button id="empGoForm" class="btn" type="button" style="height:32px;">この月を入力</button></td>
-            </tr>
-            <tr>
-              <td>お知らせ</td>
-              <td colspan="2">
-                <div id="empNoticesList" style="display:flex;flex-direction:column;gap:4px;"></div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
       <section id="homeSection" style="display:none;">
         <div class="form-wrap adjust-grid">
           <div class="adjust-label">日付</div>
