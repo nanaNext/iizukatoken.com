@@ -11,13 +11,24 @@
     .req-page {
       max-width: 1200px;
       margin: 0 auto;
+      display: grid;
+      gap: 10px;
+    }
+
+    /* This page does not need the secondary nav (ホーム / 申請 / お問い合わせ先) */
+    .subbar {
+      display: none !important;
+    }
+
+    .subbar + .content {
+      padding-top: calc(var(--topbar-height) + 8px) !important;
     }
 
     .req-head {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin: 8px 0 12px;
+      margin: 0;
     }
 
     .req-ico {
@@ -99,6 +110,17 @@
       padding: 8px;
     }
 
+    .req-empty {
+      margin: 12px 0;
+      padding: 14px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+      color: #64748b;
+      font-weight: 700;
+      text-align: center;
+    }
+
     .req-search {
       flex: 1;
     }
@@ -108,7 +130,7 @@
       padding: 8px 12px;
       border: 2px solid #cbd5e1;
       border-radius: 10px;
-      box-shadow: 0 1px 0 rgba(0,0,0,.05);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, .05);
     }
 
     .req-new {
@@ -119,19 +141,110 @@
       border-radius: 8px;
       cursor: pointer;
     }
-    .req-tools { display: flex; gap: 6px; align-items: center; }
-    .req-tools .tool-wrap { position: relative; }
-    .btn-tool { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 2px solid #cbd5e1; background: #fff; color: #0b2c66; border-radius: 10px; cursor: pointer; font-weight: 800; box-shadow: 0 1px 0 rgba(0,0,0,.05); }
-    .btn-tool:hover { background: #f1f5f9; border-color: #94a3b8; box-shadow: 0 2px 0 rgba(0,0,0,.06); }
-    .btn-tool[disabled]{ opacity: .5; cursor: default; }
-    .req-tip[hidden]{ display:none; }
-    .req-tip { position:absolute; top:-42px; right:0; background:#0b2c66; color:#fff; border-radius:10px; padding:6px 10px; font-size:13px; font-weight:800; white-space:nowrap; box-shadow:0 10px 24px rgba(0,0,0,.18); }
-    .req-tip .tip-arrow { position:absolute; bottom:-6px; right:18px; width:12px; height:12px; background:#0b2c66; transform: rotate(45deg); }
-    .req-settings-menu[hidden]{ display:none; }
-    .req-settings-menu { position:absolute; top: calc(100% + 6px); right: 0; background:#fff; border:2px solid #e5e7eb; border-radius: 12px; box-shadow: 0 12px 28px rgba(0,0,0,.18); min-width: 240px; z-index: 1800; padding: 6px 0; }
-    .req-set-item { width:100%; text-align:left; background:#fff; border:0; padding:10px 14px; cursor:pointer; color:#0b2c66; font-weight:800; font-size:14px; }
-    .req-set-item:hover { background:#eef2f7; }
-    .req-set-item[disabled] { opacity:.95; cursor: default; color:#0b2c66; font-weight:800; }
+
+    .req-tools {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .req-tools .tool-wrap {
+      position: relative;
+    }
+
+    .btn-tool {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border: 2px solid #cbd5e1;
+      background: #fff;
+      color: #0b2c66;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 800;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, .05);
+    }
+
+    .btn-tool:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+      box-shadow: 0 2px 0 rgba(0, 0, 0, .06);
+    }
+
+    .btn-tool[disabled] {
+      opacity: .5;
+      cursor: default;
+    }
+
+    .req-tip[hidden] {
+      display: none;
+    }
+
+    .req-tip {
+      position: absolute;
+      top: -42px;
+      right: 0;
+      background: #0b2c66;
+      color: #fff;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, .18);
+    }
+
+    .req-tip .tip-arrow {
+      position: absolute;
+      bottom: -6px;
+      right: 18px;
+      width: 12px;
+      height: 12px;
+      background: #0b2c66;
+      transform: rotate(45deg);
+    }
+
+    .req-settings-menu[hidden] {
+      display: none;
+    }
+
+    .req-settings-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      background: #fff;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, .18);
+      min-width: 240px;
+      z-index: 1800;
+      padding: 6px 0;
+    }
+
+    .req-set-item {
+      width: 100%;
+      text-align: left;
+      background: #fff;
+      border: 0;
+      padding: 10px 14px;
+      cursor: pointer;
+      color: #0b2c66;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .req-set-item:hover {
+      background: #eef2f7;
+    }
+
+    .req-set-item[disabled] {
+      opacity: .95;
+      cursor: default;
+      color: #0b2c66;
+      font-weight: 800;
+    }
 
     .req-modal[hidden] {
       display: none;
@@ -156,6 +269,14 @@
       box-shadow: 0 8px 20px rgba(0, 0, 0, .12);
     }
 
+    .req-card h3 {
+      margin: 0 0 12px;
+      color: #0b2c66;
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
     .req-form-row {
       display: flex;
       flex-direction: column;
@@ -176,7 +297,11 @@
       gap: 8px;
       justify-content: flex-end;
     }
-    .req-new-wrap { position: relative; display: inline-block; }
+
+    .req-new-wrap {
+      position: relative;
+      display: inline-block;
+    }
 
     .req-list-btn {
       border: 1px solid #d1d5db;
@@ -190,6 +315,17 @@
 
     .req-list-menu[hidden] {
       display: none;
+    }
+    #newListMenu[hidden],
+    #listMenu[hidden] {
+      display: none !important;
+    }
+
+    #newListMenu .items {
+      max-height: 42vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
     }
 
     .req-list-menu {
@@ -217,7 +353,7 @@
       display: none;
     }
 
-    .req-page.persistent-list .req-list-menu {
+    .req-page.persistent-list #listMenu.req-list-menu {
       position: static;
       top: auto;
       left: auto;
@@ -230,29 +366,48 @@
       z-index: auto;
     }
 
-    .req-list-menu .head {
+    #listMenu.req-list-menu .head {
       padding: 10px;
       border-bottom: 1px solid #f1f5f9;
     }
 
-    .req-list-menu .head input {
+    #listMenu.req-list-menu .head input {
       width: 100%;
       padding: 8px 10px;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
     }
-    .req-quick { padding: 10px; border-bottom: 1px solid #f1f5f9; display: grid; gap: 8px; }
-    .req-quick select, .req-quick textarea, .req-quick input { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; }
-    .req-quick .actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-    .req-list-menu .section {
+    .req-quick {
+      padding: 10px;
+      border-bottom: 1px solid #f1f5f9;
+      display: grid;
+      gap: 8px;
+    }
+
+    .req-quick select,
+    .req-quick textarea,
+    .req-quick input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+    }
+
+    .req-quick .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    #listMenu.req-list-menu .section {
       padding: 10px 10px 4px;
       font-weight: 800;
       color: #111827;
       font-size: 13px;
     }
 
-    .req-list-menu .items {
+    #listMenu.req-list-menu .items {
       max-height: 280px;
       overflow: auto;
       padding: 4px 0 10px;
@@ -286,6 +441,51 @@
     }
 
     @media (max-width: 480px) {
+      :root {
+        --topbar-height: 52px;
+      }
+      body:not(.admin) .topbar {
+        padding: 6px 10px !important;
+        min-height: var(--topbar-height) !important;
+      }
+      body:not(.admin) .topbar-inner {
+        gap: 8px !important;
+        padding-right: 0 !important;
+      }
+      body:not(.admin) .mobile-btn,
+      body:not(.admin) .user .user-btn {
+        width: 30px !important;
+        height: 30px !important;
+        min-width: 30px !important;
+      }
+      body:not(.admin) .user .user-icon {
+        width: 24px !important;
+        height: 24px !important;
+      }
+      body:not(.admin) .topbar .search {
+        flex: 1 1 auto !important;
+        max-width: none !important;
+        margin: 0 4px !important;
+      }
+      body:not(.admin) .topbar .search input {
+        height: 30px !important;
+        line-height: 30px !important;
+        font-size: 13px !important;
+      }
+      body:not(.admin) .subbar {
+        display: none !important;
+      }
+
+      body:not(.admin) .subbar+.content {
+        padding-top: calc(var(--topbar-height) + 8px) !important;
+      }
+
+      body:not(.admin) .content {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        padding-bottom: 10px !important;
+      }
+
       .req-page {
         max-width: 100%;
       }
@@ -314,18 +514,117 @@
 
       .req-toolbar {
         gap: 6px;
-        padding: 4px 0;
+        padding: 2px 0 0;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+
+      .req-tools {
+        order: 1;
+        width: 100%;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+
+      .req-new-wrap {
+        order: 2;
+        width: 100%;
+        position: static;
+        z-index: auto;
+      }
+
+      .req-search {
+        order: 3;
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .req-search {
+        display: none;
+      }
+
+      #newListMenu.req-list-menu {
+        position: fixed;
+        top: calc(var(--topbar-height) + 52px);
+        left: 0;
+        right: 0;
+        margin-left: 8px;
+        margin-right: 8px;
+        width: auto;
+        max-width: none;
+        margin-top: 0;
+        z-index: 3900;
+        box-sizing: border-box;
+        max-height: calc(100vh - var(--topbar-height) - 90px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        border-radius: 10px;
+      }
+
+      #newListMenu .items {
+        max-height: calc(100vh - var(--topbar-height) - 260px);
+        overflow-y: auto;
+      }
+
+      #newListMenu .section {
+        font-size: 13px;
+        padding: 8px 10px 4px;
+      }
+
+      #newListMenu .head input {
+        height: 30px;
+        font-size: 12px;
+        padding: 4px 8px;
+      }
+
+      #newListMenu .req-quick {
+        padding: 8px;
+        gap: 6px;
+      }
+
+      #newListMenu .req-quick select {
+        font-size: 13px;
+        height: 36px;
+        padding: 6px 8px;
+      }
+
+      #newListMenu .req-list-item {
+        padding: 6px 10px;
+      }
+
+      #newListMenu.req-list-menu .head,
+      #newListMenu.req-list-menu .section,
+      #newListMenu.req-list-menu .items,
+      #newListMenu.req-list-menu .req-quick {
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      #newListMenu.req-list-menu .req-list-item {
+        min-width: 0;
+      }
+
+      #newListMenu.req-list-menu .req-list-item .label {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: normal;
+        line-height: 1.25;
+        font-size: 13px;
       }
 
       .req-new {
-        padding: 5px 8px;
+        padding: 8px 12px;
         border-radius: 7px;
-        font-size: 11px;
+        font-size: 13px;
+        font-weight: 800;
+        min-height: 36px;
       }
 
       .btn-tool {
-        width: 28px;
-        height: 28px;
+        width: 30px;
+        height: 30px;
         border-radius: 7px;
         font-size: 12px;
       }
@@ -357,13 +656,23 @@
         padding-left: 0 !important;
         padding-right: 0 !important;
       }
+
       .req-page {
         width: 100%;
         max-width: 100%;
         margin: 0;
         padding: 0 4px;
         box-sizing: border-box;
-        overflow-x: auto;
+        overflow-x: hidden;
+      }
+
+      #newListMenu.req-list-menu {
+        left: 0;
+        right: 0;
+        margin-left: 6px;
+        margin-right: 6px;
+        width: auto;
+        max-width: none;
       }
 
       .req-head {
@@ -393,9 +702,10 @@
       }
 
       .req-new {
-        padding: 4px 6px;
+        padding: 5px 8px;
         border-radius: 6px;
-        font-size: 10px;
+        font-size: 11px;
+        font-weight: 800;
       }
 
       .btn-tool {
@@ -441,9 +751,11 @@
       .req-title {
         gap: 4px;
       }
+
       .req-list-btn {
         display: none;
       }
+
       #listMenu {
         display: none !important;
       }
@@ -564,7 +876,7 @@
           <button class="btn-tool" id="toolClock" title="履歴">⏱</button>
         </div>
       </div>
-      <table class="req-table" aria-label="申請一覧">
+      <table id="reqTable" class="req-table" aria-label="申請一覧">
         <thead>
           <tr>
             <th style="width:140px;">申請番号</th>
@@ -578,6 +890,7 @@
         </thead>
         <tbody id="reqBody"></tbody>
       </table>
+      <div id="reqEmpty" class="req-empty" hidden>データがありません</div>
     </div>
   </main>
   <div id="reqModal" class="req-modal" hidden>
@@ -609,4 +922,3 @@
 </body>
 
 </html>
-

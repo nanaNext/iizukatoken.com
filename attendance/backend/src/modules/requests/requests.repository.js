@@ -39,6 +39,19 @@ module.exports = {
     );
     return rows;
   },
+  async listRecentAppliedTypes(userId, { limit = 20 } = {}) {
+    const lim = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const [rows] = await db.query(
+      `SELECT record_type, MAX(updated_at) AS last_used_at, COUNT(*) AS applied_count
+       FROM employee_requests
+       WHERE user_id = ? AND status = '申請済み'
+       GROUP BY record_type
+       ORDER BY last_used_at DESC
+       LIMIT ?`,
+      [userId, lim]
+    );
+    return rows || [];
+  },
   async create({ userId, recordType, detail, office, status = '申請済み' }) {
     const ts = Date.now();
     const rand = Math.floor(Math.random() * 1000);

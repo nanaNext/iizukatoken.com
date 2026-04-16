@@ -662,15 +662,15 @@ body.drawer-open .content {
 }
 
 .user .user-icon {
-  height: 56px;
-  width: 56px;
+  height: 38px;
+  width: 38px;
   vertical-align: middle;
 }
 
 @media (min-width: 481px) {
   .admin .user .user-icon {
-    height: 64px;
-    width: 64px;
+    height: 44px;
+    width: 44px;
   }
 }
 
@@ -2206,13 +2206,28 @@ body.drawer-open .content {
     box-sizing: border-box;
   }
   .subbar {
-    display: none;
+    display: flex;
+    min-height: var(--subbar-height);
   }
   .subbar + .content {
-    padding-top: calc(var(--topbar-height) + 18px);
+    padding-top: calc(var(--topbar-height) + var(--subbar-height) + 10px);
   }
   .subbar .subnav {
-    display: none;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding: 0 10px;
+    height: var(--subbar-height);
+    align-items: center;
+  }
+  .subbar .subnav > a,
+  .subbar .subnav .menu .menu-btn {
+    white-space: nowrap;
+    font-size: 13px;
+    padding: 4px 8px;
+    margin: 0;
   }
   .mobile-btn {
     display: inline-block;

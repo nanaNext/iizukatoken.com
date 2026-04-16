@@ -19,6 +19,18 @@ exports.listMine = async (req, res) => {
   }
 };
 
+exports.listRecentAppliedTypes = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    const limit = Number(req.query.limit || 20);
+    const data = await repo.listRecentAppliedTypes(userId, { limit });
+    res.status(200).json({ data });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+};
+
 exports.create = async (req, res) => {
   try {
     const errors = validationResult(req);

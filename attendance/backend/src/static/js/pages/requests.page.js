@@ -1,4 +1,4 @@
-import { listMyRequests, createRequest } from '../api/requests.api.js';
+import { listMyRequests, createRequest, listMyRecentAppliedTypes } from '../api/requests.api.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -14,8 +14,19 @@ function savePin(v) {
 
 function renderRows(rows) {
   const body = $('#reqBody');
+  const table = $('#reqTable');
+  const empty = $('#reqEmpty');
   if (!body) return;
-  body.innerHTML = (rows || []).map((r) => {
+  const list = Array.isArray(rows) ? rows : [];
+  if (list.length === 0) {
+    body.innerHTML = '';
+    if (table) table.hidden = true;
+    if (empty) empty.hidden = false;
+    return;
+  }
+  if (table) table.hidden = false;
+  if (empty) empty.hidden = true;
+  body.innerHTML = list.map((r) => {
     const no = r.request_no || r.requestNo || '';
     const status = r.status || '';
     const type = r.record_type || r.recordType || '';
@@ -89,6 +100,11 @@ function bindUI() {
   const setColumns = $('#setColumns');
   const setDelete = $('#setDelete');
   const setResetWidth = $('#setResetWidth');
+  const closeNewList = () => {
+    if (!newListMenu) return;
+    newListMenu.hidden = true;
+    btnNew?.setAttribute('aria-expanded', 'false');
+  };
   if (listMenu) listMenu.hidden = !openListByDefault;
   if (listBtn) listBtn.setAttribute('aria-expanded', openListByDefault ? 'true' : 'false');
   // New button now opens the full-list picker
@@ -128,8 +144,7 @@ function bindUI() {
       }
       const open = btnNew.getAttribute('aria-expanded') === 'true';
       if (open) {
-        newListMenu.hidden = true;
-        btnNew.setAttribute('aria-expanded', 'false');
+        closeNewList();
       } else {
         if (newListFilter) newListFilter.value = '';
         ensureNewListOpen();
@@ -140,8 +155,7 @@ function bindUI() {
       if (!newListMenu || newListMenu.hidden) return;
       const inside = newListMenu.contains(e.target) || e.target === btnNew;
       if (!inside) {
-        newListMenu.hidden = true;
-        btnNew.setAttribute('aria-expanded', 'false');
+        closeNewList();
       }
     });
   }
@@ -280,6 +294,27 @@ function bindUI() {
       if (appliedItems.length >= 50) break;
     }
   };
+  const loadRecentAppliedFromServer = async () => {
+    try {
+      const res = await listMyRecentAppliedTypes(20);
+      const data = Array.isArray(res?.data) ? res.data : [];
+      const types = data
+        .map((r) => String(r?.record_type || '').trim())
+        .filter(Boolean);
+      if (!types.length) return;
+      mergeRecent([...types, ...recentItems]);
+      const seen = new Set();
+      appliedItems = [];
+      for (const t of types) {
+        const k = t.toLowerCase();
+        if (seen.has(k)) continue;
+        seen.add(k);
+        appliedItems.push(t);
+        if (appliedItems.length >= 50) break;
+      }
+      renderList(listFilter?.value || '');
+    } catch {}
+  };
   recentItems = loadRecent();
   const saveSel = (v) => { try { localStorage.setItem(keySel, v); } catch {} };
   const loadSel = () => { try { return localStorage.getItem(keySel) || ''; } catch { return '' } };
@@ -301,6 +336,7 @@ function bindUI() {
     renderList(listFilter?.value || '');
   };
   renderList('');
+  loadRecentAppliedFromServer();
   const openMenu = () => {
     if (!listMenu) return;
     listMenu.hidden = false;
@@ -352,9 +388,9 @@ function bindUI() {
       const office = (quickOffice?.value || '').trim();
       try {
         await createRequest({ recordType, detail, office });
-        if (newListMenu) newListMenu.hidden = true;
-        btnNew?.setAttribute('aria-expanded', 'false');
+        closeNewList();
         await load(searchInput?.value || '', { force: true });
+        await loadRecentAppliedFromServer();
       } catch (e) {
         alert(e?.message || '保存に失敗しました');
       }
@@ -363,11 +399,12 @@ function bindUI() {
 
   if (toolRefresh) {
     toolRefresh.addEventListener('click', async () => {
+      closeNewList();
       await load(searchInput?.value || '', { force: true });
     });
   }
   if (toolEdit && modal) {
-    toolEdit.addEventListener('click', () => { modal.hidden = false; });
+    toolEdit.addEventListener('click', () => { closeNewList(); modal.hidden = false; });
   }
   if (toolSettings) {
     toolSettings.addEventListener('click', (e) => {
@@ -393,6 +430,7 @@ function bindUI() {
   }
   if (toolView) {
     toolView.addEventListener('click', () => {
+      closeNewList();
       const tbl = document.querySelector('.req-table');
       if (!tbl) return;
       tbl.classList.toggle('compact');
