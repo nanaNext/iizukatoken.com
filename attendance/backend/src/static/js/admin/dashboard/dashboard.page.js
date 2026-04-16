@@ -6,7 +6,7 @@ const $ = (sel) => document.querySelector(sel);
 const showSpinner = () => {
   try {
     const el = document.querySelector('#pageSpinner');
-    if (el) { el.removeAttribute('hidden'); el.style.display = 'flex'; }
+    if (el) { el.removeAttribute('hidden'); el.style.display = 'grid'; }
   } catch {}
 };
 const hideSpinner = () => {
@@ -451,7 +451,7 @@ const renderDashboard = async (profile) => {
       try { sessionStorage.setItem('navSpinner', '1'); } catch {}
       try {
         const sp = document.querySelector('#pageSpinner');
-        if (sp) { sp.removeAttribute('hidden'); sp.style.display = 'flex'; }
+        if (sp) { sp.removeAttribute('hidden'); sp.style.display = 'grid'; }
       } catch {}
       window.location.href = monthHref;
     };
@@ -494,7 +494,7 @@ const renderDashboard = async (profile) => {
       try { sessionStorage.setItem('navSpinner', '1'); } catch {}
       try {
         const sp = document.querySelector('#pageSpinner');
-        if (sp) { sp.removeAttribute('hidden'); sp.style.display = 'flex'; }
+        if (sp) { sp.removeAttribute('hidden'); sp.style.display = 'grid'; }
       } catch {}
     });
     actions.appendChild(link);

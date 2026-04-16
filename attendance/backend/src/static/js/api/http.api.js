@@ -118,10 +118,15 @@ async function fetchAuthResponse(url, options) {
     } catch {}
   }
   let res = await doFetchAuth(url, options, tok);
-  if (!res.ok && res.status === 401) {
+  if (!res.ok && (res.status === 401 || res.status === 403)) {
+    let authExpiredLike = res.status === 401;
     try {
       const clone = res.clone();
       const j = await clone.json().catch(() => ({}));
+      const msg = String(j?.message || '').toLowerCase();
+      if (res.status === 403 && (msg.includes('invalid or expired token') || msg.includes('invalid token version'))) {
+        authExpiredLike = true;
+      }
       if (j.notPublished || (j.message && j.message.includes('公開されていません'))) {
         // It's a specific business error, not an auth error, so don't try to refresh/login
         throw new Error(j.message || 'Not published');
@@ -133,12 +138,14 @@ async function fetchAuthResponse(url, options) {
       // If not JSON or not our specific error, proceed with refresh logic
     }
 
-    try {
-      const r = await refreshCached();
-      sessionStorage.setItem('accessToken', r.accessToken);
-      res = await doFetchAuth(url, options, r.accessToken);
-    } catch {
-      redirectToLoginOnce();
+    if (authExpiredLike) {
+      try {
+        const r = await refreshCached();
+        sessionStorage.setItem('accessToken', r.accessToken);
+        res = await doFetchAuth(url, options, r.accessToken);
+      } catch {
+        redirectToLoginOnce();
+      }
     }
   }
   if (!res.ok) {

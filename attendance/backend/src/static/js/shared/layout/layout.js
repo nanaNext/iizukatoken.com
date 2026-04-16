@@ -366,15 +366,14 @@ export const showNavSpinner = () => {
       el.style.position = 'fixed';
       el.style.inset = '0';
       el.style.background = '#fff';
-      el.style.display = 'flex';
-      el.style.alignItems = 'center';
-      el.style.justifyContent = 'center';
+      el.style.display = 'grid';
+      el.style.placeItems = 'center';
       el.style.zIndex = '9999';
       document.body.appendChild(el);
     } else {
       el.removeAttribute('hidden');
       el.style.background = '#fff';
-      el.style.display = 'flex';
+      el.style.display = 'grid';
     }
     const c = document.querySelector('#adminContent');
     if (c) c.style.visibility = 'hidden';
@@ -400,7 +399,7 @@ export function ensureSpinnerStyle() {
       const style = document.createElement('style');
       style.id = 'spinnerStyle';
       style.textContent = `
-        .page-spinner{background:#fff;display:flex;align-items:center;justify-content:center}
+        .page-spinner{background:#fff;display:grid;place-items:center}
         .dot-spinner{position:relative;width:64px;height:64px}
         .dot-spinner div{position:absolute;top:50%;left:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#666;opacity:.2;animation:dotfade 1s linear infinite}
         @keyframes dotfade{0%{opacity:1}100%{opacity:.2}}

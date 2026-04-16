@@ -42,14 +42,14 @@
     .form-wrap {
       max-width: 980px;
       width: 100%;
-      margin-left: 0;
+      margin-left: auto;
       margin-right: auto;
     }
 
     .list-wrap {
       max-width: 980px;
       width: 100%;
-      margin-left: 0;
+      margin-left: auto;
       margin-right: auto;
     }
 
@@ -65,7 +65,9 @@
       font-weight: 700;
       font-family: Meiryo, "Meiryo UI", "Segoe UI", Arial, sans-serif;
       font-size: 14px;
-      line-height: 40px;
+      line-height: 1.4;
+      margin-top: 6px;
+      padding-top: 6px;
     }
 
     .adjust-input,
@@ -91,6 +93,38 @@
       resize: vertical;
     }
 
+    #exVia::placeholder {
+      color: #64748b;
+      opacity: 1;
+      font-weight: 600;
+    }
+
+    .adjust-grid input[type="file"] {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      padding: 6px 8px;
+      box-sizing: border-box;
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+      overflow: hidden;
+    }
+
+    .adjust-grid input[type="file"]::file-selector-button {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
+      color: #0b2c66;
+      padding: 5px 9px;
+      margin-right: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
     .adjust-grid input[type="checkbox"] {
       width: 18px;
       height: 18px;
@@ -113,6 +147,12 @@
       padding: 0 16px;
       font-family: Meiryo, "Meiryo UI", "Segoe UI", Arial, sans-serif;
       font-size: 14px;
+    }
+
+    #empSummary .btn,
+    .adjust-actions .btn,
+    #historySection .btn {
+      border-radius: 10px !important;
     }
 
     .btn-primary {
@@ -203,6 +243,56 @@
       margin: 0 auto;
     }
 
+    .history-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 10px;
+    }
+
+    .history-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .history-filters label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #334155;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .history-filters input,
+    .history-filters select {
+      height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0 10px;
+      font-size: 13px;
+      color: #0f172a;
+      background: #fff;
+    }
+
+    .history-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-left: auto;
+      flex-wrap: nowrap;
+    }
+
+    #historySection #exListHost {
+      width: 100%;
+      margin-top: 10px;
+    }
+
     .topbar .page-title {
       color: #fff;
       font-weight: 800;
@@ -235,32 +325,301 @@
       gap: 12px;
     }
 
+    .page-tabs {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: nowrap;
+    }
+
     .page-tabs .tab {
       height: 36px;
-      padding: 0 18px;
-      border-radius: 18px;
+      padding: 0 8px;
+      border-radius: 0;
       font-weight: 800;
       font-family: Meiryo, "Meiryo UI", "Segoe UI", Arial, sans-serif;
       font-size: 15px;
-      border: 1px solid rgba(255, 255, 255, .7);
-      background: rgba(255, 255, 255, .14);
-      color: #fff;
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .15);
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, .82);
+      box-shadow: none;
+      border-bottom: 2px solid transparent;
     }
 
     .page-tabs .tab.active {
-      background: #fff;
-      color: var(--brand);
-      border-color: #fff;
+      background: transparent;
+      color: #fff;
+      border-bottom-color: #fff;
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
+      .topbar-inner {
+        height: auto;
+        min-height: 56px;
+        padding: 8px 12px;
+        align-items: flex-start;
+      }
+
+      .page-left {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .page-title {
+        font-size: 18px !important;
+        line-height: 1.2;
+      }
+
+      .page-tabs .tab {
+        height: 32px;
+        font-size: 14px;
+      }
+
+      .content {
+        padding: 78px 8px 10px 8px;
+      }
+
       .card {
-        padding: 12px;
+        padding: 10px;
+        border-radius: 10px;
+      }
+
+      .form-wrap,
+      .list-wrap,
+      #empSummary {
+        max-width: 100%;
+        margin-left: auto;
+        margin-right: auto;
       }
 
       .adjust-grid {
-        grid-template-columns: 110px 1fr;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .adjust-label {
+        line-height: 1.3;
+        font-size: 12px;
+        margin-top: 6px;
+        margin-bottom: 2px;
+      }
+
+      .adjust-input,
+      .adjust-grid input[type="text"],
+      .adjust-grid input[type="number"],
+      .adjust-grid input[type="date"],
+      .adjust-grid input[type="month"],
+      .adjust-grid textarea,
+      .adjust-grid select {
+        height: 34px;
+        font-size: 12px;
+      }
+
+      .adjust-grid textarea {
+        min-height: 72px;
+      }
+
+      .receipt-upload-row {
+        flex-direction: row !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+        flex-wrap: nowrap !important;
+      }
+
+      .receipt-upload-row>div {
+        flex: 1 1 0;
+        min-width: 0;
+        width: auto;
+      }
+
+      .receipt-upload-row label {
+        font-size: 12px !important;
+        font-weight: 800 !important;
+        color: #334155 !important;
+        margin-bottom: 5px !important;
+        line-height: 1.25;
+      }
+
+      .receipt-upload-row input[type="file"] {
+        min-height: 36px;
+        padding: 4px 6px;
+        border-radius: 8px;
+        font-size: 11px;
+      }
+
+      .receipt-upload-row input[type="file"]::file-selector-button {
+        font-size: 11px;
+        padding: 4px 7px;
+      }
+
+
+
+      #historySection .adj-table-card {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      #historySection .adj-table {
+        min-width: 760px;
+      }
+
+      #historySection label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      #historySection .history-toolbar {
+        align-items: stretch;
+      }
+
+      #historySection .history-filters {
+        width: 100%;
+      }
+
+      #historySection .history-actions {
+        margin-left: 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      html,
+      body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+      }
+
+      body {
+        margin: 0 auto !important;
+      }
+
+      body.drawer-open .topbar,
+      body.drawer-open .content,
+      body.drawer-open .subbar {
+        transform: none !important;
+      }
+
+      .topbar {
+        min-height: auto;
+        left: 0;
+        right: 0;
+      }
+
+      .topbar-inner {
+        height: auto;
+        padding: 4px 8px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 28px;
+        grid-template-areas:
+          "title user"
+          "tabs user";
+        column-gap: 6px;
+        row-gap: 2px;
+        align-items: center;
+      }
+
+      .page-left {
+        display: contents;
+      }
+
+      .page-title {
+        grid-area: title;
+        font-size: 15px !important;
+        line-height: 1.15;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .page-tabs {
+        grid-area: tabs;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .page-tabs .tab {
+        height: 24px;
+        font-size: 12px;
+        padding: 0 2px;
+      }
+
+      #mobileMenuBtn {
+        display: none !important;
+      }
+
+      .topbar .user {
+        grid-area: user;
+        justify-self: end;
+      }
+
+      .topbar .user #userName,
+      .topbar .user .caret {
+        display: none;
+      }
+
+      .topbar .user .user-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        border: 1px solid rgba(255, 255, 255, .28);
+        background: rgba(255, 255, 255, .1);
+        box-shadow: none;
+        padding: 0;
+      }
+
+      .topbar .user .user-icon {
+        width: 18px;
+        height: 18px;
+      }
+
+      .content {
+        padding: 70px 6px 8px 6px;
+        width: 100%;
+        margin: 0 auto;
+        display: flex;
+        justify-content: center;
+      }
+
+      .content>section.card {
+        width: min(100%, 420px);
+        margin: 0 auto;
+      }
+
+      #empSummary,
+      .form-wrap,
+      .list-wrap,
+      #homeSection,
+      #historySection {
+        width: 100%;
+        max-width: 420px;
+        margin-left: auto !important;
+        margin-right: auto !important;
+      }
+
+      .adjust-actions {
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 10px;
+      }
+
+      #homeSection .adjust-actions .btn {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: 132px;
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+
+      #exApply {
+        margin-left: auto !important;
+        margin-right: 0 !important;
+      }
+
+      #homeSection #exStatus {
+        display: none;
       }
     }
 
@@ -305,7 +664,7 @@
     }
 
     #empSummary .adj-table tbody tr:hover {
-      background: #f9fbff;
+      background: transparent;
     }
 
     #empSummary .adj-table td:first-child {
@@ -329,7 +688,68 @@
       padding: 0 14px;
     }
 
+    #empSummary #empNewStart {
+      min-width: 96px;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    #empSummary .new-month-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      align-items: center !important;
+      gap: 8px !important;
+      width: 100%;
+    }
+
+    #empSummary .new-month-row #empNewMonth {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    #empSummary .new-month-row #empNewStart {
+      flex: 0 0 auto;
+    }
+
+    #empSummary #empNewStart,
+    #empSummary #empGoForm {
+      background: linear-gradient(180deg, #2b6cb0 0%, #245a96 100%);
+      color: #fff;
+      border: 1px solid #1e4e8c;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .1);
+      transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #empSummary #empNewStart:hover,
+    #empSummary #empGoForm:hover {
+      background: linear-gradient(180deg, #8b5cf6 0%, #7c3aed 100%) !important;
+      color: #fff !important;
+      border-color: #6d28d9 !important;
+      box-shadow: 0 4px 10px rgba(91, 33, 182, .28) !important;
+    }
+
+    #empSummary #empNewStart:focus,
+    #empSummary #empNewStart:focus-visible,
+    #empSummary #empGoForm:focus,
+    #empSummary #empGoForm:focus-visible,
+    #empSummary #empNewStart:active,
+    #empSummary #empGoForm:active {
+      background: linear-gradient(180deg, #7c3aed 0%, #6d28d9 100%) !important;
+      color: #fff !important;
+      border-color: #5b21b6 !important;
+      outline: none !important;
+      box-shadow: 0 0 0 2px rgba(124, 58, 237, .3) !important;
+    }
+
     @media (max-width: 640px) {
+      #empSummary {
+        --summary-control-width: min(100%, 300px);
+      }
+
       #empSummary .adj-table {
         display: block;
       }
@@ -344,15 +764,16 @@
 
       #empSummary .adj-table tr {
         display: block;
-        padding: 8px;
+        padding: 6px;
         border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        margin-bottom: 10px;
+        border-radius: 10px;
+        margin-bottom: 8px;
       }
 
       #empSummary .adj-table td {
         display: block;
-        padding: 6px 8px;
+        padding: 4px 6px;
+        font-size: 13px;
         border: 0;
       }
 
@@ -361,14 +782,154 @@
         color: var(--brand);
       }
 
-      #empSummary .btn {
+      #empSummary .adj-table td:last-child {
+        text-align: left;
+      }
+
+      #empSummary .adj-table td>div[style*="display:flex"] {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 6px !important;
         width: 100%;
-        height: 40px;
+        margin: 0;
+      }
+
+      #empSummary .btn {
+        display: block;
+        width: var(--summary-control-width);
+        height: 34px;
+        font-size: 13px;
+        white-space: normal;
+        margin-left: auto;
+        margin-right: auto;
+        text-align: center !important;
       }
 
       #empSummary input[type="month"] {
+        display: block;
+        width: var(--summary-control-width);
+        height: 34px;
+        font-size: 13px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      #empSummary .adj-table td button,
+      #empSummary .adj-table td input[type="month"] {
+        max-width: 100%;
+      }
+
+      /* Keep month input + start button on one row in mobile summary */
+      #empSummary .adj-table tbody tr:first-child td:last-child > div.new-month-row {
+        flex-direction: row !important;
+        align-items: center !important;
+        width: var(--summary-control-width);
+        margin-left: auto;
+        margin-right: auto;
+        gap: 8px !important;
+        flex-wrap: nowrap !important;
+      }
+
+      #empSummary #empNewMonth {
+        flex: 1 1 auto;
+        width: calc(100% - 92px) !important;
+        min-width: 0;
+        margin: 0;
+      }
+
+      #empSummary #empNewStart {
+        flex: 0 0 84px !important;
+        width: 84px !important;
+        min-width: 84px !important;
+        margin: 0;
+        white-space: nowrap !important;
+      }
+
+      /* Keep "申請中" value + action button on one horizontal row */
+      #empSummary .adj-table tbody tr:nth-child(2) {
+        display: grid !important;
+        grid-template-columns: 1fr auto !important;
+        grid-template-areas:
+          "title title"
+          "value action";
+        align-items: center;
+        column-gap: 8px;
+        row-gap: 6px;
+      }
+
+      #empSummary .adj-table tbody tr:nth-child(2) td:first-child {
+        grid-area: title;
+      }
+
+      #empSummary .adj-table tbody tr:nth-child(2) td:nth-child(2) {
+        grid-area: value;
+        display: block;
+        padding-right: 0;
+      }
+
+      #empSummary .adj-table tbody tr:nth-child(2) td:nth-child(3) {
+        grid-area: action;
+        display: block;
+        text-align: right !important;
+        padding-left: 0;
+      }
+
+      #empSummary .adj-table tbody tr:nth-child(2) #empGoForm {
+        width: auto !important;
+        min-width: 120px;
+        margin: 0;
+      }
+
+      #historySection .history-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      #historySection .history-filters {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      #historySection .history-filters label {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+
+      #historySection .history-filters input,
+      #historySection .history-filters select {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      #historySection .history-actions {
         width: 100%;
-        height: 40px;
+        justify-content: space-between;
+        gap: 8px;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      #historySection .history-actions .btn {
+        flex: 1 1 0;
+        min-width: 0;
+        height: 34px;
+        font-size: 12px;
+        padding: 0 8px;
+        width: 100%;
+      }
+
+      #historySection .adj-table-card {
+        border-radius: 10px;
+      }
+
+      #historySection .adj-table th,
+      #historySection .adj-table td {
+        padding: 8px 8px;
+        font-size: 12px;
       }
     }
 
@@ -420,9 +981,6 @@
     </div>
   </div>
   <header class="topbar">
-    <button id="expBackBtn" class="mobile-btn" aria-label="back">←</button>
-    <button id="mobileMenuBtn" class="mobile-btn" aria-label="menu" aria-expanded="false"
-      aria-controls="mobileDrawer">☰</button>
     <div class="topbar-inner">
       <div class="page-left">
         <div class="page-title">交通費計算</div>
@@ -464,7 +1022,7 @@
               <td>新規作成</td>
               <td>月を選択して新規申請</td>
               <td>
-                <div style="display:flex;gap:8px;align-items:center;">
+                <div class="new-month-row" style="display:flex;gap:8px;align-items:center;">
                   <input id="empNewMonth" type="month"
                     style="height:32px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:8px;">
                   <button id="empNewStart" class="btn" type="button" style="height:32px;">開始</button>
@@ -488,7 +1046,7 @@
       </div>
 
       <section id="homeSection" style="display:none;">
-        <div class="form-wrap">
+        <div class="form-wrap adjust-grid">
           <div class="adjust-label">日付</div>
           <div><input id="exDate" type="date"></div>
           <div class="adjust-label">費目</div>
@@ -511,8 +1069,7 @@
           <div class="adjust-label">片道/往復</div>
           <div>
             <select id="exTripType" class="adjust-input">
-              <option value="one_way">　</option>
-              <option value="one_way">片道</option>
+              <option value="one_way" selected>片道</option>
               <option value="round_trip">往復</option>
               <option value="multi">回数</option>
             </select>
@@ -530,7 +1087,7 @@
           <div class="adjust-label">定期</div>
           <div><label><input id="exTeiki" type="checkbox"> 定期区間内</label></div>
           <div class="adjust-label">領収書（PDF）</div>
-          <div style="display:flex;gap:8px;align-items:center;">
+          <div class="receipt-upload-row" style="display:flex;gap:8px;align-items:center;">
             <div style="flex:1;">
               <label style="display:block;color:#6b7280;font-weight:700;margin-bottom:4px;">表（Front）</label>
               <input id="exReceiptFront" type="file" accept="application/pdf,image/*">
@@ -555,8 +1112,8 @@
       <div class="adjust-spacer"></div>
       <section id="historySection" style="margin:8px 0; display:none;">
         <div class="list-wrap">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <div class="history-toolbar">
+            <div class="history-filters">
               <label>対象月: <input id="exFilterMonth" type="month"></label>
               <label>ステータス:
                 <select id="exFilterStatus">
@@ -567,11 +1124,16 @@
                   <option value="rejected">差戻し</option>
                 </select>
               </label>
+            </div>
+            <div class="history-actions">
               <button id="exSearch" class="btn" type="button">検索</button>
               <button id="exClear" class="btn" type="button">クリア</button>
               <button id="exCsv" class="btn" type="button">CSV出力</button>
-              <div id="exListHost"></div>
+              <button id="exShowHistory" class="btn" type="button">表示</button>
             </div>
+          </div>
+          <div id="exListHost"></div>
+        </div>
       </section>
 </body>
 

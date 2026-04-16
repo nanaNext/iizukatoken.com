@@ -4,7 +4,7 @@ import { fetchJSONAuth } from '../../api/http.api.js';
 const $ = (sel) => document.querySelector(sel);
 
 const showSpinner = () => {
-  try { const el = document.querySelector('#pageSpinner'); if (el) { el.removeAttribute('hidden'); el.style.display = 'flex'; } } catch {}
+  try { const el = document.querySelector('#pageSpinner'); if (el) { el.removeAttribute('hidden'); el.style.display = 'grid'; } } catch {}
 };
 const hideSpinner = () => {
   try { const el = document.querySelector('#pageSpinner'); if (el) { el.setAttribute('hidden', ''); el.style.display = 'none'; } } catch {}

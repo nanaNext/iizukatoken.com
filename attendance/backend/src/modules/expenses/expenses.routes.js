@@ -93,7 +93,7 @@ router.get('/my',
     }
   }
 );
-router.get('/:id',
+router.get('/:id(\\d+)',
   rateLimitNamed('expenses_get_one', { windowMs: 60_000, max: 30 }),
   authorize('employee','manager','admin'),
   async (req, res) => {

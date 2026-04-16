@@ -3,7 +3,7 @@ import { fetchJSONAuth } from '/static/js/api/http.api.js';
 const $ = (sel) => document.querySelector(sel);
 const showErr = (m) => { const el = $('#error'); if (!el) return; if (!m) { el.style.display='none'; el.textContent=''; return; } el.style.display='block'; el.textContent=String(m); };
 let sc = 0;
-const showSpinner = () => { try { const el = $('#pageSpinner'); sc++; if (el) { el.removeAttribute('hidden'); el.style.display='flex'; } } catch {} };
+const showSpinner = () => { try { const el = $('#pageSpinner'); sc++; if (el) { el.removeAttribute('hidden'); el.style.display='grid'; } } catch {} };
 const hideSpinner = () => { try { const el = $('#pageSpinner'); sc=Math.max(0, sc-1); if (sc!==0) return; if (el) { el.setAttribute('hidden',''); el.style.display='none'; } } catch {} };
 const todayISO = () => new Date().toLocaleDateString('sv-SE');
 const fmtDT = (v) => {
@@ -524,18 +524,7 @@ const renderList = async () => {
   } finally { hideSpinner(); }
 };
 const renderHistoryTitle = () => {
-  const host = $('#exListHost'); if (!host) return;
-  const m = document.getElementById('exFilterMonth')?.value || new Date().toISOString().slice(0,7);
-  const mm = String(m).slice(5,7).replace(/^0/,'');
-  const title = `${mm}月交通費計算`;
-  host.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:12px;background:#f8fafc;">
-    <div id="historyTitle" style="color:#0b2c66;font-weight:800;font-size:16px;cursor:pointer;">${title}</div>
-    <button id="btnShowHistory" class="btn" type="button" style="height:32px;">表示</button>
-  </div>`;
-  const t = document.getElementById('historyTitle');
-  const b = document.getElementById('btnShowHistory');
-  t?.addEventListener('click', async () => { await renderList(); });
-  b?.addEventListener('click', async () => { await renderList(); });
+  // no-op: history controls are now on the toolbar row
 };
 document.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -582,7 +571,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       try { window.location.replace('/ui/logout?next=%2Fexpenses-login'); } catch { window.location.href = '/ui/logout?next=%2Fexpenses-login'; }
     });
   }
-  const d = $('#exDate'); if (d) d.value = todayISO();
+  const d = $('#exDate'); if (d && !d.value) d.value = todayISO();
   const typeSel = document.getElementById('exType');
   const kmEl = document.getElementById('exKm');
   const unitEl = document.getElementById('exUnitPrice');
@@ -690,9 +679,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   applyBtn?.addEventListener('click', async () => {
     if (!applyBtn || applyBtn.disabled) return;
-    const okApply = window.confirm('この内容で申請しますか？');
+    const okApply = window.confirm('保存して申請しますか？');
     if (!okApply) return;
-    showErr(''); applyBtn.disabled = true; if (status) status.textContent = '申請中…';
+    showErr(''); applyBtn.disabled = true; if (status) status.textContent = '保存中…';
     const clientToken = 'ct_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     const date = $('#exDate')?.value || '';
     const type = $('#exType')?.value || 'train';
@@ -717,6 +706,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         amount: Number(amount), memo, clientToken
       }) });
       const newId = create?.id;
+      if (status) status.textContent = '保存しました。申請送信中…';
       const fFront = document.getElementById('exReceiptFront')?.files?.[0] || null;
       const fBack = document.getElementById('exReceiptBack')?.files?.[0] || null;
       const imgs = document.getElementById('exImages')?.files || [];
@@ -728,7 +718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await fetch(`/api/expenses/${encodeURIComponent(newId)}/files`, { method:'POST', body: fd, credentials: 'include' });
       }
       if (newId) await fetchJSONAuth(`/api/expenses/${encodeURIComponent(newId)}/apply`, { method:'POST' });
-      if (status) status.textContent = '申請しました';
+      if (status) status.textContent = '保存済み・申請送信済み';
       await renderList();
       try { await renderSummary(); } catch {}
     } catch (e) {
@@ -751,10 +741,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnSearch = document.getElementById('exSearch');
   const btnClear = document.getElementById('exClear');
   const btnCsv = document.getElementById('exCsv');
+  const btnShowHistory = document.getElementById('exShowHistory');
   if (monthFilter && !monthFilter.value) {
     monthFilter.value = new Date().toISOString().slice(0,7);
   }
   btnSearch?.addEventListener('click', async () => { await renderList(); });
+  btnShowHistory?.addEventListener('click', async () => { await renderList(); });
   btnClear?.addEventListener('click', async () => {
     if (monthFilter) monthFilter.value = '';
     if (statusFilter) statusFilter.value = '';
@@ -800,6 +792,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         nm.value = (active && active.month) ? String(active.month) : new Date().toISOString().slice(0,7);
       } catch { nm.value = new Date().toISOString().slice(0,7); }
     }
+    const syncEntryDateWithMonth = () => {
+      const dateEl = document.getElementById('exDate');
+      const monthVal = String(nm?.value || '');
+      if (!dateEl || !/^\d{4}-\d{2}$/.test(monthVal)) return;
+      const cur = String(dateEl.value || '');
+      if (!cur || !cur.startsWith(monthVal + '-')) {
+        dateEl.value = `${monthVal}-01`;
+      }
+    };
+    syncEntryDateWithMonth();
+    nm?.addEventListener('change', syncEntryDateWithMonth);
     const btnStart = document.getElementById('empNewStart');
     btnStart?.addEventListener('click', async () => {
       const mv = document.getElementById('empNewMonth')?.value || new Date().toISOString().slice(0,7);

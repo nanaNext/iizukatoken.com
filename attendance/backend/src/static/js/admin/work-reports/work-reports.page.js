@@ -41,7 +41,7 @@ const weekdayJa = (dateStr) => {
 const showSpinner = () => {
   try {
     const el = document.querySelector('#pageSpinner');
-    if (el) { el.removeAttribute('hidden'); el.style.display = 'flex'; }
+    if (el) { el.removeAttribute('hidden'); el.style.display = 'grid'; }
   } catch {}
 };
 const hideSpinner = () => {
