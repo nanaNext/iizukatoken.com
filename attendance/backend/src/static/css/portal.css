@@ -662,6 +662,27 @@ body.drawer-open {
   overscroll-behavior: none;
 }
 
+/* Safety guard: desktop must never show mobile drawer, even if drawer-open is stuck */
+@media (min-width: 481px) {
+  .mobile-drawer,
+  .drawer-backdrop {
+    display: none !important;
+    pointer-events: none !important;
+  }
+  body.drawer-open .topbar,
+  body.drawer-open .subbar,
+  body.drawer-open .content {
+    transform: none !important;
+    pointer-events: auto !important;
+    user-select: auto !important;
+  }
+  body.drawer-open {
+    overflow: auto !important;
+    touch-action: auto !important;
+    overscroll-behavior: auto !important;
+  }
+}
+
 .user {
   display: flex;
   align-items: center;
