@@ -66,8 +66,6 @@ async function ensureAuthProfile() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const pageSpinner = document.querySelector('#pageSpinner');
-  const startTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-  const minDelayMs = 900;
   try {
     const navEntry = (typeof performance !== 'undefined' && performance.getEntriesByType) ? performance.getEntriesByType('navigation')[0] : null;
     const navType = navEntry?.type || (performance && performance.navigation && performance.navigation.type === 2 ? 'back_forward' : '');
@@ -90,13 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     sessionStorage.removeItem('navSpinner');
   } catch {}
-  const waitMinDelay = async () => {
-    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    const elapsed = now - startTime;
-    if (elapsed < minDelayMs) {
-      await new Promise(r => setTimeout(r, minDelayMs - elapsed));
-    }
-  };
+  const waitMinDelay = async () => {};
   const setTopbarHeightVar = () => {
     try {
       if (document.body.classList.contains('drawer-open')) return;
@@ -120,10 +112,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (e) {
     const err = $('#error');
     if (err) { err.style.display = 'block'; err.textContent = '認証エラー: ' + (e?.message || 'unknown'); }
-    await waitMinDelay();
     if (pageSpinner) { pageSpinner.setAttribute('hidden', ''); }
   }
-  if (!profile) { await waitMinDelay(); if (pageSpinner) { pageSpinner.setAttribute('hidden', ''); } window.location.replace('/ui/login'); return; }
+  if (!profile) { if (pageSpinner) { pageSpinner.setAttribute('hidden', ''); } window.location.replace('/ui/login'); return; }
   const goLogin = async () => {
     try { await logout(); } catch {}
     try {
@@ -147,7 +138,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { window.location.replace('/admin/dashboard'); } catch { window.location.href = '/admin/dashboard'; }
     return;
   }
-  await waitMinDelay();
   if (pageSpinner) { pageSpinner.setAttribute('hidden', ''); }
   try {
     const p = String(window.location.pathname || '');

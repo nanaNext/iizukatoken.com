@@ -89,7 +89,7 @@
     } catch {}
   };
 
-  const showNavLoading = (delayMs = 420) => {
+  const showNavLoading = (delayMs = 1200) => {
     try {
       if (navLoadShowTimer) clearTimeout(navLoadShowTimer);
       navLoadShowTimer = setTimeout(() => {
@@ -97,7 +97,7 @@
         const el = ensureNavLoadingEl();
         el.removeAttribute('hidden');
         if (navLoadHideTimer) clearTimeout(navLoadHideTimer);
-        navLoadHideTimer = setTimeout(() => hideNavLoading(), 10000);
+        navLoadHideTimer = setTimeout(() => hideNavLoading(), 4000);
       }, Math.max(0, Number(delayMs) || 0));
     } catch {}
   };
