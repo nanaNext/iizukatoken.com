@@ -127,6 +127,8 @@ function diffMinutesAllowOvernight(a, b) {
 }
 
 function isInhouseDay(d) {
+  const wt = String(workTypeOf(d) || '').trim();
+  if (wt === 'onsite') return true;
   const loc = String(d?.daily?.location || '').toLowerCase();
   return !!loc && (loc.includes('社内') || loc.includes('内勤') || loc.includes('inhouse'));
 }
