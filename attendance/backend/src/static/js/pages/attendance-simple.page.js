@@ -155,14 +155,11 @@ const applyAutoTime = (el, val) => {
   if (!/^\d{2}:\d{2}$/.test(v)) return;
   el.value = v;
   try { el.dataset.auto = '1'; el.dataset.autoVal = v; } catch {}
-  // Xóa màu chữ nhạt để hiển thị đậm ngay từ đầu theo yêu cầu người dùng
-  try { el.style.color = ''; } catch {}
 };
 
 const clearAutoTime = (el) => {
   if (!el) return;
   try { delete el.dataset.auto; delete el.dataset.autoVal; } catch {}
-  try { el.style.color = ''; } catch {}
 };
 
 const effectiveHm = (el) => {

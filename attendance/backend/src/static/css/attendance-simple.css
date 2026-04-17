@@ -407,6 +407,10 @@ body {
   font-weight: 400;
   letter-spacing: .5px;
 }
+.simple-time-input[data-auto="1"]:not([data-touched="1"]) {
+  color: #94a3b8;
+  font-weight: 400;
+}
 .simple-time-input:disabled {
   background: #eef2f7;
   color: #64748b;
