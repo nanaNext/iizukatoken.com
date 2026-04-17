@@ -587,9 +587,10 @@ const loadMonthStatus = async (date) => {
   }
 };
 
-const load = async (date) => {
+const load = async (date, opts = {}) => {
   showErr('');
-  showSpinner(true);
+  const useSpinner = opts?.spinner !== false;
+  if (useSpinner) showSpinner(true);
   try {
     $('#topDate').textContent = fmtJP(date);
     // Parallelize initial fetches to reduce mobile cold-start latency.
@@ -765,7 +766,7 @@ const load = async (date) => {
   } catch (e) {
     showErr(e?.message || '読み込みに失敗しました');
   } finally {
-    showSpinner(false);
+    if (useSpinner) showSpinner(false);
   }
 };
 
@@ -911,7 +912,6 @@ const save = async (date) => {
 
 document.addEventListener('DOMContentLoaded', async () => {
   showErr('');
-  showSpinner(true);
   const profile = await ensureAuthProfile();
   if (!profile) {
     window.location.replace('/ui/login');
@@ -1105,7 +1105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   $('#btnAdd')?.addEventListener('click', () => { showErr('この画面では勤務区分追加は未対応です'); });
 
-  await load(state.date);
+  await load(state.date, { spinner: false });
   try { await persistWorkType(); } catch {}
   showSpinner(false);
 });
