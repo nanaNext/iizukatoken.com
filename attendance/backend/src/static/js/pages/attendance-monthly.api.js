@@ -13,9 +13,8 @@
     const [y, m] = String(ym).split('-').map(x => parseInt(x, 10));
     if (!y || !m) throw new Error('Invalid month');
     const uidQ = userId ? `&userId=${encodeURIComponent(userId)}` : '';
-    const bust = `&_=${Date.now()}`;
-    const detailP = fetchJSONAuth(`/api/attendance/month/detail?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}${uidQ}${bust}`);
-    const sumP = fetchJSONAuth(`/api/attendance/month?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}${uidQ}${bust}`).catch(() => null);
+    const detailP = fetchJSONAuth(`/api/attendance/month/detail?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}${uidQ}`);
+    const sumP = fetchJSONAuth(`/api/attendance/month?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}${uidQ}`).catch(() => null);
     const [detail, timesheet] = await Promise.all([detailP, sumP]);
     return { detail, timesheet };
   };

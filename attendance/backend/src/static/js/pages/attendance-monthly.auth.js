@@ -88,6 +88,8 @@
   async function fetchJSONAuth(url, options) {
     const tok = sessionStorage.getItem('accessToken') || '';
     const csrf = getCookie('csrfToken');
+    const method = String(options?.method || 'GET').toUpperCase();
+    const cacheMode = method === 'GET' ? 'default' : 'no-store';
     let res = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
@@ -95,7 +97,7 @@
         'X-CSRF-Token': csrf || ''
       },
       credentials: 'include',
-      cache: 'no-store',
+      cache: cacheMode,
       ...options
     });
     if (!res.ok && (res.status === 401 || res.status === 403)) {
@@ -110,7 +112,7 @@
             'X-CSRF-Token': csrf2 || ''
           },
           credentials: 'include',
-          cache: 'no-store',
+          cache: cacheMode,
           ...options
         });
       } catch {}

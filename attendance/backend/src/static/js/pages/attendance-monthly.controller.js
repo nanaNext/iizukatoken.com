@@ -1659,8 +1659,7 @@
       if (!y || !m) return;
       const uid = ctx.actingUserId || null;
       const uidQ = uid ? `&userId=${encodeURIComponent(String(uid))}` : '';
-      const bust = `&_=${Date.now()}`;
-      const next = await fetchJSONAuth(`/api/attendance/month/detail?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}${uidQ}${bust}`).catch(() => null);
+      const next = await fetchJSONAuth(`/api/attendance/month/detail?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}${uidQ}`).catch(() => null);
       if (!next) return;
       const key = buildKey(next);
       if (!key || key === lastKey) return;
@@ -1687,7 +1686,7 @@
           ctx.refreshTimer = null;
         }
       }
-    }, 5000);
+    }, 15000);
     try { lastKey = buildKey(state.currentMonthDetail); } catch {}
   };
 
