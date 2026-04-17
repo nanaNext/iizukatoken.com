@@ -105,7 +105,9 @@
       const autoOut = isWorkDay && !outHm && shiftEndOk;
       
       // CSS Class: CHỈ hiển thị nhạt (is-auto) nếu là (Dự kiến VÀ Giờ tự động)
-      const inAutoCls = (autoIn && isPlanned && !isManualIn) ? 'is-auto' : '';
+      // Business rule: if started but not finished yet, start-time stays "planned-like" (faded)
+      const inPendingUnconfirmed = !!(isManualIn && !isManualOut);
+      const inAutoCls = ((autoIn && isPlanned && !isManualIn) || inPendingUnconfirmed) ? 'is-auto' : '';
       const outAutoCls = (autoOut && isPlanned && !isManualOut) ? 'is-auto' : '';
 
       const shiftBrRaw = Number(shift?.break_minutes ?? 60);

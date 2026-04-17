@@ -923,6 +923,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const state = { date: getUrlDate(), isOff: false, restHoliday: false, shiftStart: FIXED_START, shiftEnd: FIXED_END };
   window.state = state; // Gán vào window để các hàm bên ngoài scope DOMContentLoaded (như applyHolidayRestMode) có thể truy cập
+  let startStampInFlight = false;
   setUrlDate(state.date);
   const persistWorkType = async () => {
     try {
@@ -935,6 +936,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const doStartStamp = async () => {
+    if (startStampInFlight) return;
     showErr('');
     if (!String($('#workType')?.value || '').trim()) {
       showErr('先に勤務区分を選択してください');
@@ -945,6 +947,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     try {
+      startStampInFlight = true;
       showSpinner(true);
       try { await persistDaily(state.date); } catch {}
       const r = await tryCheckIn();
@@ -971,6 +974,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       showErr(e?.message || '開始打刻に失敗しました');
     } finally {
       showSpinner(false);
+      startStampInFlight = false;
     }
   };
   const doEndStamp = async () => {
