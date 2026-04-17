@@ -2233,3 +2233,11 @@ input.se-time[disabled][data-row-disabled="1"]::-webkit-datetime-edit-fields-wra
   left: auto !important;
   z-index: auto !important;
 }
+
+/* Hard override for legacy sticky-col-1 rules defined earlier */
+.se-month-table-wrap #monthTableReal th.sticky-col-1,
+.se-month-table-wrap #monthTableReal td.sticky-col-1 {
+  position: static !important;
+  left: auto !important;
+  z-index: auto !important;
+}
