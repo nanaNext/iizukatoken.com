@@ -4,6 +4,7 @@ import { fetchJSONAuth } from '../api/http.api.js';
 const $ = (sel) => document.querySelector(sel);
 
 let spinnerDelayTimer = null;
+let simpleUserId = '';
 const showSpinner = (v) => {
   const el = $('#pageSpinner');
   if (!el) return;
@@ -135,6 +136,102 @@ const loadDraft = (date) => {
 };
 const clearDraft = (date) => {
   try { localStorage.removeItem(reportDraftKey(date)); } catch {}
+};
+
+const simpleFastCacheKey = (uid, date) => `attendanceSimple.fast.${uid}.${date}`;
+const saveFastSnapshot = (date) => {
+  try {
+    if (!simpleUserId || !isISODate(date)) return;
+    const st = window.state || {};
+    const snap = {
+      date,
+      uid: String(simpleUserId),
+      savedAt: Date.now(),
+      isOff: !!st.isOff,
+      currentMonthStatus: String(st.currentMonthStatus || ''),
+      shiftStart: String(st.shiftStart || FIXED_START),
+      shiftEnd: String(st.shiftEnd || FIXED_END),
+      hasStartedToday: !!st.hasStartedToday,
+      hasEndedToday: !!st.hasEndedToday,
+      kubun: String($('#kubun')?.value || ''),
+      kubunPlanned: !!$('#kubun')?.classList?.contains('is-planned'),
+      workType: String($('#workType')?.value || ''),
+      startTime: String($('#startTime')?.value || ''),
+      endTime: String($('#endTime')?.value || ''),
+      startAuto: String($('#startTime')?.dataset?.auto || '') === '1',
+      endAuto: String($('#endTime')?.dataset?.auto || '') === '1',
+      breakMin: String($('#breakMin')?.value || '1:00'),
+      nightBreakMin: String($('#nightBreakMin')?.value || '0:00'),
+      workSite: String($('#workSite')?.value || ''),
+      workContent: String($('#workContent')?.value || '')
+    };
+    sessionStorage.setItem(simpleFastCacheKey(simpleUserId, date), JSON.stringify(snap));
+  } catch {}
+};
+
+const restoreFastSnapshot = (date, stateRef) => {
+  try {
+    if (!simpleUserId || !isISODate(date)) return false;
+    const raw = sessionStorage.getItem(simpleFastCacheKey(simpleUserId, date)) || '';
+    if (!raw) return false;
+    const snap = JSON.parse(raw);
+    if (!snap || String(snap.uid || '') !== String(simpleUserId) || String(snap.date || '') !== date) return false;
+    const ageMs = Date.now() - Number(snap.savedAt || 0);
+    if (!Number.isFinite(ageMs) || ageMs > 24 * 60 * 60 * 1000) return false;
+
+    stateRef.isOff = !!snap.isOff;
+    stateRef.currentMonthStatus = String(snap.currentMonthStatus || '');
+    stateRef.shiftStart = String(snap.shiftStart || FIXED_START);
+    stateRef.shiftEnd = String(snap.shiftEnd || FIXED_END);
+    stateRef.hasStartedToday = !!snap.hasStartedToday;
+    stateRef.hasEndedToday = !!snap.hasEndedToday;
+    try { $('#topDate').textContent = fmtJP(date); } catch {}
+
+    const kubunOptions = stateRef.isOff
+      ? ['休日', '休日出勤', '代替出勤']
+      : ['出勤', '半休', '欠勤', '有給休暇', '無給休暇', '代替休日'];
+    const kubunGroupLabel = stateRef.isOff ? '【予定休日】' : '【予定出勤】';
+    const selK = $('#kubun');
+    if (selK) {
+      selK.innerHTML = `<option value="" disabled>${kubunGroupLabel}</option>${kubunOptions.map(k => `<option value="${k}">${k}</option>`).join('')}`;
+      selK.value = kubunOptions.includes(String(snap.kubun || '')) ? String(snap.kubun || '') : (stateRef.isOff ? '休日' : '出勤');
+      selK.classList.toggle('is-planned', !!snap.kubunPlanned);
+      setupSimpleCombo(selK);
+    }
+
+    const st = $('#startTime');
+    const et = $('#endTime');
+    if (st) {
+      st.value = String(snap.startTime || '');
+      if (snap.startAuto) applyAutoTime(st, String(snap.startTime || stateRef.shiftStart || FIXED_START));
+      else clearAutoTime(st);
+    }
+    if (et) {
+      et.value = String(snap.endTime || '');
+      if (snap.endAuto) applyAutoTime(et, String(snap.endTime || stateRef.shiftEnd || FIXED_END));
+      else clearAutoTime(et);
+    }
+    if ($('#workType')) $('#workType').value = String(snap.workType || '');
+    if ($('#breakMin')) $('#breakMin').value = String(snap.breakMin || '1:00');
+    if ($('#nightBreakMin')) $('#nightBreakMin').value = String(snap.nightBreakMin || '0:00');
+    if ($('#workSite')) $('#workSite').value = String(snap.workSite || '');
+    if ($('#workContent')) $('#workContent').value = String(snap.workContent || '');
+
+    const shiftInfoBox = $('#shiftInfo');
+    if (shiftInfoBox) {
+      shiftInfoBox.innerHTML = `<span class="shift-tag">${stateRef.isOff ? '休日' : 'デフォルトシフト'}: ${stateRef.shiftStart} - ${stateRef.shiftEnd}</span>`;
+      shiftInfoBox.removeAttribute('hidden');
+    }
+
+    renderWorkMinutes();
+    syncWorkTypeButtons();
+    applyHolidayRestMode();
+    applyWorkTypeGate();
+    renderSimpleStatus();
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -763,6 +860,7 @@ const load = async (date, opts = {}) => {
     syncWorkTypeButtons();
     applyHolidayRestMode();
     applyWorkTypeGate();
+    saveFastSnapshot(date);
   } catch (e) {
     showErr(e?.message || '読み込みに失敗しました');
   } finally {
@@ -917,6 +1015,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.location.replace('/ui/login');
     return;
   }
+  simpleUserId = String(profile?.id || '');
   try {
     const panels = [
       { key: 'attendanceSimple.notice.open', toggleId: 'toggleNotice', bodyId: 'noticeBox', def: true },
@@ -1105,6 +1204,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   $('#btnAdd')?.addEventListener('click', () => { showErr('この画面では勤務区分追加は未対応です'); });
 
+  // Instant paint from recent snapshot, then sync with server in background.
+  try { restoreFastSnapshot(state.date, state); } catch {}
   await load(state.date, { spinner: false });
   try { await persistWorkType(); } catch {}
   showSpinner(false);
