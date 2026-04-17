@@ -45,8 +45,8 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
         a.checkOut AS checkOut,
         COALESCE(wr.work_type, a.work_type) AS work_type,
         ad.kubun AS daily_kubun,
-        wr.site AS site,
-        wr.work AS work,
+        COALESCE(NULLIF(wr.site, ''), NULLIF(ad.location, '')) AS site,
+        COALESCE(NULLIF(wr.work, ''), NULLIF(ad.memo, '')) AS work,
         wr.updated_at AS updated_at
       FROM users u
       LEFT JOIN departments d
@@ -95,7 +95,7 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
         : (hasIn
             ? (hasOut ? (dayIsOff ? 'holiday_work' : 'checked_out') : (dayIsOff ? 'holiday_working' : 'working'))
             : (dayIsOff ? 'leave' : 'not_checked_in'));
-      const hasReport = !!(r.site && r.work);
+      const hasReport = !!(r.site || r.work);
       const wt = r.work_type || null;
       return {
         userId: r.userId,
