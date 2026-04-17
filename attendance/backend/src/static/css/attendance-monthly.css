@@ -2241,3 +2241,14 @@ input.se-time[disabled][data-row-disabled="1"]::-webkit-datetime-edit-fields-wra
   left: auto !important;
   z-index: auto !important;
 }
+
+/* Ensure "日付" header cell is visible and sized correctly */
+#monthTable #monthTableReal thead th.sticky-col-1,
+#monthTable .se-sticky-month-head th.sticky-col-1 {
+  display: table-cell !important;
+  visibility: visible !important;
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+  text-align: center !important;
+}
