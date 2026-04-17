@@ -816,7 +816,7 @@
       if (!window.confirm('保存しますか？')) {
         return;
       }
-      showSpinner();
+      showSpinner('save');
       const payload = collectUpdates(ctx.tableHost, ym, ctx.actingUserId || null, { includeAll: true });
       try {
         const days = Array.isArray(state.currentMonthDetail?.days) ? state.currentMonthDetail.days : [];

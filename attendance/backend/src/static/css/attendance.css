@@ -19,6 +19,9 @@ body {
   z-index: 3000;
 }
 .kintai-spinner::after {
+  content: none;
+}
+.kintai-spinner[data-mode="save"]::after {
   content: "保存中...";
   color: #dbeafe;
   font-size: 16px;

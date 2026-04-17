@@ -16,10 +16,14 @@
   try { globalThis.__monthlyBooted = Date.now(); } catch {}
 
   let monthlySpinnerDelay = null;
-  const showSpinner = () => {
+  const showSpinner = (mode = '') => {
     try {
       const el = $('#pageSpinner');
       if (!el) return;
+      try {
+        if (mode) el.setAttribute('data-mode', String(mode));
+        else el.removeAttribute('data-mode');
+      } catch {}
       if (monthlySpinnerDelay) clearTimeout(monthlySpinnerDelay);
       monthlySpinnerDelay = setTimeout(() => {
         try { el.removeAttribute('hidden'); } catch {}
@@ -35,6 +39,7 @@
         clearTimeout(monthlySpinnerDelay);
         monthlySpinnerDelay = null;
       }
+      try { el.removeAttribute('data-mode'); } catch {}
       el.setAttribute('hidden', '');
     } catch {}
   };
