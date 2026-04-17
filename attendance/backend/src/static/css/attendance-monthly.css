@@ -2225,11 +2225,14 @@ input.se-time[disabled][data-row-disabled="1"]::-webkit-datetime-edit-fields-wra
   }
 }
 
-/* Keep "日付" column fixed while horizontal scrolling */
-#monthTable #monthTableReal thead th.sticky-col-1 {
+/* Keep only header "日付" cell fixed (real table + sticky clone header) */
+#monthTable #monthTableReal thead th.sticky-col-1,
+#monthTable .se-sticky-month-head th.sticky-col-1 {
   position: sticky !important;
   left: 0 !important;
-  z-index: 260 !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+  z-index: 320 !important;
   background: #0b2c66 !important;
   color: #fff !important;
 }
