@@ -1068,16 +1068,16 @@
       // Update summary section locally
       renderSummary(ctx.summaryHost, state.currentMonthDetail, state.currentMonthTimesheet);
       
-      // Sync to salary module
+      // Sync salary in background so Save returns immediately.
       try {
         const [y, m] = ym.split('-');
-        await fetchJSONAuth('/api/attendance/month/sync-salary', {
+        fetchJSONAuth('/api/attendance/month/sync-salary', {
           method: 'POST',
           body: JSON.stringify({ year: y, month: m, userId: ctx.actingUserId || null })
+        }).catch((e) => {
+          try { console.error('Salary sync failed:', e); } catch {}
         });
-      } catch (e) {
-        console.error('Salary sync failed:', e);
-      }
+      } catch {}
     } catch (e) {
       const msg = String(e?.message || '');
       if (msg.includes('Duplicate entry') && msg.includes('unique_user_checkin')) {

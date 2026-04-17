@@ -9,12 +9,25 @@ body {
 .kintai-spinner {
   position: fixed;
   inset: 0;
-  background: rgba(255,255,255,.42);
-  backdrop-filter: blur(1px);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(1.5px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 3000;
+}
+.kintai-spinner::after {
+  content: "L o a d i n g";
+  position: absolute;
+  top: 56%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #60a5fa;
+  font-size: 44px;
+  letter-spacing: 8px;
+  font-weight: 500;
+  opacity: 0.92;
+  pointer-events: none;
 }
 
 .kintai-spinner[hidden] {
