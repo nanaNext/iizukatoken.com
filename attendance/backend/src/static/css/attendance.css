@@ -17,25 +17,7 @@ body {
   z-index: 3000;
 }
 .kintai-spinner::after {
-  content: "tosouapp";
-  position: absolute;
-  top: 56%;
-  left: -28%;
-  color: #60a5fa;
-  font-size: 44px;
-  letter-spacing: 4px;
-  font-weight: 600;
-  opacity: 0.94;
-  pointer-events: none;
-  white-space: nowrap;
-  animation: kintai-spinner-run 1.9s linear infinite;
-}
-
-@keyframes kintai-spinner-run {
-  0%   { left: -28%; opacity: .1; }
-  12%  { opacity: 1; }
-  88%  { opacity: 1; }
-  100% { left: 100%; opacity: .1; }
+  content: none;
 }
 
 .kintai-spinner[hidden] {
