@@ -825,6 +825,31 @@ body {
   }
 }
 
+/* Extra-compact phones: prevent time box and stamp button overlap */
+@media (max-width: 430px) {
+  .simple-stamp-row {
+    grid-template-columns: minmax(92px, 108px) minmax(82px, 1fr) minmax(96px, 1fr);
+    gap: 6px;
+  }
+  .simple-stamp-time,
+  .simple-time-input,
+  .simple-stamp-btn {
+    height: 40px !important;
+    min-height: 40px !important;
+  }
+  .simple-stamp-time,
+  .simple-time-input {
+    font-size: 14px;
+    padding: 8px 8px;
+  }
+  .simple-stamp-btn {
+    font-size: 13px;
+    padding: 8px 8px;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
 /* Fallback cho màn hình rất hẹp: xếp dọc để luôn hiển thị đủ chữ */
 @media (max-width: 380px) {
   .simple-row,

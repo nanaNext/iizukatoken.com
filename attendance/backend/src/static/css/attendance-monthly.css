@@ -2200,3 +2200,27 @@ input.se-time[disabled][data-row-disabled="1"]::-webkit-datetime-edit-fields-wra
   #monthTable { font-size: 11px; }
   #monthTable thead th, #monthTable tbody td { font-size: 11px !important; }
 }
+
+/* Prevent random stretched cells on narrow phones */
+@media (max-width: 430px) {
+  #monthTable.se-table table {
+    min-width: 1180px !important;
+    table-layout: fixed !important;
+  }
+  #monthTable .se-time-cell {
+    min-width: 86px !important;
+  }
+  #monthTable input.se-time[data-field="checkIn"],
+  #monthTable input.se-time[data-field="checkOut"] {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    font-size: 11px !important;
+    padding: 2px 4px !important;
+  }
+  #monthTable td,
+  #monthTable th {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
