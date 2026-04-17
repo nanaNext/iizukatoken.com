@@ -638,7 +638,9 @@
   };
 
   const setMonth = async (ym, replace = false, opts = {}) => {
+    if (!(ctx.monthCache instanceof Map)) ctx.monthCache = new Map();
     const reqSeq = (ctx.monthReqSeq = Number(ctx.monthReqSeq || 0) + 1);
+    const cacheKey = `${String(ctx.actingUserId || 'self')}:${String(ym || '')}`;
     state.currentYM = String(ym || '').slice(0, 7);
     const url = new URL(window.location.href);
     url.searchParams.set('month', ym);
@@ -649,13 +651,38 @@
     if (ctx.picker1) ctx.picker1.value = ym;
     if (ctx.picker2) ctx.picker2.value = ym;
     showErr('');
-    const useSpinner = opts?.spinner !== false;
+    const cached = ctx.monthCache.get(cacheKey) || null;
+    const useSpinner = opts?.spinner !== false && !cached;
     if (useSpinner) showSpinner();
     try {
       const [y, m] = String(ym).split('-').map(x => parseInt(x, 10));
       const uidQ = ctx.actingUserId ? `&userId=${encodeURIComponent(ctx.actingUserId)}` : '';
+      if (cached?.detail) {
+        state.currentMonthDetail = cached.detail;
+        state.currentMonthTimesheet = cached.timesheet || null;
+        try {
+          const st = String(cached.detail?.monthStatus?.status || '').trim();
+          state.currentMonthStatus = st || 'draft';
+        } catch {
+          state.currentMonthStatus = 'draft';
+        }
+        renderContract(ctx.contractHost, cached.detail);
+        renderWorkDetail(ctx.workDetailHost, cached.detail, ctx.profile);
+        renderSummary(ctx.summaryHost, cached.detail, cached.timesheet || null);
+        state.editableMonth = canEditForMonth(ym, ctx.profile);
+        renderTable(ctx.tableHost, cached.detail, ctx.profile);
+        applyPinMonthHead();
+        applyEditability(ym);
+        updateMonthWorkflowUI();
+        ensureCompactToggle();
+        syncFooterVars();
+        syncTheadRowHeights();
+        syncMonthHScroll();
+        syncMonthVScroll();
+      }
       const detail = await fetchJSONAuth(`/api/attendance/month/detail?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}${uidQ}`);
       if (reqSeq !== ctx.monthReqSeq) return;
+      ctx.monthCache.set(cacheKey, { detail, timesheet: null, at: Date.now() });
       state.currentMonthDetail = detail;
       state.currentMonthTimesheet = null;
       try {
@@ -711,9 +738,23 @@
         .then((timesheet) => {
           if (reqSeq !== ctx.monthReqSeq) return;
           state.currentMonthTimesheet = timesheet || null;
+          try { ctx.monthCache.set(cacheKey, { detail: state.currentMonthDetail, timesheet: state.currentMonthTimesheet, at: Date.now() }); } catch {}
           try { renderSummary(ctx.summaryHost, state.currentMonthDetail, state.currentMonthTimesheet); } catch {}
         })
         .catch(() => {});
+      // Prefetch adjacent months for instant prev/next navigation.
+      const prefetch = async (targetYm) => {
+        try {
+          const k = `${String(ctx.actingUserId || 'self')}:${String(targetYm || '')}`;
+          if (ctx.monthCache.has(k)) return;
+          const [py, pm] = String(targetYm).split('-').map(x => parseInt(x, 10));
+          if (!py || !pm) return;
+          const pDetail = await fetchJSONAuth(`/api/attendance/month/detail?year=${encodeURIComponent(py)}&month=${encodeURIComponent(pm)}${uidQ}`);
+          ctx.monthCache.set(k, { detail: pDetail, timesheet: null, at: Date.now() });
+        } catch {}
+      };
+      void prefetch(addMonths(ym, -1));
+      void prefetch(addMonths(ym, 1));
     } catch (e) {
       showErr(e?.message || '読み込みに失敗しました');
     } finally {
@@ -1859,6 +1900,7 @@
 
   const setActingUserId = async (nextUserId) => {
     ctx.actingUserId = String(nextUserId || '').trim();
+    try { if (ctx.monthCache instanceof Map) ctx.monthCache.clear(); } catch {}
     try { state.currentViewingUserId = ctx.actingUserId || String(ctx.profile?.id || ''); } catch {}
     const ym = ctx.picker?.value || monthJST();
     if (!ctx.actingUserId) return;
