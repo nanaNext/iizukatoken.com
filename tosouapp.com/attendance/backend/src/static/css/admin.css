@@ -137,6 +137,27 @@ body.drawer-open.admin.has-sidebar .content {
   pointer-events: auto;
 }
 
+/* Hard guard: user menu must stay clickable above all admin overlays */
+.admin .topbar .user,
+.admin .topbar .user .user-menu,
+.admin .topbar .user .user-btn {
+  position: relative;
+  z-index: 2147483647 !important;
+  pointer-events: auto !important;
+}
+
+.admin .topbar .user .user-menu {
+  isolation: isolate;
+}
+
+.admin .topbar .user .dropdown {
+  position: fixed !important;
+  top: calc(var(--topbar-height) - 2px) !important;
+  right: 10px !important;
+  left: auto !important;
+  z-index: 2147483647 !important;
+}
+
 .admin.has-sidebar .topbar .brand .icon {
   display: inline-block;
 }
