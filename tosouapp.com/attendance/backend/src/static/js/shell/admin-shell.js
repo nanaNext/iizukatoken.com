@@ -156,6 +156,17 @@ export function wireUserMenu() {
       } catch {}
       return null;
     };
+    const toggleEmergencyPanel = () => {
+      try {
+        closeAllSubMenus();
+        closeAllUserMenus();
+        const p = ensureEmergencyUserPanel();
+        if (!p) return;
+        const hidden = p.hasAttribute('hidden');
+        if (hidden) p.removeAttribute('hidden');
+        else p.setAttribute('hidden', '');
+      } catch {}
+    };
     const ensureEmergencyUserButton = () => {
       try {
         if (document.getElementById(emergencyBtnId)) return;
@@ -183,6 +194,7 @@ export function wireUserMenu() {
         emBtn.style.zIndex = '2147483647';
         emBtn.style.cursor = 'pointer';
         emBtn.style.pointerEvents = 'auto';
+        emBtn.style.touchAction = 'manipulation';
         const syncInitial = () => {
           try {
             const initialEl = document.getElementById('userBtnInitial');
@@ -192,6 +204,15 @@ export function wireUserMenu() {
         };
         syncInitial();
         setTimeout(syncInitial, 400);
+        emBtn.addEventListener('pointerdown', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          toggleEmergencyPanel();
+        }, true);
+        emBtn.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+        }, true);
         document.body.appendChild(emBtn);
         ensureEmergencyUserPanel();
       } catch {}
@@ -199,24 +220,11 @@ export function wireUserMenu() {
     ensureEmergencyUserButton();
     document.addEventListener('pointerdown', (e) => {
       const t = e && e.target;
-      const hit = t && t.closest ? t.closest(`#${emergencyBtnId}, .user .user-btn, .user #userBtnInitial, .user .ud-avatar, .user .caret`) : null;
+      const hit = t && t.closest ? t.closest(`.user .user-btn, .user #userBtnInitial, .user .ud-avatar, .user .caret`) : null;
       if (hit) {
         e.preventDefault();
         e.stopPropagation();
-        if (hit.id === emergencyBtnId) {
-          closeAllSubMenus();
-          closeAllUserMenus();
-          const p = ensureEmergencyUserPanel();
-          if (p) {
-            const hidden = p.hasAttribute('hidden');
-            if (hidden) p.removeAttribute('hidden');
-            else p.setAttribute('hidden', '');
-          }
-          return;
-        }
-        const btn = (hit.id === emergencyBtnId)
-          ? document.querySelector('.user .user-btn')
-          : (hit.classList && hit.classList.contains('user-btn')
+        const btn = (hit.classList && hit.classList.contains('user-btn')
           ? hit
           : (hit.closest && hit.closest('.user') ? hit.closest('.user').querySelector('.user-btn') : null));
         const root = btn && btn.closest ? btn.closest('.user') : null;
