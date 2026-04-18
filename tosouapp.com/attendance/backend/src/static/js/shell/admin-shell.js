@@ -111,7 +111,22 @@ export function wireUserMenu() {
     const closeEmergencyPanel = () => {
       try {
         const p = document.getElementById(emergencyPanelId);
-        if (p) p.setAttribute('hidden', '');
+        if (p) {
+          p.setAttribute('hidden', '');
+          p.style.display = 'none';
+          p.style.visibility = 'hidden';
+          p.style.opacity = '0';
+        }
+      } catch {}
+    };
+    const openEmergencyPanel = () => {
+      try {
+        const p = ensureEmergencyUserPanel();
+        if (!p) return;
+        p.removeAttribute('hidden');
+        p.style.display = 'block';
+        p.style.visibility = 'visible';
+        p.style.opacity = '1';
       } catch {}
     };
     const ensureEmergencyUserPanel = () => {
@@ -131,6 +146,9 @@ export function wireUserMenu() {
         p.style.boxShadow = '0 8px 24px rgba(0,0,0,.16)';
         p.style.zIndex = '2147483647';
         p.style.padding = '8px';
+        p.style.display = 'none';
+        p.style.visibility = 'hidden';
+        p.style.opacity = '0';
         p.innerHTML = `
           <a href="/admin/system/settings" style="display:block;padding:10px 12px;border-radius:8px;text-decoration:none;color:#0f172a;">Account settings</a>
           <button type="button" id="emergencyLogoutBtn" style="display:block;width:100%;text-align:left;padding:10px 12px;border:0;background:transparent;border-radius:8px;cursor:pointer;color:#0f172a;">Sign out</button>
@@ -163,8 +181,8 @@ export function wireUserMenu() {
         const p = ensureEmergencyUserPanel();
         if (!p) return;
         const hidden = p.hasAttribute('hidden');
-        if (hidden) p.removeAttribute('hidden');
-        else p.setAttribute('hidden', '');
+        if (hidden) openEmergencyPanel();
+        else closeEmergencyPanel();
       } catch {}
     };
     const ensureEmergencyUserButton = () => {
