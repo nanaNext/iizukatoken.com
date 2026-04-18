@@ -158,6 +158,18 @@ body.drawer-open.admin.has-sidebar .content {
   z-index: 2147483647 !important;
 }
 
+/* Emergency hard-fix: keep user button always clickable in viewport */
+.admin .topbar {
+  padding-right: 64px !important;
+}
+
+.admin .topbar .user {
+  position: fixed !important;
+  top: 8px !important;
+  right: 10px !important;
+  margin: 0 !important;
+}
+
 .admin.has-sidebar .topbar .brand .icon {
   display: inline-block;
 }
