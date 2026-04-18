@@ -234,6 +234,7 @@ export function initLayout() {
     if (!ub) return;
     e.preventDefault();
     e.stopPropagation();
+    try { document.querySelectorAll('.subbar .menu.open').forEach((m) => m.classList.remove('open')); } catch {}
     const root = ub.closest('.user');
     const dd = root ? root.querySelector('.dropdown') : null;
     if (!dd) return;
@@ -375,27 +376,6 @@ export function initLayout() {
       hideNavSpinner();
     });
   }
-
-  document.addEventListener('click', (e) => {
-    const btn = e.target && e.target.closest ? e.target.closest('.subbar .menu .menu-btn') : null;
-    if (btn) {
-      e.preventDefault();
-      const menu = btn.closest('.menu');
-      const open = menu.classList.contains('open');
-      document.querySelectorAll('.subbar .menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
-      if (open) menu.classList.remove('open'); else menu.classList.add('open');
-      return;
-    }
-    const inside = e.target && e.target.closest ? e.target.closest('.subbar .menu') : null;
-    if (!inside) {
-      document.querySelectorAll('.subbar .menu.open').forEach(m => m.classList.remove('open'));
-    }
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      document.querySelectorAll('.subbar .menu.open').forEach(m => m.classList.remove('open'));
-    }
-  });
 
   // Re-check mobile sizing
   if (isMobile()) {
