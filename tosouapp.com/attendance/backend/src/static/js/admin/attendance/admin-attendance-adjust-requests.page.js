@@ -1,6 +1,6 @@
 // admin-attendance-adjust-requests.page.js
 import { fetchJSONAuth } from '../../api/http.api.js';
-import { wireAdminShell } from '../../shell/admin-shell.js';
+import { wireAdminShell } from '../../shell/admin-shell.js?v=navy-20260418-menuhotfix2';
 
 const host = document.getElementById('adjustRequestsHost');
 
