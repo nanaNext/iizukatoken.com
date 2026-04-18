@@ -106,15 +106,59 @@ export function wireUserMenu() {
         dd.style.minWidth = '';
       } catch {}
     };
+    const emergencyBtnId = 'emergencyUserBtn';
+    const ensureEmergencyUserButton = () => {
+      try {
+        if (document.getElementById(emergencyBtnId)) return;
+        const srcBtn = document.querySelector('.user .user-btn');
+        const dd = document.querySelector('.user .dropdown');
+        if (!srcBtn || !dd) return;
+        const emBtn = document.createElement('button');
+        emBtn.id = emergencyBtnId;
+        emBtn.type = 'button';
+        emBtn.setAttribute('aria-label', 'user menu');
+        emBtn.style.position = 'fixed';
+        emBtn.style.top = '8px';
+        emBtn.style.right = '10px';
+        emBtn.style.width = '34px';
+        emBtn.style.height = '34px';
+        emBtn.style.borderRadius = '999px';
+        emBtn.style.border = '2px solid #0b2c66';
+        emBtn.style.background = '#d1fae5';
+        emBtn.style.color = '#065f46';
+        emBtn.style.fontWeight = '800';
+        emBtn.style.fontSize = '12px';
+        emBtn.style.lineHeight = '1';
+        emBtn.style.display = 'inline-flex';
+        emBtn.style.alignItems = 'center';
+        emBtn.style.justifyContent = 'center';
+        emBtn.style.zIndex = '2147483647';
+        emBtn.style.cursor = 'pointer';
+        emBtn.style.pointerEvents = 'auto';
+        const syncInitial = () => {
+          try {
+            const initialEl = document.getElementById('userBtnInitial');
+            const ch = (initialEl && initialEl.getAttribute('data-initial')) || '';
+            emBtn.textContent = String(ch || '人').slice(0, 1);
+          } catch {}
+        };
+        syncInitial();
+        setTimeout(syncInitial, 400);
+        document.body.appendChild(emBtn);
+      } catch {}
+    };
+    ensureEmergencyUserButton();
     document.addEventListener('pointerdown', (e) => {
       const t = e && e.target;
-      const hit = t && t.closest ? t.closest('.user .user-btn, .user #userBtnInitial, .user .ud-avatar, .user .caret') : null;
+      const hit = t && t.closest ? t.closest(`#${emergencyBtnId}, .user .user-btn, .user #userBtnInitial, .user .ud-avatar, .user .caret`) : null;
       if (hit) {
         e.preventDefault();
         e.stopPropagation();
-        const btn = hit.classList && hit.classList.contains('user-btn')
+        const btn = (hit.id === emergencyBtnId)
+          ? document.querySelector('.user .user-btn')
+          : (hit.classList && hit.classList.contains('user-btn')
           ? hit
-          : (hit.closest && hit.closest('.user') ? hit.closest('.user').querySelector('.user-btn') : null);
+          : (hit.closest && hit.closest('.user') ? hit.closest('.user').querySelector('.user-btn') : null));
         const root = btn && btn.closest ? btn.closest('.user') : null;
         const dd = root ? root.querySelector('.dropdown') : null;
         if (!btn || !dd) return;
@@ -130,7 +174,7 @@ export function wireUserMenu() {
         }
         return;
       }
-      const inside = t && t.closest ? t.closest('.user-menu') : null;
+      const inside = t && t.closest ? t.closest(`.user-menu, #${emergencyBtnId}`) : null;
       if (inside) return;
       closeAllUserMenus();
     }, true);
