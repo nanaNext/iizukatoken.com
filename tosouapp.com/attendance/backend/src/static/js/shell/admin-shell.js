@@ -81,6 +81,31 @@ export function wireUserMenu() {
     const closeAllSubMenus = () => {
       try { document.querySelectorAll('.subbar .menu.open').forEach((m) => m.classList.remove('open')); } catch {}
     };
+    const placeDropdown = (btn, dd) => {
+      try {
+        const r = btn.getBoundingClientRect();
+        const minW = 220;
+        const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+        const left = Math.max(8, Math.min((r.right - minW), vw - minW - 8));
+        const top = Math.max(8, r.bottom + 6);
+        dd.style.position = 'fixed';
+        dd.style.left = `${left}px`;
+        dd.style.top = `${top}px`;
+        dd.style.right = 'auto';
+        dd.style.zIndex = '2147483000';
+        dd.style.minWidth = `${minW}px`;
+      } catch {}
+    };
+    const clearDropdownPlacement = (dd) => {
+      try {
+        dd.style.position = '';
+        dd.style.left = '';
+        dd.style.top = '';
+        dd.style.right = '';
+        dd.style.zIndex = '';
+        dd.style.minWidth = '';
+      } catch {}
+    };
     document.addEventListener('pointerdown', (e) => {
       const t = e && e.target;
       const hit = t && t.closest ? t.closest('.user .user-btn, .user #userBtnInitial, .user .ud-avatar, .user .caret') : null;
@@ -97,14 +122,37 @@ export function wireUserMenu() {
         const hidden = dd.hasAttribute('hidden');
         closeAllUserMenus();
         if (hidden) {
+          placeDropdown(btn, dd);
           dd.removeAttribute('hidden');
           try { btn.setAttribute('aria-expanded', 'true'); } catch {}
+        } else {
+          clearDropdownPlacement(dd);
         }
         return;
       }
       const inside = t && t.closest ? t.closest('.user-menu') : null;
       if (inside) return;
       closeAllUserMenus();
+    }, true);
+    window.addEventListener('resize', () => {
+      try {
+        const btn = document.querySelector('.user .user-btn[aria-expanded="true"]');
+        if (!btn) return;
+        const root = btn.closest('.user');
+        const dd = root ? root.querySelector('.dropdown') : null;
+        if (!dd || dd.hasAttribute('hidden')) return;
+        placeDropdown(btn, dd);
+      } catch {}
+    });
+    window.addEventListener('scroll', () => {
+      try {
+        document.querySelectorAll('.user .dropdown').forEach((dd) => {
+          if (dd.hasAttribute('hidden')) return;
+          dd.setAttribute('hidden', '');
+          clearDropdownPlacement(dd);
+        });
+        document.querySelectorAll('.user .user-btn').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+      } catch {}
     }, true);
 
     // Theme submenu wiring (idempotent)
