@@ -260,6 +260,19 @@ export function initLayout() {
   const mobileDrawer = document.querySelector('#mobileDrawer');
   const mobileClose = document.querySelector('#mobileClose');
   const mobileBackdrop = document.querySelector('#drawerBackdrop');
+  const normalizeDrawerState = () => {
+    try {
+      const desktop = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(min-width: 481px)').matches;
+      const hidden = !mobileDrawer || mobileDrawer.hasAttribute('hidden');
+      if (desktop || hidden) {
+        document.body.classList.remove('drawer-open');
+        if (mobileDrawer) mobileDrawer.setAttribute('hidden', '');
+        if (mobileBackdrop) mobileBackdrop.setAttribute('hidden', '');
+        if (mobileBtn) mobileBtn.setAttribute('aria-expanded', 'false');
+      }
+    } catch {}
+  };
+  normalizeDrawerState();
   if (mobileBtn && mobileDrawer) {
     const toggleDrawer = (open) => {
       const isHidden = mobileDrawer.hasAttribute('hidden');
@@ -283,6 +296,16 @@ export function initLayout() {
     mobileBtn.addEventListener('click', () => toggleDrawer());
     if (mobileClose) mobileClose.addEventListener('click', () => toggleDrawer(false));
   }
+  if (mobileBackdrop) mobileBackdrop.addEventListener('click', () => {
+    try {
+      if (mobileDrawer) mobileDrawer.setAttribute('hidden', '');
+      mobileBackdrop.setAttribute('hidden', '');
+      if (mobileBtn) mobileBtn.setAttribute('aria-expanded', 'false');
+      document.body.classList.remove('drawer-open');
+    } catch {}
+  });
+  window.addEventListener('pageshow', normalizeDrawerState);
+  window.addEventListener('resize', normalizeDrawerState);
 
   // Link interceptor
   document.addEventListener('click', (e) => {
