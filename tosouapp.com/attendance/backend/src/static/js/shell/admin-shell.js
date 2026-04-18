@@ -188,8 +188,6 @@ export function wireUserMenu() {
     const ensureEmergencyUserButton = () => {
       try {
         if (document.getElementById(emergencyBtnId)) return;
-        const srcBtn = document.querySelector('.user .user-btn');
-        if (!srcBtn) return;
         const emBtn = document.createElement('button');
         emBtn.id = emergencyBtnId;
         emBtn.type = 'button';
@@ -213,6 +211,7 @@ export function wireUserMenu() {
         emBtn.style.cursor = 'pointer';
         emBtn.style.pointerEvents = 'auto';
         emBtn.style.touchAction = 'manipulation';
+        emBtn.style.userSelect = 'none';
         const syncInitial = () => {
           try {
             const initialEl = document.getElementById('userBtnInitial');
@@ -222,15 +221,17 @@ export function wireUserMenu() {
         };
         syncInitial();
         setTimeout(syncInitial, 400);
-        emBtn.addEventListener('pointerdown', (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          toggleEmergencyPanel();
-        }, true);
         emBtn.addEventListener('click', (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
-        }, true);
+          toggleEmergencyPanel();
+        });
+        emBtn.addEventListener('keydown', (ev) => {
+          if (ev.key !== 'Enter' && ev.key !== ' ') return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          toggleEmergencyPanel();
+        });
         document.body.appendChild(emBtn);
         ensureEmergencyUserPanel();
       } catch {}
