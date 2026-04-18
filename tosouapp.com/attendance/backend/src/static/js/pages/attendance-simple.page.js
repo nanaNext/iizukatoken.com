@@ -224,6 +224,12 @@ const restoreFastSnapshot = (date, stateRef) => {
     }
 
     renderWorkMinutes();
+    renderStampButtons({
+      date,
+      inHm: snap.hasStartedToday ? String(snap.startTime || '') : '',
+      outHm: snap.hasEndedToday ? String(snap.endTime || '') : '',
+      hasOpen: !!snap.hasStartedToday && !snap.hasEndedToday
+    });
     syncWorkTypeButtons();
     applyHolidayRestMode();
     applyWorkTypeGate();
@@ -451,6 +457,32 @@ const renderSimpleStatus = () => {
     el.classList.remove('ok', 'warn', 'danger');
     el.classList.add(meta.cls);
   });
+};
+
+const renderStampButtons = ({ date, inHm = '', outHm = '', hasOpen = false } = {}) => {
+  try {
+    const btnIn = $('#btnStartStamp');
+    const btnOut = $('#btnEndStamp');
+    const canStamp = String(date || '') === todayJST();
+    const st = window.state || {};
+    const hasStarted = !!st.hasStartedToday || !!String(inHm || '').trim();
+    const hasEnded = !!st.hasEndedToday || !!String(outHm || '').trim();
+    const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
+
+    if (btnIn) {
+      btnIn.disabled = !canStamp || hasOpen || hasStarted;
+      btnIn.textContent = inHm
+        ? (isMobile ? `開始済 (${inHm})` : `開始打刻済 (${inHm})`)
+        : '開始打刻';
+    }
+    if (btnOut) {
+      btnOut.disabled = !canStamp || !hasStarted || hasEnded;
+      if (hasOpen || (hasStarted && !hasEnded)) btnOut.textContent = '終了打刻';
+      else if (hasEnded && outHm) {
+        btnOut.textContent = isMobile ? `終了済 (${outHm})` : `終了打刻済 (${outHm})`;
+      } else btnOut.textContent = '終了打刻';
+    }
+  } catch {}
 };
 
 const syncWorkTypeButtons = () => {
@@ -792,35 +824,12 @@ const load = async (date, opts = {}) => {
       }
       try { delete et.dataset.touched; } catch {}
     }
-    try {
-      const btnIn = $('#btnStartStamp');
-      const btnOut = $('#btnEndStamp');
-      const inTime = seg?.checkIn ? String(seg.checkIn).slice(11, 16) : '';
-      const outTime = seg?.checkOut ? String(seg.checkOut).slice(11, 16) : '';
-      const canStamp = date === todayJST();
-      const hasOpen = !!effectiveOpenSeg?.checkIn && !effectiveOpenSeg?.checkOut;
-      const hasStarted = state.hasStartedToday || !!inTime;
-      const hasEnded = state.hasEndedToday || !!outTime;
-      if (btnIn) {
-        btnIn.disabled = !canStamp || hasOpen || hasStarted;
-        const hmIn = (hasOpen && effectiveOpenSeg?.checkIn ? String(effectiveOpenSeg.checkIn).slice(11, 16) : '') || inTime;
-        const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
-        btnIn.textContent = hmIn
-          ? (isMobile ? `開始済 (${hmIn})` : `開始打刻済 (${hmIn})`)
-          : '開始打刻';
-      }
-      if (btnOut) {
-        // Do not hard-disable checkout on transient stale segment state.
-        // If user has started and has not ended yet, allow tapping 終了打刻 and let API verify.
-        btnOut.disabled = !canStamp || !hasStarted || hasEnded;
-        if (hasOpen || (hasStarted && !hasEnded)) btnOut.textContent = '終了打刻';
-        else if (hasEnded && outTime) {
-          const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
-          btnOut.textContent = isMobile ? `終了済 (${outTime})` : `終了打刻済 (${outTime})`;
-        }
-        else btnOut.textContent = '終了打刻';
-      }
-    } catch {}
+    renderStampButtons({
+      date,
+      inHm: (effectiveOpenSeg?.checkIn ? String(effectiveOpenSeg.checkIn).slice(11, 16) : '') || (seg?.checkIn ? String(seg.checkIn).slice(11, 16) : ''),
+      outHm: seg?.checkOut ? String(seg.checkOut).slice(11, 16) : '',
+      hasOpen: !!effectiveOpenSeg?.checkIn && !effectiveOpenSeg?.checkOut
+    });
 
     const sel = $('#workType');
     const saved = loadSavedWorkType(date);
