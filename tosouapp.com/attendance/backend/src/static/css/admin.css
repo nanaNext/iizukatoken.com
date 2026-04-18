@@ -104,6 +104,8 @@ body.drawer-open.admin.has-sidebar .content {
 /* Stable user menu on desktop and mobile (avoid layout jump when opening) */
 .admin .topbar .user {
   position: relative;
+  z-index: 5002;
+  pointer-events: auto;
 }
 
 .admin .topbar .user .dropdown {
