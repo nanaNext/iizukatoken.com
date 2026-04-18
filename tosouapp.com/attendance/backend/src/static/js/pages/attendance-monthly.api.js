@@ -127,8 +127,10 @@
         if (isAuto && autoVal && v === autoVal) return '';
         return v;
       };
-      const inEff = effTime(inEl, isWorkKubun);
-      const outEff = effTime(outEl, isWorkKubun);
+      // Never persist planned auto-filled times as real attendance.
+      // Only user-entered/manual values should become checkIn/checkOut.
+      const inEff = effTime(inEl, false);
+      const outEff = effTime(outEl, false);
       const hasManual = !!(inEff || outEff);
       const inT = (isWorkKubun || hasManual) ? inEff : '';
       const outT = (isWorkKubun || hasManual) ? outEff : '';
