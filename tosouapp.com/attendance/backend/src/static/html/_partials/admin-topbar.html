@@ -58,7 +58,8 @@ document.addEventListener('DOMContentLoaded',function(){
   // Fallback: ensure user dropdown works even if shared layout script loads late.
   try{
     var userBtn=document.querySelector('.user .user-btn');
-    var userDd=document.getElementById('userDropdown');
+    var userRoot=userBtn?userBtn.closest('.user'):null;
+    var userDd=userRoot?userRoot.querySelector('.dropdown'):null;
     if(userBtn && userDd && userBtn.dataset.fallbackBound!=='1'){
       userBtn.dataset.fallbackBound='1';
       userBtn.addEventListener('click', function(ev){

@@ -1944,6 +1944,28 @@ body.drawer-open.admin.has-sidebar .content {
     color: #475569;
   }
 
+  .admin .topbar .user {
+    position: relative;
+  }
+
+  .admin .topbar .user .dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    min-width: 220px;
+    padding: 8px 10px;
+    border: 1px solid #d8dee8;
+    border-radius: 10px;
+    background: #fff;
+    color: #0f172a;
+    box-shadow: 0 8px 24px rgba(2, 6, 23, .12);
+    z-index: 3000;
+  }
+
+  .admin .topbar .user .dropdown[hidden] {
+    display: none !important;
+  }
+
   /* Drawer layout to match segmented mobile menu */
   .admin .mobile-drawer {
     width: 100vw !important;
