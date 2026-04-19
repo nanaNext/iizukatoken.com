@@ -26,6 +26,17 @@ async function mountAttendanceImpl({
     const s = String(dt);
     return s.length >= 16 ? s.slice(11, 16) : s;
   };
+  const isWeekend = (dateStr) => {
+    try {
+      const s = String(dateStr || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+      const [y, m, d] = s.split('-').map((n) => parseInt(n, 10));
+      const wd = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+      return wd === 0 || wd === 6;
+    } catch {
+      return false;
+    }
+  };
   const today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
   const month = today.slice(0, 7);
 
@@ -101,12 +112,14 @@ async function mountAttendanceImpl({
       table.className = 'dash-table attrec-dash-table';
       table.innerHTML = '<thead><tr><th>社員番号</th><th>氏名</th><th>部署</th><th>勤務区分</th><th>状態</th><th>出勤</th><th>退勤</th><th>現場</th><th>作業内容</th></tr></thead>';
       const tbody = document.createElement('tbody');
+      const selectedDateIsOff = isWeekend(date);
       for (const it of items) {
         const code = it.employeeCode || `EMP${String(it.userId).padStart(3, '0')}`;
         const name = it.username || '';
         const dept = it.departmentName || '—';
         const st = it.status || '';
-        const kubun = String(it.dailyKubun || '').trim();
+        const kubunRaw = String(it.dailyKubun || '').trim();
+        const kubun = kubunRaw || ((selectedDateIsOff && (st === 'leave' || st === 'not_checked_in')) ? '休日' : '');
         const leaveSet = new Set(['欠勤', '有給休暇', '半休', '無給休暇']);
         const holidaySet = new Set(['休日', '代替休日']);
         const nonWorkingSet = new Set(['欠勤', '有給休暇', '半休', '無給休暇', '休日', '代替休日']);
