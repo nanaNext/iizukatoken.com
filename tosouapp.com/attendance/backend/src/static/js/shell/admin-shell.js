@@ -229,34 +229,32 @@ export function wireUserMenu() {
         };
         syncInitial();
         setTimeout(syncInitial, 400);
-        if (emBtn.dataset.boundEmergencyToggle !== '1') {
-          emBtn.dataset.boundEmergencyToggle = '1';
-          let lastToggleAt = 0;
-          const safeToggle = () => {
-            const now = Date.now();
-            if (now - lastToggleAt < 220) return;
-            lastToggleAt = now;
-            toggleEmergencyPanel();
-          };
-          emBtn.addEventListener('pointerdown', (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            try { ev.stopImmediatePropagation(); } catch {}
-            safeToggle();
-          }, true);
-          emBtn.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            // Pointerdown already toggles; keep click as a no-op to avoid
-            // delayed double-toggle on heavy pages.
-          });
-          emBtn.addEventListener('keydown', (ev) => {
-            if (ev.key !== 'Enter' && ev.key !== ' ') return;
-            ev.preventDefault();
-            ev.stopPropagation();
-            toggleEmergencyPanel();
-          });
-        }
+        let lastToggleAt = Number(emBtn.dataset.lastToggleAt || '0');
+        const safeToggle = () => {
+          const now = Date.now();
+          if (now - lastToggleAt < 220) return;
+          lastToggleAt = now;
+          emBtn.dataset.lastToggleAt = String(lastToggleAt);
+          toggleEmergencyPanel();
+        };
+        // Re-assign handlers every time to survive DOM re-render/replacement.
+        emBtn.onpointerdown = (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          try { ev.stopImmediatePropagation(); } catch {}
+          safeToggle();
+        };
+        emBtn.onclick = (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          // Pointerdown already toggles; keep click as a no-op.
+        };
+        emBtn.onkeydown = (ev) => {
+          if (ev.key !== 'Enter' && ev.key !== ' ') return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          toggleEmergencyPanel();
+        };
         ensureEmergencyUserPanel();
       } catch {}
     };
