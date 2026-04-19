@@ -292,10 +292,29 @@ export function wireUserMenu() {
         }, true);
       } catch {}
     };
-    ensureEmergencyUserButton();
-    bindRealUserButton();
+    const bindDynamicUserControls = () => {
+      try { ensureEmergencyUserButton(); } catch {}
+      try { bindRealUserButton(); } catch {}
+    };
+    bindDynamicUserControls();
+    try {
+      // Some admin pages render topbar/user menu after script init.
+      // Re-bind to avoid intermittent "button not clickable" states.
+      setTimeout(bindDynamicUserControls, 100);
+      setTimeout(bindDynamicUserControls, 500);
+      setTimeout(bindDynamicUserControls, 1500);
+      const mo = new MutationObserver(() => bindDynamicUserControls());
+      mo.observe(document.body, { childList: true, subtree: true });
+    } catch {}
     document.addEventListener('pointerdown', (e) => {
       const t = e && e.target;
+      const directBtn = t && t.closest ? t.closest('.user .user-btn, .user #userBtnInitial, .user .ud-avatar, .user .caret') : null;
+      if (directBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleRealUserMenu();
+        return;
+      }
       const inside = t && t.closest ? t.closest(`.user-menu, #${emergencyBtnId}, #${emergencyPanelId}`) : null;
       if (inside) return;
       closeEmergencyPanel();

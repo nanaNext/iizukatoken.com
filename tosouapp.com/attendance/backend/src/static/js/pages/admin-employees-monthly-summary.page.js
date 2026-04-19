@@ -1,6 +1,6 @@
 import { fetchJSONAuth } from '../api/http.api.js';
 import { listEmployees } from '../api/employees.api.js';
-import { wireAdminShell } from '../shell/admin-shell.js?v=navy-20260418-menuhotfix11';
+import { wireAdminShell } from '../shell/admin-shell.js?v=navy-20260418-menuhotfix12';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
