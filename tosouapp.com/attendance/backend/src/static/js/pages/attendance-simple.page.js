@@ -394,6 +394,22 @@ const pickOpenSegment = (segments) => {
   return best;
 };
 
+const isPlannedPlaceholderSegment = (seg, shiftStart, shiftEnd) => {
+  try {
+    if (!seg?.checkIn || !seg?.checkOut) return false;
+    const inHm = String(seg.checkIn).slice(11, 16);
+    const outHm = String(seg.checkOut).slice(11, 16);
+    const ss = String(shiftStart || '').trim();
+    const se = String(shiftEnd || '').trim();
+    const wt = String(seg?.work_type || seg?.workType || '').trim();
+    const labels = String(seg?.labels || '').trim();
+    // Ignore auto/planned row: exactly shift range and no explicit workType/labels.
+    return !!(ss && se && inHm === ss && outHm === se && !wt && !labels);
+  } catch {
+    return false;
+  }
+};
+
 const setUrlDate = (date) => {
   try {
     const u = new URL(window.location.href);
@@ -768,7 +784,8 @@ const load = async (date, opts = {}) => {
         setupSimpleCombo(selK);
       }
     } catch {}
-    const segments = Array.isArray(day?.segments) ? day.segments : [];
+    const segmentsRaw = Array.isArray(day?.segments) ? day.segments : [];
+    const segments = segmentsRaw.filter((s) => !isPlannedPlaceholderSegment(s, shiftStart, shiftEnd));
     let seg = pickLatestSegment(segments);
     const openSeg = pickOpenSegment(segments);
     if (date === todayJST() && seg?.checkIn && seg?.checkOut) {
