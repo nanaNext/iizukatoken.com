@@ -125,40 +125,7 @@ const renderDashboard = async (profile) => {
       window.location.href = '/admin/employees#list';
     }
   });
-  try {
-    const listWrap = document.createElement('div');
-    listWrap.style.marginTop = '8px';
-    listWrap.style.maxHeight = 'none';
-    listWrap.style.overflow = 'visible';
-    listWrap.style.fontSize = '12px';
-    listWrap.style.lineHeight = '1.6';
-    listWrap.style.color = '#334155';
-    const ul = document.createElement('ul');
-    ul.style.listStyle = 'none';
-    ul.style.margin = '0';
-    ul.style.padding = '0';
-    ul.style.lineHeight = '1.6';
-    const names = employeesOnly
-      .map(u => (u.username || u.email || '').trim())
-      .filter(Boolean)
-      .slice(0, 8);
-    for (const n of names) {
-      const li = document.createElement('li');
-      li.textContent = n;
-      ul.appendChild(li);
-    }
-    if (employeesOnly.length > names.length) {
-      const more = document.createElement('div');
-      more.style.color = '#64748b';
-      more.style.fontSize = '11px';
-      more.style.lineHeight = '1.55';
-      more.style.marginTop = '4px';
-      more.textContent = `他 ${employeesOnly.length - names.length} 名`;
-      listWrap.appendChild(more);
-    }
-    listWrap.appendChild(ul);
-    usersCard.appendChild(listWrap);
-  } catch {}
+  // Keep KPI cards text-only to avoid clipping artifacts from nested mini lists.
   kpi.appendChild(usersCard);
   let plannedCount = 0;
   let plannedNames = [];
@@ -182,29 +149,7 @@ const renderDashboard = async (profile) => {
       window.location.href = '/admin/attendance';
     }
   });
-  try {
-    if (plannedNames.length) {
-      const listWrap = document.createElement('div');
-      listWrap.style.marginTop = '8px';
-      listWrap.style.maxHeight = 'none';
-      listWrap.style.overflow = 'visible';
-      listWrap.style.fontSize = '12px';
-      listWrap.style.lineHeight = '1.6';
-      listWrap.style.color = '#334155';
-      const ul = document.createElement('ul');
-      ul.style.listStyle = 'none';
-      ul.style.margin = '0';
-      ul.style.padding = '0';
-      ul.style.lineHeight = '1.6';
-      for (const n of plannedNames) {
-        const li = document.createElement('li');
-        li.textContent = n;
-        ul.appendChild(li);
-      }
-      listWrap.appendChild(ul);
-      workCard.appendChild(listWrap);
-    }
-  } catch {}
+  // Keep KPI cards text-only to avoid clipping artifacts from nested mini lists.
   kpi.appendChild(workCard);
   const showLeaveCard = false;
   if (showLeaveCard) {
