@@ -1061,11 +1061,13 @@ body.drawer-open.admin.has-sidebar .content {
   height: auto;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 6px;
   font-size: 14px;
   box-sizing: border-box;
   width: 100%;
   overflow: visible;
+  padding-bottom: 14px;
 }
 
 .admin .kpi-card.clickable {
@@ -1126,6 +1128,7 @@ body.drawer-open.admin.has-sidebar .content {
   color: #0f172a;
   font-weight: 700;
   letter-spacing: .01em;
+  line-height: 1.45;
 }
 
 .admin .kpi-value {
@@ -1133,7 +1136,8 @@ body.drawer-open.admin.has-sidebar .content {
   font-weight: 700;
   color: #0f172a;
   margin-top: 2px;
-  line-height: 1.2;
+  line-height: 1.28;
+  padding-bottom: 2px;
 }
 
 .admin .kpi-sub {
@@ -1143,6 +1147,7 @@ body.drawer-open.admin.has-sidebar .content {
   margin-top: 4px;
   line-height: 1.45;
   word-break: break-word;
+  min-height: 16px;
 }
 
 .admin .kpi-delta {
@@ -1754,7 +1759,8 @@ body.drawer-open.admin.has-sidebar .content {
   }
 
   .admin .kpi-card {
-    height: 108px;
+    min-height: 108px;
+    height: auto;
   }
 
   .admin .dash-card {
