@@ -532,11 +532,13 @@ const route = async () => {
   } catch {}
   resetTransientUiState();
   try {
-    const host = document.querySelector('#adminContent');
-    if (host) {
+    const prevHost = document.querySelector('#adminContent');
+    if (prevHost) {
+      const host = document.createElement('section');
+      host.id = 'adminContent';
       host.className = 'card';
-      host.innerHTML = '';
       host.style.visibility = '';
+      prevHost.replaceWith(host);
     }
   } catch {}
   const mountModule = async (mod) => {
@@ -855,6 +857,18 @@ const wireNavSelection = () => {
 const boot = async () => {
   try { document.documentElement.classList.add('admin-preboot'); } catch {}
   try { document.body.classList.add('booting'); } catch {}
+  let revealed = false;
+  const reveal = () => {
+    if (revealed) return;
+    revealed = true;
+    try { document.body.classList.remove('booting'); } catch {}
+    try { document.documentElement.classList.remove('admin-preboot'); } catch {}
+    try { document.getElementById('adminChrome')?.removeAttribute('hidden'); } catch {}
+    try { document.body.style.visibility = ''; } catch {}
+    try { document.getElementById('adminBootMask')?.remove(); } catch {}
+  };
+  let forceRevealTimer = null;
+  try { forceRevealTimer = setTimeout(reveal, 2200); } catch {}
   setTopbarHeightVar();
   try { window.addEventListener('resize', setTopbarHeightVar); } catch {}
   wireSidebarAccordion();
@@ -889,13 +903,7 @@ const boot = async () => {
   try {
     await route();
   } finally {
-    const reveal = () => {
-      try { document.body.classList.remove('booting'); } catch {}
-      try { document.documentElement.classList.remove('admin-preboot'); } catch {}
-      try { document.getElementById('adminChrome')?.removeAttribute('hidden'); } catch {}
-      try { document.body.style.visibility = ''; } catch {}
-      try { document.getElementById('adminBootMask')?.remove(); } catch {}
-    };
+    try { if (forceRevealTimer) clearTimeout(forceRevealTimer); } catch {}
     try {
       requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(reveal, 180)));
     } catch {
