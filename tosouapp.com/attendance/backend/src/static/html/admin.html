@@ -29,12 +29,29 @@
   </script>
   
   <script src="/static/js/pages/session-idle.js?v=navy-20260411-patch2" defer></script>
-  <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260418-menufix18"></script>
+  <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260418-menufix19"></script>
   <link rel="icon" href="data:,">
 </head>
 
 <body class="admin booting" style="visibility:hidden;">
   <div id="adminBootMask" aria-hidden="true"></div>
+  <script>
+    (function () {
+      // Failsafe: never keep admin shell hidden forever if module boot fails.
+      var reveal = function () {
+        try { document.body.classList.remove('booting'); } catch {}
+        try { document.documentElement.classList.remove('admin-preboot'); } catch {}
+        try { document.getElementById('adminChrome') && document.getElementById('adminChrome').removeAttribute('hidden'); } catch {}
+        try { document.body.style.visibility = ''; } catch {}
+        try { var m = document.getElementById('adminBootMask'); if (m) m.remove(); } catch {}
+      };
+      try { setTimeout(reveal, 2500); } catch {}
+      try {
+        window.addEventListener('error', function () { reveal(); }, { once: true });
+        window.addEventListener('unhandledrejection', function () { reveal(); }, { once: true });
+      } catch {}
+    })();
+  </script>
   <div id="adminChrome" hidden>
   <!--#include file="_partials/admin-topbar.html" -->
   <!--#include file="_partials/admin-mobile-drawer.html" -->
