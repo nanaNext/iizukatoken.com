@@ -29,12 +29,13 @@
   </script>
   
   <script src="/static/js/pages/session-idle.js?v=navy-20260411-patch2" defer></script>
-  <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260418-menufix13"></script>
+  <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260418-menufix14"></script>
   <link rel="icon" href="data:,">
 </head>
 
 <body class="admin booting" style="visibility:hidden;">
   <div id="adminBootMask" aria-hidden="true"></div>
+  <div id="adminChrome" hidden>
   <!--#include file="_partials/admin-topbar.html" -->
   <!--#include file="_partials/admin-mobile-drawer.html" -->
   <div class="subbar">
@@ -103,6 +104,7 @@
         </div>
       </div>
     </div>
+  </div>
   </div>
   <main class="content">
     <div id="status" class="status" style="display:none;"></div>

@@ -892,6 +892,7 @@ const boot = async () => {
     const reveal = () => {
       try { document.body.classList.remove('booting'); } catch {}
       try { document.documentElement.classList.remove('admin-preboot'); } catch {}
+      try { document.getElementById('adminChrome')?.removeAttribute('hidden'); } catch {}
       try { document.body.style.visibility = ''; } catch {}
       try { document.getElementById('adminBootMask')?.remove(); } catch {}
     };
