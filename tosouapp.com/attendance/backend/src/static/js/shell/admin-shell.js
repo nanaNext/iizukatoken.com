@@ -268,7 +268,7 @@ export function wireUserMenu() {
         emBtn.onclick = (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
-          safeToggle();
+          // Toggle is handled in pointerdown only to avoid delayed double-toggle.
           try { emBtn.blur(); } catch {}
         };
         emBtn.onkeydown = (ev) => {
