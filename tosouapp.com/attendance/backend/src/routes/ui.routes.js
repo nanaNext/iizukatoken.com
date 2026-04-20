@@ -79,7 +79,23 @@ router.get('/ui/attendance', sendPage('attendance.html'));
 router.get('/ui/attendance/monthly', sendPage('attendance-monthly.html'));
 router.get('/ui/attendance/monthly/', sendPage('attendance-monthly.html'));
 
-router.get('/ui/admin', sendPage('admin.html'));
+router.get('/ui/admin', (req, res) => {
+  const tab = String(req.query?.tab || '').trim();
+  if (!tab) return res.redirect(302, '/admin/dashboard');
+  if (tab === 'employees') return res.redirect(302, '/admin/employees');
+  if (tab === 'attendance') return res.redirect(302, '/admin/attendance');
+  if (tab === 'shifts') return res.redirect(302, '/admin/attendance/shifts');
+  if (tab === 'calendar') return res.redirect(302, '/admin/attendance/holidays');
+  if (tab === 'leave_grant') return res.redirect(302, '/admin/leave/grants');
+  if (tab === 'leave_balance') return res.redirect(302, '/admin/leave/balance');
+  if (tab === 'approvals') return res.redirect(302, '/admin/leave/requests');
+  if (tab === 'salary_list') return res.redirect(302, '/admin/payroll/salary');
+  if (tab === 'salary_send') return res.redirect(302, '/admin/payroll/payslips');
+  if (tab === 'departments') return res.redirect(302, '/admin/departments');
+  if (tab === 'audit') return res.redirect(302, '/admin/system/audit-logs');
+  if (tab === 'settings') return res.redirect(302, '/admin/system/settings');
+  return res.redirect(302, '/admin/dashboard');
+});
 router.get('/ui/employees', sendPage('admin.html'));
 router.get('/ui/employees/', sendPage('admin.html'));
 

@@ -343,11 +343,41 @@ export function initLayout() {
   window.addEventListener('resize', normalizeDrawerState);
 
   // Link interceptor
+  const mapLegacyAdminHref = (href) => {
+    try {
+      const u = new URL(href, location.origin);
+      if (u.pathname !== '/ui/admin') return '';
+      const tab = (u.searchParams.get('tab') || '').trim();
+      if (!tab) return '/admin/dashboard';
+      if (tab === 'employees') return '/admin/employees';
+      if (tab === 'attendance') return '/admin/attendance';
+      if (tab === 'shifts') return '/admin/attendance/shifts';
+      if (tab === 'calendar') return '/admin/attendance/holidays';
+      if (tab === 'leave_grant') return '/admin/leave/grants';
+      if (tab === 'leave_balance') return '/admin/leave/balance';
+      if (tab === 'approvals') return '/admin/leave/requests';
+      if (tab === 'salary_list') return '/admin/payroll/salary';
+      if (tab === 'salary_send') return '/admin/payroll/payslips';
+      if (tab === 'departments') return '/admin/departments';
+      if (tab === 'audit') return '/admin/system/audit-logs';
+      if (tab === 'settings') return '/admin/system/settings';
+      return '/admin/dashboard';
+    } catch {}
+    return '/admin/dashboard';
+  };
   document.addEventListener('click', (e) => {
     const t = e && e.target;
     const a = (t && t.closest) ? t.closest('a') : null;
     if (!a) return;
     const href = a.getAttribute('href') || '';
+    if (href.startsWith('/ui/admin')) {
+      e.preventDefault();
+      const mapped = mapLegacyAdminHref(href);
+      try { sessionStorage.setItem('navSpinner', '1'); } catch {}
+      showNavSpinner();
+      try { window.location.href = mapped; } catch {}
+      return;
+    }
     if (href.startsWith('/ui/portal') || href.startsWith('/ui/admin?')) {
       const now = new URL(location.href);
       const target = new URL(href, location.origin);
