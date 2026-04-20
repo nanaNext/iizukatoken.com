@@ -262,13 +262,13 @@ export function wireUserMenu() {
           ev.preventDefault();
           ev.stopPropagation();
           try { ev.stopImmediatePropagation(); } catch {}
-          // Global capture listener handles toggle to avoid double-open/close.
+          safeToggle();
           try { emBtn.blur(); } catch {}
         };
         emBtn.onclick = (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
-          // Pointerdown already toggles; keep click as a no-op.
+          safeToggle();
           try { emBtn.blur(); } catch {}
         };
         emBtn.onkeydown = (ev) => {
@@ -343,23 +343,6 @@ export function wireUserMenu() {
     } catch {}
     document.addEventListener('pointerdown', (e) => {
       const t = e && e.target;
-      try {
-        const emBtn = document.getElementById(emergencyBtnId);
-        if (emBtn) {
-          const byTarget = t && t.closest ? t.closest(`#${emergencyBtnId}`) : null;
-          const r = emBtn.getBoundingClientRect();
-          const x = Number(e.clientX || 0);
-          const y = Number(e.clientY || 0);
-          const byRect = x >= (r.left - 4) && x <= (r.right + 4) && y >= (r.top - 4) && y <= (r.bottom + 4);
-          if (byTarget || byRect) {
-            e.preventDefault();
-            e.stopPropagation();
-            try { e.stopImmediatePropagation(); } catch {}
-            toggleEmergencyPanel();
-            return;
-          }
-        }
-      } catch {}
       const directBtn = t && t.closest ? t.closest('.user .user-btn, .user #userBtnInitial, .user .ud-avatar, .user .caret') : null;
       if (directBtn) {
         e.preventDefault();

@@ -1,5 +1,5 @@
 import { fetchJSONAuth } from '../api/http.api.js';
-import { wireAdminShell } from '../shell/admin-shell.js?v=navy-20260418-menuhotfix21';
+import { wireAdminShell } from '../shell/admin-shell.js?v=navy-20260418-menuhotfix22';
 
 async function ensureProfile() {
   const profile = await fetchJSONAuth('/api/auth/me').catch(() => null);

@@ -1,5 +1,5 @@
 import { logout } from '../api/auth.api.js';
-import { wireAdminShell } from '../shell/admin-shell.js?v=navy-20260418-menuhotfix21';
+import { wireAdminShell } from '../shell/admin-shell.js?v=navy-20260418-menuhotfix22';
 
 const normalizePath = (p) => {
   const s = String(p || '');
@@ -531,6 +531,14 @@ const route = async () => {
     if (typeof cleanup === 'function') await cleanup();
   } catch {}
   resetTransientUiState();
+  try {
+    const host = document.querySelector('#adminContent');
+    if (host) {
+      host.className = 'card';
+      host.innerHTML = '';
+      host.style.visibility = '';
+    }
+  } catch {}
   const mountModule = async (mod) => {
     if (!mod || typeof mod.mount !== 'function') {
       currentViewCleanup = null;

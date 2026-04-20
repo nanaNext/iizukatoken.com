@@ -541,5 +541,6 @@ export async function mount() {
   await renderDashboard(profile);
   return () => {
     dashboardRenderSeq++;
+    try { hideSpinner(); } catch {}
   };
 }
