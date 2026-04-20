@@ -8,29 +8,15 @@
   <link rel="stylesheet" href="/static/css/base.css?v=navy-20260408-1">
   <link rel="stylesheet" href="/static/css/admin.css?v=navy-20260418-menufix9">
   <meta name="asset-v" content="navy-20260418-adminfix4">
-  <style>
-    #adminBootMask {
-      position: fixed;
-      inset: 0;
-      background: #f8fbff;
-      z-index: 2147483647;
-    }
-    html.admin-preboot body.admin {
-      visibility: hidden !important;
-    }
-  </style>
-  <script>
-    try { document.documentElement.classList.add('admin-preboot'); } catch {}
-  </script>
+  <style></style>
 
   <script src="/static/js/pages/session-idle.js?v=navy-20260411-patch2" defer></script>
   <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260418-menufix20"></script>
   <link rel="icon" href="data:,">
 </head>
 
-<body class="admin booting" style="visibility:hidden;">
-  <div id="adminBootMask" aria-hidden="true"></div>
-  <div id="adminChrome" hidden>
+<body class="admin has-sidebar">
+  <div id="adminChrome">
   <!--#include file="_partials/admin-topbar.html" -->
   <!--#include file="_partials/admin-mobile-drawer.html" -->
   <div class="subbar">
