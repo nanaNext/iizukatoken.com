@@ -9,15 +9,21 @@
   <link rel="stylesheet" href="/static/css/admin.css?v=navy-20260418-menufix7">
   <meta name="asset-v" content="navy-20260418-adminfix4">
   <style>
+    html.admin-preboot body.admin {
+      visibility: hidden !important;
+    }
     body.admin.booting .topbar,
     body.admin.booting .subbar,
     body.admin.booting .content {
       visibility: hidden !important;
     }
   </style>
+  <script>
+    try { document.documentElement.classList.add('admin-preboot'); } catch {}
+  </script>
   
   <script src="/static/js/pages/session-idle.js?v=navy-20260411-patch2" defer></script>
-  <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260418-menufix10"></script>
+  <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260418-menufix11"></script>
   <link rel="icon" href="data:,">
 </head>
 

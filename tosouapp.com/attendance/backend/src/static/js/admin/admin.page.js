@@ -853,6 +853,7 @@ const wireNavSelection = () => {
 };
 
 const boot = async () => {
+  try { document.documentElement.classList.add('admin-preboot'); } catch {}
   try { document.body.classList.add('booting'); } catch {}
   setTopbarHeightVar();
   try { window.addEventListener('resize', setTopbarHeightVar); } catch {}
@@ -889,6 +890,7 @@ const boot = async () => {
     await route();
   } finally {
     try { document.body.classList.remove('booting'); } catch {}
+    try { document.documentElement.classList.remove('admin-preboot'); } catch {}
   }
 };
 
