@@ -59,7 +59,7 @@ function roleRedirect(role) {
   try { sessionStorage.setItem('navSpinner', '1'); } catch {}
   showPageSpinner();
   const r = String(role || '').toLowerCase();
-  const next = r === 'admin'
+  const next = (r === 'admin' || r === 'manager')
     ? `/admin/dashboard?boot=${Date.now()}`
     : '/ui/portal';
   try { window.location.replace(next); } catch { window.location.href = next; }
