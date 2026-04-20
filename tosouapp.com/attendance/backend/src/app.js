@@ -167,8 +167,12 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { setHeaders
 app.use('/static', express.static(path.join(__dirname, 'static'), {
   setHeaders: (res, p) => {
     const ext = String(p || '').toLowerCase();
-    const isAsset = ext.endsWith('.js') || ext.endsWith('.css') || ext.endsWith('.png') || ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.gif') || ext.endsWith('.webp') || ext.endsWith('.svg') || ext.endsWith('.ico');
-    if (isAsset) {
+    const isScriptOrStyle = ext.endsWith('.js') || ext.endsWith('.css');
+    const isImageAsset = ext.endsWith('.png') || ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.gif') || ext.endsWith('.webp') || ext.endsWith('.svg') || ext.endsWith('.ico');
+    if (isScriptOrStyle) {
+      // Avoid stale frontend bundles after hotfix deploys.
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    } else if (isImageAsset) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     } else {
       res.setHeader('Cache-Control', 'no-store');
