@@ -128,15 +128,16 @@ const renderDashboard = async (profile) => {
   try {
     const listWrap = document.createElement('div');
     listWrap.style.marginTop = '8px';
-    listWrap.style.maxHeight = '54px';
-    listWrap.style.overflow = 'auto';
+    listWrap.style.maxHeight = 'none';
+    listWrap.style.overflow = 'visible';
     listWrap.style.fontSize = '12px';
-    listWrap.style.lineHeight = '1.4';
+    listWrap.style.lineHeight = '1.6';
     listWrap.style.color = '#334155';
     const ul = document.createElement('ul');
     ul.style.listStyle = 'none';
     ul.style.margin = '0';
     ul.style.padding = '0';
+    ul.style.lineHeight = '1.6';
     const names = employeesOnly
       .map(u => (u.username || u.email || '').trim())
       .filter(Boolean)
@@ -150,6 +151,7 @@ const renderDashboard = async (profile) => {
       const more = document.createElement('div');
       more.style.color = '#64748b';
       more.style.fontSize = '11px';
+      more.style.lineHeight = '1.55';
       more.style.marginTop = '4px';
       more.textContent = `他 ${employeesOnly.length - names.length} 名`;
       listWrap.appendChild(more);
@@ -184,15 +186,16 @@ const renderDashboard = async (profile) => {
     if (plannedNames.length) {
       const listWrap = document.createElement('div');
       listWrap.style.marginTop = '8px';
-      listWrap.style.maxHeight = '54px';
-      listWrap.style.overflow = 'auto';
+      listWrap.style.maxHeight = 'none';
+      listWrap.style.overflow = 'visible';
       listWrap.style.fontSize = '12px';
-      listWrap.style.lineHeight = '1.4';
+      listWrap.style.lineHeight = '1.6';
       listWrap.style.color = '#334155';
       const ul = document.createElement('ul');
       ul.style.listStyle = 'none';
       ul.style.margin = '0';
       ul.style.padding = '0';
+      ul.style.lineHeight = '1.6';
       for (const n of plannedNames) {
         const li = document.createElement('li');
         li.textContent = n;
