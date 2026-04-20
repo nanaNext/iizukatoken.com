@@ -625,7 +625,7 @@ const route = async () => {
     const p2 = normalizePath(window.location.pathname);
 
     if (p2 === '/admin' || p2 === '/admin/dashboard') {
-      const mod = await loadModule('./dashboard/dashboard.page.js?v=navy-20260418-dashfix3');
+      const mod = await loadModule('./dashboard/dashboard.page.js?v=navy-20260418-dashfix2');
       if (seq !== routeSeq) return;
       await mountModule(mod);
       return;
