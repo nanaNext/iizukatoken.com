@@ -133,12 +133,14 @@ exports.login = async (req, res) => {
       path: '/'
     });
     setSessionCookie(req, res, token);
+    const nextPath = (role === 'admin' || role === 'manager') ? '/admin/dashboard' : '/ui/portal';
     res.status(200).json({
       id: user.id,
       username: user.username,
       email: user.email,
       role,
-      accessToken: token
+      accessToken: token,
+      nextPath
     });
     try {
       await auditRepo.writeLog({
