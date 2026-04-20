@@ -2,93 +2,6 @@
   display: flex;
 }
 
-/* Emergency baseline shell styles: keeps desktop admin header/subbar usable
-   even if higher-level theme rules are missing or partially loaded. */
-.admin .topbar {
-  position: sticky;
-  top: 0;
-  background: #0b2c66;
-  color: #fff;
-  min-height: 52px;
-  border-bottom: 1px solid #0a2554;
-}
-.admin .mobile-btn {
-  display: none;
-}
-.admin .topbar-inner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-}
-.admin .topbar .brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  color: #fff;
-}
-.admin .topbar .brand .icon {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-}
-.admin .topbar .brand .logo {
-  font-weight: 800;
-  color: #fff;
-}
-.admin .topbar .search {
-  flex: 1;
-}
-.admin .subbar {
-  background: #fff;
-  border-bottom: 1px solid #d8e3f3;
-}
-.admin .subbar .subnav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 42px;
-  overflow-x: auto;
-}
-.admin .subbar .subnav > a,
-.admin .subbar .subnav .menu-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #0f172a;
-  font-size: 13px;
-  text-decoration: none;
-  cursor: pointer;
-}
-.admin .subbar .subnav .menu {
-  position: relative;
-}
-.admin .subbar .subnav .menu .submenu {
-  display: none;
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0;
-  min-width: 220px;
-  background: #fff;
-  border: 1px solid #d8e3f3;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, .12);
-  z-index: 2000;
-}
-.admin .subbar .subnav .menu.open .submenu,
-.admin .subbar .subnav .menu:hover .submenu {
-  display: block;
-}
-.admin .subbar .subnav .menu .submenu a {
-  display: block;
-  padding: 9px 12px;
-  color: #0f172a;
-  text-decoration: none;
-}
-
 /* Keep topbar/user controls above all section overlays/menus */
 .admin .topbar {
   z-index: 2147483000 !important;
@@ -1144,17 +1057,13 @@ body.drawer-open.admin.has-sidebar .content {
   border-radius: 10px;
   padding: 12px 14px;
   box-shadow: 0 1px 4px rgba(16, 24, 40, .08);
-  min-height: 120px;
-  height: auto;
+  height: 120px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  gap: 6px;
+  justify-content: space-between;
   font-size: 14px;
   box-sizing: border-box;
   width: 100%;
-  overflow: visible;
-  padding-bottom: 14px;
 }
 
 .admin .kpi-card.clickable {
@@ -1215,7 +1124,6 @@ body.drawer-open.admin.has-sidebar .content {
   color: #0f172a;
   font-weight: 700;
   letter-spacing: .01em;
-  line-height: 1.45;
 }
 
 .admin .kpi-value {
@@ -1223,8 +1131,6 @@ body.drawer-open.admin.has-sidebar .content {
   font-weight: 700;
   color: #0f172a;
   margin-top: 2px;
-  line-height: 1.28;
-  padding-bottom: 2px;
 }
 
 .admin .kpi-sub {
@@ -1232,9 +1138,6 @@ body.drawer-open.admin.has-sidebar .content {
   color: #475569;
   font-weight: 500;
   margin-top: 4px;
-  line-height: 1.45;
-  word-break: break-word;
-  min-height: 16px;
 }
 
 .admin .kpi-delta {
@@ -1846,8 +1749,7 @@ body.drawer-open.admin.has-sidebar .content {
   }
 
   .admin .kpi-card {
-    min-height: 108px;
-    height: auto;
+    height: 108px;
   }
 
   .admin .dash-card {
