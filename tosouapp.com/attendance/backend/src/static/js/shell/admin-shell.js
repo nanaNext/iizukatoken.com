@@ -236,14 +236,18 @@ export function wireUserMenu() {
           emBtn.style.boxShadow = '0 0 0 1px rgba(255,255,255,.85)';
           emBtn.style.appearance = 'none';
           emBtn.style.webkitTapHighlightColor = 'transparent';
+          emBtn.style.pointerEvents = 'auto';
         };
         let emBtn = document.getElementById(emergencyBtnId);
-        if (!emBtn) {
-          emBtn = document.createElement('button');
+        if (!emBtn || emBtn.tagName === 'BUTTON') {
+          const prev = emBtn;
+          emBtn = document.createElement('div');
           emBtn.id = emergencyBtnId;
-          emBtn.type = 'button';
+          emBtn.setAttribute('role', 'button');
+          emBtn.setAttribute('tabindex', '0');
           emBtn.setAttribute('aria-label', 'user menu');
-          document.body.appendChild(emBtn);
+          if (prev && prev.parentNode) prev.parentNode.replaceChild(emBtn, prev);
+          else document.body.appendChild(emBtn);
         }
         applyBtnStyle(emBtn);
         const syncInitial = () => {
