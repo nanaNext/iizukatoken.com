@@ -10,13 +10,20 @@ const htmlRoot = path.join(__dirname, '..', 'static', 'html');
 const sendHtml = makeHtmlSenderSync({ htmlRoot });
 
 const sendPage = (file) => (req, res) => sendHtml(req, res, file);
-const sendAdminPageNoCache = (req, res, file = 'admin.html') => {
+const setNoStore = (res) => {
   try {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
     res.set('Surrogate-Control', 'no-store');
   } catch {}
+};
+const sendPageNoCache = (file) => (req, res) => {
+  setNoStore(res);
+  return sendHtml(req, res, file);
+};
+const sendAdminPageNoCache = (req, res, file = 'admin.html') => {
+  setNoStore(res);
   return sendHtml(req, res, file);
 };
 const authorizePage = (...roles) => (req, res, next) => {
@@ -32,9 +39,9 @@ const authorizePage = (...roles) => (req, res, next) => {
   next();
 };
 
-router.get('/ui/login', sendPage('login.html'));
-router.get('/login', sendPage('login.html'));
-router.get('/login.html', sendPage('login.html'));
+router.get('/ui/login', sendPageNoCache('login.html'));
+router.get('/login', sendPageNoCache('login.html'));
+router.get('/login.html', sendPageNoCache('login.html'));
 router.get('/ui/forgot-password', sendPage('forgot-password.html'));
 router.get('/forgot-password', sendPage('forgot-password.html'));
 router.get('/ui/reset-password', sendPage('reset-password.html'));
@@ -79,11 +86,13 @@ router.use('/ui', authenticateFromCookie);
 
 router.get('/ui/dashboard', sendPage('dashboard.html'));
 router.get('/ui/portal', (req, res) => {
+  setNoStore(res);
   const role = String(req.user?.role || '').toLowerCase();
   if (role === 'admin' || role === 'manager') return res.redirect(302, '/admin/dashboard');
   return sendHtml(req, res, 'portal.html');
 });
 router.get('/ui/portal/', (req, res) => {
+  setNoStore(res);
   const role = String(req.user?.role || '').toLowerCase();
   if (role === 'admin' || role === 'manager') return res.redirect(302, '/admin/dashboard');
   return sendHtml(req, res, 'portal.html');
