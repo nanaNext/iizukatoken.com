@@ -64,18 +64,34 @@
       const plannedLabel = offDay ? '【予定休日】' : '【予定出勤】';
       const plannedKubun = offDay ? '休日' : '出勤';
       const workKubunSet = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
-      // If off day but already has actual check-in/out and kubun is not set, infer 休日出勤 for display
-      if (offDay && !kubunInit) {
-        const hasActual = !!(seg?.checkIn || seg?.checkOut);
-        if (hasActual) kubunInit = '休日出勤';
-      }
       const effectiveKubun = kubunInit || plannedKubun;
       const isWorkDay = workKubunSet.has(effectiveKubun);
       const canEditWorkRow = !!state.editableMonth && isWorkDay && !!kubunInit;
       const isHolidayKubun = effectiveKubun === '休日' || effectiveKubun === '代替休日';
       
-      const inHm = fromDateTime(seg?.checkIn);
-      const outHm = fromDateTime(seg?.checkOut);
+      const shiftStart = String(shift?.start_time || '08:00').trim();
+      const shiftEnd = String(shift?.end_time || '17:00').trim();
+      const shiftStartOk = /^\d{1,2}:\d{2}$/.test(shiftStart);
+      const shiftEndOk = /^\d{1,2}:\d{2}$/.test(shiftEnd);
+      const inHmRaw = fromDateTime(seg?.checkIn);
+      const outHmRaw = fromDateTime(seg?.checkOut);
+      const segWt = String(seg?.workType || '').trim();
+      const segLabels = String(seg?.labels || '').trim();
+      // Ignore shift-shaped placeholder rows (planned auto rows), keep only real punches.
+      const isShiftPlaceholder = !!(
+        inHmRaw && outHmRaw &&
+        shiftStartOk && shiftEndOk &&
+        !segWt && !segLabels &&
+        inHmRaw === shiftStart &&
+        outHmRaw === shiftEnd
+      );
+      const inHm = isShiftPlaceholder ? '' : inHmRaw;
+      const outHm = isShiftPlaceholder ? '' : outHmRaw;
+      // If off day but already has actual check-in/out and kubun is not set, infer 休日出勤 for display
+      if (offDay && !kubunInit) {
+        const hasActual = !!(inHm || outHm);
+        if (hasActual) kubunInit = '休日出勤';
+      }
       // Consider row "actual" only when real punch times exist.
       // Some legacy rows may have id but empty times and should remain planned/faded.
       const hasActual = !!(seg?.checkIn || seg?.checkOut);
@@ -87,11 +103,6 @@
       const role = String(profile?.role || '').toLowerCase();
       const isEmployee = role === 'employee';
       const disablePlanned = isEmployee && (kubunInit !== '' || hasActual);
-
-      const shiftStart = String(shift?.start_time || '08:00').trim();
-      const shiftEnd = String(shift?.end_time || '17:00').trim();
-      const shiftStartOk = /^\d{1,2}:\d{2}$/.test(shiftStart);
-      const shiftEndOk = /^\d{1,2}:\d{2}$/.test(shiftEnd);
 
       // Hint logic
       const inInit = inHm || (isWorkDay ? shiftStart : '');
@@ -182,7 +193,7 @@
       else if (dow === '土') tr.classList.add('sat');
       if (dow === '土' && (inHm || outHm)) tr.classList.add('worked');
       if (isPlanned) tr.classList.add('planned');
-      if (seg?.id) tr.classList.add('has-entry');
+      if (hasActual) tr.classList.add('has-entry');
       if (!isWorkDay) tr.classList.add('leave');
 
       tr.dataset.row = '1';
