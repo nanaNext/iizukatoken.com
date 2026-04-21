@@ -138,15 +138,18 @@
       display: flex;
       gap: 8px;
       align-items: center;
+      justify-content: center;
       margin-top: 10px;
     }
 
     .adjust-actions .btn {
       height: 40px;
       border-radius: 10px;
+      min-width: 110px;
       padding: 0 16px;
       font-family: Meiryo, "Meiryo UI", "Segoe UI", Arial, sans-serif;
       font-size: 14px;
+      text-align: center;
     }
 
     #empSummary .btn,
@@ -647,7 +650,7 @@
 
       .adjust-actions {
         flex-wrap: nowrap;
-        justify-content: flex-start;
+        justify-content: center;
         gap: 10px;
       }
 
@@ -657,11 +660,6 @@
         min-width: 132px;
         padding-left: 18px;
         padding-right: 18px;
-      }
-
-      #exApply {
-        margin-left: auto !important;
-        margin-right: 0 !important;
       }
 
       #homeSection #exStatus {
@@ -1122,7 +1120,7 @@
         </div>
         <div class="adjust-actions">
           <button id="exSubmit" class="btn btn-secondary" type="button">下書き保存</button>
-          <button id="exApply" class="btn btn-primary" type="button" style="margin-left:8px;">申請</button>
+          <button id="exApply" class="btn btn-primary" type="button">申請</button>
           <div id="exStatus" class="adjust-status"></div>
       </section>
       </div>

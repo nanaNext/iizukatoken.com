@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="icon">🕒</div>
             <div class="title">勤怠入力</div>
           </a>
-          <a class="tile" href="/expenses-login" target="_blank" rel="noopener noreferrer">
+          <a class="tile" href="/ui/expenses">
             <div class="icon">💳</div>
             <div class="title">経費精算</div>
           </a>
@@ -264,7 +264,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       { key:'overtime', title:'残業申請', icon:'⏲', href:'/ui/adjust?type=overtime', desc:'Overtime / time correction request', prio:32, hideForAdmin:true },
       { key:'overtime_manage', title:'残業管理', icon:'⏲', href:'/admin/leave/requests', desc:'Overtime management', adminOnly:true, prio:18 },
       { key:'requests_manage', title:'申請管理', icon:'🗂', href:'/admin/leave/requests', desc:'Requests management', adminOnly:true, prio:19 },
-      { key:'expenses', title:'経費精算', icon:'💳', href:'/ui/adjust', desc:'Expense claims', prio:34 },
+      { key:'expenses', title:'経費精算', icon:'💳', href:'/ui/expenses', desc:'Expense claims', prio:34 },
       { key:'salary', title:(r)=> (r==='admin'||r==='manager')?'給与管理':'給与明細', icon:'💴', href:(r)=> (r==='admin'||r==='manager')?'/admin/payroll/salary':'/ui/salary', desc:(r)=> (r==='admin'||r==='manager')?'Salary management':'Payslips', prio:36 },
       { key:'salary_calc', title:'給与計算', icon:'🧮', href:'/ui/admin?tab=salary_calc', desc:'Payroll calculation', adminOnly:true, prio:37 },
       { key:'salary_send', title:'給与明細送信', icon:'📧', href:'/admin/payroll/payslips', desc:'Send payslips', adminOnly:true, prio:38 },

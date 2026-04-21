@@ -454,23 +454,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch {}
   } catch { window.location.replace('/expenses-login'); return; }
   wireUserMenu(); wireDrawer();
-  try {
-    if (document.body.dataset.backLoginBound !== '1') {
-      document.body.dataset.backLoginBound = '1';
-      try { history.pushState({ back_to_expenses_login_guard: true }, '', window.location.href); } catch {}
-      window.addEventListener('popstate', async () => {
-        try { await logout(); } catch {}
-        try { window.location.replace('/expenses-login'); } catch { window.location.href = '/expenses-login'; }
-      });
-    }
-  } catch {}
   const back = document.getElementById('expBackBtn');
   if (back && !back.dataset.bound) {
     back.dataset.bound = '1';
-    back.addEventListener('click', async (e) => {
+    back.addEventListener('click', (e) => {
       e.preventDefault();
-      try { await logout(); } catch {}
-      try { window.location.replace('/ui/logout?next=%2Fexpenses-login'); } catch { window.location.href = '/ui/logout?next=%2Fexpenses-login'; }
+      try { window.location.replace('/ui/portal'); } catch { window.location.href = '/ui/portal'; }
     });
   }
   const d = $('#exDate'); if (d && !d.value) d.value = todayISO();
