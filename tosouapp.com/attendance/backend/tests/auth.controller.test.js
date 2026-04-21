@@ -167,7 +167,8 @@ describe('auth.controller', () => {
       username: 'demo',
       email: 'demo@example.com',
       role: 'employee',
-      accessToken: 'signed-access-token'
+      accessToken: 'signed-access-token',
+      nextPath: '/ui/portal'
     });
     expect(res.body.refreshToken).toBeUndefined();
     expect(mocks.createToken).toHaveBeenCalledWith(expect.objectContaining({
