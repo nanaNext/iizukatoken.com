@@ -451,6 +451,14 @@ const getUrlDate = () => {
   } catch {}
   return todayJST();
 };
+const shouldKeepDateOnBoot = () => {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    return String(p.get('keepDate') || '') === '1';
+  } catch {
+    return false;
+  }
+};
 
 const calcWorkMinutes = () => {
   // Use the visible time values for live UI calculation.
@@ -1142,7 +1150,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   try { window.userRole = role; } catch {}
 
-  const state = { date: getUrlDate(), isOff: false, restHoliday: false, shiftStart: FIXED_START, shiftEnd: FIXED_END, hasStartedToday: false, hasEndedToday: false };
+  const bootDate = (() => {
+    const d = getUrlDate();
+    if (shouldKeepDateOnBoot()) return d;
+    // In simple stamping screen, default to today to avoid accidental lock
+    // when a stale ?date=YYYY-MM-DD URL is restored on production devices.
+    return d === todayJST() ? d : todayJST();
+  })();
+  const state = { date: bootDate, isOff: false, restHoliday: false, shiftStart: FIXED_START, shiftEnd: FIXED_END, hasStartedToday: false, hasEndedToday: false };
   window.state = state; // Gán vào window để các hàm bên ngoài scope DOMContentLoaded (như applyHolidayRestMode) có thể truy cập
   let startStampInFlight = false;
   setUrlDate(state.date);
