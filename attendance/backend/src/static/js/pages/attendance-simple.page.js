@@ -224,6 +224,12 @@ const restoreFastSnapshot = (date, stateRef) => {
     }
 
     renderWorkMinutes();
+    renderStampButtons({
+      date,
+      inHm: snap.hasStartedToday ? String(snap.startTime || '') : '',
+      outHm: snap.hasEndedToday ? String(snap.endTime || '') : '',
+      hasOpen: !!snap.hasStartedToday && !snap.hasEndedToday
+    });
     syncWorkTypeButtons();
     applyHolidayRestMode();
     applyWorkTypeGate();
@@ -388,6 +394,39 @@ const pickOpenSegment = (segments) => {
   return best;
 };
 
+const isPlannedPlaceholderSegment = (seg, shiftStart, shiftEnd) => {
+  try {
+    if (!seg?.checkIn) return false;
+    const inHm = String(seg.checkIn).slice(11, 16);
+    const outHm = seg?.checkOut ? String(seg.checkOut).slice(11, 16) : '';
+    const ss = String(shiftStart || '').trim();
+    const se = String(shiftEnd || '').trim();
+    const wt = String(seg?.work_type || seg?.workType || '').trim();
+    const labels = String(seg?.labels || '').trim();
+    const matchesPlan = !!(ss && inHm === ss && (!outHm || !se || outHm === se));
+    // Ignore auto/planned row: shift-like time and no explicit workType/labels.
+    return !!(matchesPlan && !wt && !labels);
+  } catch {
+    return false;
+  }
+};
+const isTodayShiftGhostSegment = (seg, shiftStart, shiftEnd, date) => {
+  try {
+    if (String(date || '') !== todayJST()) return false;
+    if (!seg?.checkIn) return false;
+    const inHm = String(seg.checkIn).slice(11, 16);
+    const outHm = seg?.checkOut ? String(seg.checkOut).slice(11, 16) : '';
+    const ss = String(shiftStart || '').trim();
+    const se = String(shiftEnd || '').trim();
+    if (!ss || inHm !== ss) return false;
+    // On today screen, a pure shift-shaped row is treated as ghost/planned
+    // so employee can stamp actual click-time.
+    return !outHm || !se || outHm === se;
+  } catch {
+    return false;
+  }
+};
+
 const setUrlDate = (date) => {
   try {
     const u = new URL(window.location.href);
@@ -451,6 +490,47 @@ const renderSimpleStatus = () => {
     el.classList.remove('ok', 'warn', 'danger');
     el.classList.add(meta.cls);
   });
+};
+
+const renderStampButtons = ({ date, inHm = '', outHm = '', hasOpen = false } = {}) => {
+  try {
+    const btnIn = $('#btnStartStamp');
+    const btnOut = $('#btnEndStamp');
+    const canStamp = String(date || '') === todayJST();
+    const st = window.state || {};
+    const hasGhostPlanned = !!st.plannedStampAttendanceId;
+    const hasStarted = (!hasGhostPlanned) && (!!st.hasStartedToday || !!String(inHm || '').trim());
+    const hasEnded = !!st.hasEndedToday || !!String(outHm || '').trim();
+    const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
+
+    // For non-today dates, keep labels neutral to avoid confusing "started at 08:00"
+    // from planned/legacy data while stamping is intentionally disabled.
+    if (!canStamp) {
+      if (btnIn) {
+        btnIn.disabled = true;
+        btnIn.textContent = '開始打刻';
+      }
+      if (btnOut) {
+        btnOut.disabled = true;
+        btnOut.textContent = '終了打刻';
+      }
+      return;
+    }
+
+    if (btnIn) {
+      btnIn.disabled = !canStamp || hasOpen || hasStarted;
+      btnIn.textContent = inHm
+        ? (isMobile ? `開始済 (${inHm})` : `開始打刻済 (${inHm})`)
+        : '開始打刻';
+    }
+    if (btnOut) {
+      btnOut.disabled = !canStamp || !hasStarted || hasEnded;
+      if (hasOpen || (hasStarted && !hasEnded)) btnOut.textContent = '終了打刻';
+      else if (hasEnded && outHm) {
+        btnOut.textContent = isMobile ? `終了済 (${outHm})` : `終了打刻済 (${outHm})`;
+      } else btnOut.textContent = '終了打刻';
+    }
+  } catch {}
 };
 
 const syncWorkTypeButtons = () => {
@@ -736,7 +816,29 @@ const load = async (date, opts = {}) => {
         setupSimpleCombo(selK);
       }
     } catch {}
-    const segments = Array.isArray(day?.segments) ? day.segments : [];
+    const segmentsRaw = Array.isArray(day?.segments) ? day.segments : [];
+    const plannedOpenSeg = segmentsRaw.find((s) =>
+      isPlannedPlaceholderSegment(s, shiftStart, shiftEnd) && s?.checkIn && !s?.checkOut
+    ) || null;
+    const shiftLikeOpenSeg = segmentsRaw.find((s) => {
+      try {
+        if (!s?.id || !s?.checkIn || s?.checkOut) return false;
+        const inHm = String(s.checkIn).slice(11, 16);
+        return !!(shiftStart && inHm === shiftStart);
+      } catch {
+        return false;
+      }
+    }) || null;
+    const ghostSeg = segmentsRaw.find((s) =>
+      isTodayShiftGhostSegment(s, shiftStart, shiftEnd, date)
+    ) || null;
+    state.plannedOpenAttendanceId = plannedOpenSeg?.id || null;
+    state.shiftLikeOpenAttendanceId = shiftLikeOpenSeg?.id || null;
+    state.plannedStampAttendanceId = ghostSeg?.id || null;
+    const segments = segmentsRaw.filter((s) =>
+      !isPlannedPlaceholderSegment(s, shiftStart, shiftEnd) &&
+      !isTodayShiftGhostSegment(s, shiftStart, shiftEnd, date)
+    );
     let seg = pickLatestSegment(segments);
     const openSeg = pickOpenSegment(segments);
     if (date === todayJST() && seg?.checkIn && seg?.checkOut) {
@@ -753,7 +855,10 @@ const load = async (date, opts = {}) => {
         try {
           const st = await fetchJSONAuth(`/api/attendance/status?date=${encodeURIComponent(date)}`);
           if (st?.attendance?.checkIn) {
-            seg = { checkIn: st.attendance.checkIn, checkOut: st.attendance.checkOut || null };
+            const fromStatus = { checkIn: st.attendance.checkIn, checkOut: st.attendance.checkOut || null };
+            if (!isTodayShiftGhostSegment(fromStatus, shiftStart, shiftEnd, date)) {
+              seg = fromStatus;
+            }
           }
         } catch {}
       }
@@ -792,35 +897,12 @@ const load = async (date, opts = {}) => {
       }
       try { delete et.dataset.touched; } catch {}
     }
-    try {
-      const btnIn = $('#btnStartStamp');
-      const btnOut = $('#btnEndStamp');
-      const inTime = seg?.checkIn ? String(seg.checkIn).slice(11, 16) : '';
-      const outTime = seg?.checkOut ? String(seg.checkOut).slice(11, 16) : '';
-      const canStamp = date === todayJST();
-      const hasOpen = !!effectiveOpenSeg?.checkIn && !effectiveOpenSeg?.checkOut;
-      const hasStarted = state.hasStartedToday || !!inTime;
-      const hasEnded = state.hasEndedToday || !!outTime;
-      if (btnIn) {
-        btnIn.disabled = !canStamp || hasOpen || hasStarted;
-        const hmIn = (hasOpen && effectiveOpenSeg?.checkIn ? String(effectiveOpenSeg.checkIn).slice(11, 16) : '') || inTime;
-        const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
-        btnIn.textContent = hmIn
-          ? (isMobile ? `開始済 (${hmIn})` : `開始打刻済 (${hmIn})`)
-          : '開始打刻';
-      }
-      if (btnOut) {
-        // Do not hard-disable checkout on transient stale segment state.
-        // If user has started and has not ended yet, allow tapping 終了打刻 and let API verify.
-        btnOut.disabled = !canStamp || !hasStarted || hasEnded;
-        if (hasOpen || (hasStarted && !hasEnded)) btnOut.textContent = '終了打刻';
-        else if (hasEnded && outTime) {
-          const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 520px)').matches;
-          btnOut.textContent = isMobile ? `終了済 (${outTime})` : `終了打刻済 (${outTime})`;
-        }
-        else btnOut.textContent = '終了打刻';
-      }
-    } catch {}
+    renderStampButtons({
+      date,
+      inHm: (effectiveOpenSeg?.checkIn ? String(effectiveOpenSeg.checkIn).slice(11, 16) : '') || (seg?.checkIn ? String(seg.checkIn).slice(11, 16) : ''),
+      outHm: seg?.checkOut ? String(seg.checkOut).slice(11, 16) : '',
+      hasOpen: !!effectiveOpenSeg?.checkIn && !effectiveOpenSeg?.checkOut
+    });
 
     const sel = $('#workType');
     const saved = loadSavedWorkType(date);
@@ -1057,7 +1139,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const doStartStamp = async () => {
     if (startStampInFlight) return;
     showErr('');
-    if (state.hasStartedToday) {
+    const startFieldHm = String($('#startTime')?.value || '').trim();
+    const shiftStartHm = String(state.shiftStart || '').trim();
+    const allowShiftLikeOverride = state.date === todayJST()
+      && !!state.shiftLikeOpenAttendanceId
+      && !!shiftStartHm
+      && startFieldHm === shiftStartHm;
+    if (state.hasStartedToday && !state.plannedStampAttendanceId && !allowShiftLikeOverride) {
       showErr('開始打刻は1日1回までです。修正は月次勤怠入力で行ってください。');
       return;
     }
@@ -1073,10 +1161,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       startStampInFlight = true;
       showSpinner(true);
       try { await persistDaily(state.date); } catch {}
-      const r = await tryCheckIn();
+      let r = null;
+      const hmNow = nowHmJST();
+      const overrideAttendanceId = state.plannedStampAttendanceId || (allowShiftLikeOverride ? state.shiftLikeOpenAttendanceId : null);
+      if (overrideAttendanceId) {
+        const cinNow = toMySQLDateTime(state.date, hmNow);
+        await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(state.date)}`, {
+          method: 'PUT',
+          body: JSON.stringify({ attendanceId: overrideAttendanceId, checkIn: cinNow, checkOut: null })
+        });
+        r = { ok: true, already: false, replacedPlannedOpen: true };
+      } else {
+        r = await tryCheckIn();
+      }
       if (!r?.already) {
         try {
-          const hm = nowHmJST();
+          const hm = hmNow;
           const st = $('#startTime');
           if (st && String(st.dataset?.touched || '') !== '1') st.value = hm;
           clearAutoTime(st);

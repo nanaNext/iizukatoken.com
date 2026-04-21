@@ -649,7 +649,6 @@ body:not(.admin) .topbar-inner .user {
 }
 
 /* push layout when drawer open */
-body.drawer-open .topbar,
 body.drawer-open .subbar,
 body.drawer-open .content {
   transform: translateX(var(--drawer-offset, 280px));

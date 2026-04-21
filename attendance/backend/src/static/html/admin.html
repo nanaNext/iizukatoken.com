@@ -6,16 +6,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>管理ポータル</title>
   <link rel="stylesheet" href="/static/css/base.css?v=navy-20260408-1">
-  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260415-perf1">
-  <link rel="stylesheet" href="/static/css/admin.css?v=navy-20260415-perf1">
-  <meta name="asset-v" content="navy-20260417-adminfix1">
+  <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260421-layoutfix1">
+  <link rel="stylesheet" href="/static/css/admin.css?v=navy-20260421-headerfix1">
+  <meta name="asset-v" content="navy-20260421-viewisolation1">
+  <style></style>
   
   <script src="/static/js/pages/session-idle.js?v=navy-20260411-patch2" defer></script>
-  <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260417-2"></script>
+  <script type="module" src="/static/js/admin/admin.page.js?v=navy-20260421-spinnerfix1"></script>
   <link rel="icon" href="data:,">
 </head>
 
-<body class="admin">
+<body class="admin has-sidebar">
+  <div id="adminChrome">
   <!--#include file="_partials/admin-topbar.html" -->
   <!--#include file="_partials/admin-mobile-drawer.html" -->
   <div class="subbar">
@@ -84,6 +86,7 @@
         </div>
       </div>
     </div>
+  </div>
   </div>
   <main class="content">
     <div id="status" class="status" style="display:none;"></div>

@@ -803,6 +803,7 @@ async function renderEmployees(profile) {
   let users = [];
   let depts = [];
   let errMsgs = [];
+  const isForbiddenErr = (e) => /forbidden|access denied|insufficient permission/i.test(String((e && e.message) || ''));
   const isCountedUser = (u) => {
     const role = String((u && u.role) ? u.role : '').toLowerCase();
     const st = String((u && u.employment_status) ? u.employment_status : 'active').toLowerCase();
@@ -818,11 +819,17 @@ async function renderEmployees(profile) {
       users = await listEmployees();
     }
   } catch (e1) {
-    errMsgs.push(`一覧: ${(e1 && e1.message) ? e1.message : 'unknown'}`);
+    if (!isForbiddenErr(e1)) errMsgs.push(`一覧: ${(e1 && e1.message) ? e1.message : 'unknown'}`);
     if (role2 !== 'manager') {
-      try { users = await listUsers(); } catch (e2) { errMsgs.push(`一覧(予備): ${(e2 && e2.message) ? e2.message : 'unknown'}`); users = []; }
+      try {
+        const res2 = await fetchJSONAuth('/api/manager/users');
+        users = Array.isArray(res2) ? res2 : (res2 && Array.isArray(res2.rows) ? res2.rows : []);
+      } catch (eMid) {
+        if (!isForbiddenErr(eMid)) errMsgs.push(`一覧(管理者予備): ${(eMid && eMid.message) ? eMid.message : 'unknown'}`);
+        try { users = await listUsers(); } catch (e2) { if (!isForbiddenErr(e2)) errMsgs.push(`一覧(予備): ${(e2 && e2.message) ? e2.message : 'unknown'}`); users = []; }
+      }
     } else {
-      users = [];
+      try { users = await listEmployees(); } catch (e2) { if (!isForbiddenErr(e2)) errMsgs.push(`一覧(予備): ${(e2 && e2.message) ? e2.message : 'unknown'}`); users = []; }
     }
   }
   if (seq !== employeesRenderSeq) return;
@@ -831,8 +838,8 @@ async function renderEmployees(profile) {
   try {
     depts = role2 === 'manager' ? await fetchJSONAuth('/api/manager/departments') : await listDepartments();
   } catch (e3) {
-    errMsgs.push(`部署: ${(e3 && e3.message) ? e3.message : 'unknown'}`);
-    depts = [];
+    if (!isForbiddenErr(e3)) errMsgs.push(`部署: ${(e3 && e3.message) ? e3.message : 'unknown'}`);
+    try { depts = role2 === 'manager' ? await listDepartments() : await fetchJSONAuth('/api/manager/departments'); } catch (e4) { if (!isForbiddenErr(e4)) errMsgs.push(`部署(予備): ${(e4 && e4.message) ? e4.message : 'unknown'}`); depts = []; }
   }
   if (seq !== employeesRenderSeq) return;
   if (role2 === 'manager' && (!users || users.length === 0)) {

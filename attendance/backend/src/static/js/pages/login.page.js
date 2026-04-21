@@ -55,10 +55,16 @@ async function tryRefresh() {
 
 function getCookie(name) { return null; }
 
-function roleRedirect(role) {
+function roleRedirect(role, nextPath) {
   try { sessionStorage.setItem('navSpinner', '1'); } catch {}
   showPageSpinner();
-  const next = '/ui/portal';
+  const r = String(role || '').toLowerCase();
+  const suggested = String(nextPath || '').trim();
+  const safeSuggested = (suggested.startsWith('/') && !suggested.startsWith('//')) ? suggested : '';
+  const fallback = (r === 'admin' || r === 'manager')
+    ? `/admin/dashboard?boot=${Date.now()}`
+    : '/ui/portal';
+  const next = safeSuggested || fallback;
   try { window.location.replace(next); } catch { window.location.href = next; }
 }
 
@@ -93,7 +99,7 @@ async function handleSubmit(e) {
       if (grp) grp.classList.add('success');
     } catch {}
     navigated = true;
-    roleRedirect(data.role);
+    roleRedirect(data.role, data.nextPath);
   } catch (err) {
     const msg = String(err.message || '').toLowerCase();
     if (msg.includes('invalid') || msg.includes('not found') || msg.includes('unauthorized')) {

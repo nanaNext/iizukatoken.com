@@ -1,5 +1,5 @@
 import { logout } from '../api/auth.api.js';
-import { wireAdminShell } from '../shell/admin-shell.js';
+import { wireAdminShell } from '../shell/admin-shell.js?v=navy-20260421-onecircle1';
 
 const normalizePath = (p) => {
   const s = String(p || '');
@@ -521,6 +521,18 @@ const resetTransientUiState = () => {
   } catch {}
 };
 
+const hardHidePageSpinner = () => {
+  try {
+    const spinner = document.querySelector('#pageSpinner');
+    if (spinner) {
+      spinner.setAttribute('hidden', 'true');
+      spinner.style.display = 'none';
+      spinner.style.pointerEvents = 'none';
+    }
+  } catch {}
+  try { sessionStorage.removeItem('navSpinner'); } catch {}
+};
+
 let currentViewCleanup = null;
 let routeSeq = 0;
 const route = async () => {
@@ -531,6 +543,17 @@ const route = async () => {
     if (typeof cleanup === 'function') await cleanup();
   } catch {}
   resetTransientUiState();
+  hardHidePageSpinner();
+  try {
+    const prevHost = document.querySelector('#adminContent');
+    if (prevHost) {
+      const host = document.createElement('section');
+      host.id = 'adminContent';
+      host.className = 'card';
+      host.style.visibility = '';
+      prevHost.replaceWith(host);
+    }
+  } catch {}
   const mountModule = async (mod) => {
     if (!mod || typeof mod.mount !== 'function') {
       currentViewCleanup = null;
@@ -544,6 +567,7 @@ const route = async () => {
       return;
     }
     currentViewCleanup = typeof cleanup === 'function' ? cleanup : null;
+    hardHidePageSpinner();
   };
   const renderErr = (err) => {
     try {
@@ -588,6 +612,11 @@ const route = async () => {
 
   try {
     const p = normalizePath(window.location.pathname);
+    if (p === '/ui/admin') {
+      const mapped = mapLegacyAdminToNewPath(window.location.href) || '/admin/dashboard';
+      await navigate(mapped, true);
+      return;
+    }
     try { document.body.classList.remove('employees-wide'); } catch {}
     try {
       const opens = document.querySelectorAll('.subbar .menu.open');
@@ -610,7 +639,7 @@ const route = async () => {
     const p2 = normalizePath(window.location.pathname);
 
     if (p2 === '/admin' || p2 === '/admin/dashboard') {
-      const mod = await loadModule('./dashboard/dashboard.page.js');
+      const mod = await loadModule('./dashboard/dashboard.page.js?v=navy-20260418-dashfix3');
       if (seq !== routeSeq) return;
       await mountModule(mod);
       return;
@@ -622,7 +651,7 @@ const route = async () => {
       return;
     }
     if (p2 === '/admin/employees' || p2.startsWith('/admin/employees/')) {
-      const mod = await loadModule('./employees/employees.page.js');
+      const mod = await loadModule('./employees/employees.page.js?v=navy-20260418-empfix1');
       if (seq !== routeSeq) return;
       await mountModule(mod);
       return;
@@ -668,7 +697,7 @@ const route = async () => {
       return;
     }
     if (p2 === '/admin/system/settings' || p2 === '/admin/system/audit-logs') {
-      const mod = await loadModule('./system/system.page.js');
+      const mod = await loadModule('./system/system.page.js?v=navy-20260421-systemplaceholder1');
       if (seq !== routeSeq) return;
       await mountModule(mod);
       return;
@@ -679,16 +708,21 @@ const route = async () => {
       await mountModule(mod);
       return;
     }
-    syncUrlState();
-    await loadModule('../pages/admin.page.js');
-    if (seq !== routeSeq) return;
-    try {
-      if (document.readyState !== 'loading') {
-        document.dispatchEvent(new Event('DOMContentLoaded'));
-      }
-    } catch {}
+    // Do not fallback to legacy admin bootstrap; it causes mixed old/new
+    // headers and visible flicker on first load.
+    if (normalizePath(p2) === '/admin') {
+      await navigate('/admin/dashboard', true);
+      return;
+    }
+    const host = document.querySelector('#adminContent');
+    if (host) {
+      host.className = 'card';
+      host.innerHTML = '<div style="padding:16px;color:#0f172a;">ページが見つかりません。</div>';
+    }
   } catch (err) {
     renderErr(err);
+  } finally {
+    hardHidePageSpinner();
   }
 };
 
@@ -754,7 +788,15 @@ const wireSpaNav = () => {
       e.preventDefault();
       navigate(u.pathname + u.search + u.hash);
     });
-    window.addEventListener('popstate', () => { route(); });
+    window.addEventListener('popstate', () => {
+      try {
+        if (window.__legacyTabPopstate === '1') {
+          window.__legacyTabPopstate = '';
+          return;
+        }
+      } catch {}
+      route();
+    });
     window.addEventListener('hashchange', () => { route(); });
   } catch {}
 };
@@ -837,6 +879,20 @@ const wireNavSelection = () => {
 };
 
 const boot = async () => {
+  try { document.documentElement.classList.add('admin-preboot'); } catch {}
+  try { document.body.classList.add('booting'); } catch {}
+  let revealed = false;
+  const reveal = () => {
+    if (revealed) return;
+    revealed = true;
+    try { document.body.classList.remove('booting'); } catch {}
+    try { document.documentElement.classList.remove('admin-preboot'); } catch {}
+    try { document.getElementById('adminChrome')?.removeAttribute('hidden'); } catch {}
+    try { document.body.style.visibility = ''; } catch {}
+    try { document.getElementById('adminBootMask')?.remove(); } catch {}
+  };
+  let forceRevealTimer = null;
+  try { forceRevealTimer = setTimeout(reveal, 1200); } catch {}
   setTopbarHeightVar();
   try { window.addEventListener('resize', setTopbarHeightVar); } catch {}
   wireSidebarAccordion();
@@ -846,29 +902,18 @@ const boot = async () => {
   wireExpandingSearch();
   wireTopbarMenus();
   wireAdminShell({ logoutRedirect: '/ui/login' });
-  const p = normalizePath(window.location.pathname);
-  if (p === '/admin' || p === '/admin/dashboard') {
+  try { window.addEventListener('pageshow', hardHidePageSpinner); } catch {}
+  try {
+    await route();
+  } finally {
+    hardHidePageSpinner();
+    try { if (forceRevealTimer) clearTimeout(forceRevealTimer); } catch {}
     try {
-      if (document.body.dataset.backLoginBound !== '1') {
-        document.body.dataset.backLoginBound = '1';
-        try { history.pushState({ back_to_login_guard: true }, '', window.location.href); } catch {}
-        window.addEventListener('popstate', async () => {
-          try { await logout(); } catch {}
-          try {
-            sessionStorage.removeItem('accessToken');
-            sessionStorage.removeItem('refreshToken');
-            sessionStorage.removeItem('user');
-          } catch {}
-          try {
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('user');
-          } catch {}
-          try { window.location.replace('/ui/login'); } catch { window.location.href = '/ui/login'; }
-        });
-      }
-    } catch {}
+      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(reveal, 40)));
+    } catch {
+      reveal();
+    }
   }
-  await route();
 };
 
 boot();

@@ -1,6 +1,7 @@
 const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
 const authRepository = require('../auth/auth.repository');
 const passkeyRepo = require('./webauthn.repository');
+const userRepo = require('../users/user.repository');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const refreshRepo = require('../auth/refresh.repository');
@@ -30,6 +31,10 @@ function setSessionCookie(req, res, token) {
 exports.registerOptions = async (req, res) => {
   const email = String((req.body || {}).email || '').trim();
   if (!email) return res.status(400).json({ message: 'Missing email' });
+  if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+  if (String(req.user.email || '').toLowerCase() !== String(email).toLowerCase()) {
+    return res.status(403).json({ message: 'Forbidden: email mismatch' });
+  }
   const user = await authRepository.findUserByEmail(email);
   if (!user) return res.status(404).json({ message: 'User not found' });
   const existing = await passkeyRepo.listUserPasskeys(user.id);
@@ -50,6 +55,10 @@ exports.registerVerify = async (req, res) => {
   const email = String((req.body || {}).email || '').trim();
   const attResp = (req.body || {}).response;
   if (!email || !attResp) return res.status(400).json({ message: 'Missing email/response' });
+  if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+  if (String(req.user.email || '').toLowerCase() !== String(email).toLowerCase()) {
+    return res.status(403).json({ message: 'Forbidden: email mismatch' });
+  }
   const expectedChallenge = challengeStore.get(`reg:${email}`);
   if (!expectedChallenge) return res.status(400).json({ message: 'Challenge missing' });
   const rpId = rpIdFromReq(req);
@@ -112,6 +121,7 @@ exports.loginVerify = async (req, res) => {
       counter: Number(stored.counter || 0)
     } : undefined
   });
+  if (!stored) return res.status(401).json({ message: 'Unknown credential' });
   if (!verification.verified) return res.status(401).json({ message: 'Verification failed' });
   if (verification.authenticationInfo && stored) {
     await passkeyRepo.updateCounter(stored.credential_id, verification.authenticationInfo.newCounter || stored.counter || 0);

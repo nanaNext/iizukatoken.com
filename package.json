@@ -4,7 +4,8 @@
   "main": "attendance/backend/src/server.js",
   "scripts": {
     "start": "node attendance/backend/src/server.js",
-    "start:prod:local": "set PORT=3000&& set APP_ENV=&& set DISABLE_SCHEDULERS=&& node attendance/backend/src/server.js",
+    "start:prod:local": "set NODE_ENV=production&& set APP_ENV=production&& set PORT=3000&& set DISABLE_SCHEDULERS=true&& node attendance/backend/src/server.js",
+    "preflight:prod:local": "set NODE_ENV=production&& set APP_ENV=production&& node attendance/backend/scripts/preflight-prod.js",
     "start:staging": "set APP_ENV=staging&& set NODE_ENV=production&& set PORT=3001&& set DISABLE_SCHEDULERS=true&& node attendance/backend/src/server.js",
     "test": "jest",
     "test:unit": "node --max-old-space-size=2048 ./node_modules/jest/bin/jest.js --testPathIgnorePatterns=/e2e-playwright/ -- attendance/backend/tests",
@@ -26,6 +27,7 @@
     "db:seed": "knex seed:run --knexfile attendance/backend/knexfile.js",
     "db:migrate:make": "knex migrate:make --knexfile attendance/backend/knexfile.js",
     "db:backup": "node attendance/backend/scripts/db-backup.js",
+    "preflight:prod": "node attendance/backend/scripts/preflight-prod.js",
     "frontend:dev": "vite --config attendance/frontend/vite.config.js",
     "frontend:build": "vite build --config attendance/frontend/vite.config.js"
   },

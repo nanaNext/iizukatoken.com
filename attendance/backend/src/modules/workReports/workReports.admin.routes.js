@@ -95,6 +95,8 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
         : (hasIn
             ? (hasOut ? (dayIsOff ? 'holiday_work' : 'checked_out') : (dayIsOff ? 'holiday_working' : 'working'))
             : (dayIsOff ? 'leave' : 'not_checked_in'));
+      // Normalize display kubun for off-days even when daily record is empty.
+      const effectiveKubun = kubun || (dayIsOff ? '休日' : '');
       const hasReport = !!(r.site || r.work);
       const wt = r.work_type || null;
       return {
@@ -109,7 +111,7 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
           checkOut: r.checkOut || null
         },
         status,
-        dailyKubun: kubun || null,
+        dailyKubun: effectiveKubun || null,
         workType: wt,
         report: hasReport ? {
           workType: wt,

@@ -8,10 +8,34 @@ const refreshRepo = require('../modules/auth/refresh.repository');
 const router = express.Router();
 const htmlRoot = path.join(__dirname, '..', 'static', 'html');
 const sendHtml = makeHtmlSenderSync({ htmlRoot });
+const roleOf = (v) => {
+  const r = String(v || '').trim().toLowerCase();
+  if (r === 'admin' || r === 'manager' || r === 'employee' || r === 'payroll') return r;
+  if (r === '管理者' || r === 'administrator' || r === 'quanly' || r === 'quản lý') return 'admin';
+  if (r === 'マネージャー' || r === 'supervisor' || r === 'lead') return 'manager';
+  if (r === '従業員' || r === 'nhanvien' || r === 'nhân viên' || r === 'staff') return 'employee';
+  return r;
+};
 
 const sendPage = (file) => (req, res) => sendHtml(req, res, file);
+const setNoStore = (res) => {
+  try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+  } catch { }
+};
+const sendPageNoCache = (file) => (req, res) => {
+  setNoStore(res);
+  return sendHtml(req, res, file);
+};
+const sendAdminPageNoCache = (req, res, file = 'admin.html') => {
+  setNoStore(res);
+  return sendHtml(req, res, file);
+};
 const authorizePage = (...roles) => (req, res, next) => {
-  const role = String(req.user?.role || '').toLowerCase();
+  const role = roleOf(req.user?.role);
   if (!req.user) {
     return res.redirect(302, '/ui/login');
   }
@@ -23,9 +47,9 @@ const authorizePage = (...roles) => (req, res, next) => {
   next();
 };
 
-router.get('/ui/login', sendPage('login.html'));
-router.get('/login', sendPage('login.html'));
-router.get('/login.html', sendPage('login.html'));
+router.get('/ui/login', sendPageNoCache('login.html'));
+router.get('/login', sendPageNoCache('login.html'));
+router.get('/login.html', sendPageNoCache('login.html'));
 router.get('/ui/forgot-password', sendPage('forgot-password.html'));
 router.get('/forgot-password', sendPage('forgot-password.html'));
 router.get('/ui/reset-password', sendPage('reset-password.html'));
@@ -37,18 +61,22 @@ router.get('/expenses-login', sendPage('expenses-login.html'));
 // Make expenses page accessible and let FE handle auth redirect to /expenses-login
 router.get('/ui/expenses', sendPage('expenses.html'));
 router.get('/ui/expenses/', sendPage('expenses.html'));
+// Serve simple attendance page immediately to improve first paint on mobile.
+// Authentication is still enforced by API calls and client-side auth guard.
+router.get('/ui/attendance/simple', sendPage('attendance-simple.html'));
+router.get('/ui/attendance/simple/', sendPage('attendance-simple.html'));
 
 router.get('/ui/logout', async (req, res) => {
   try {
     const cookieRt = req.cookies?.refreshToken;
     const refreshToken = cookieRt || null;
     if (refreshToken) {
-      try { await refreshRepo.revokeToken(refreshToken); } catch {}
+      try { await refreshRepo.revokeToken(refreshToken); } catch { }
     }
     res.clearCookie('refreshToken', { path: '/api/auth' });
     res.clearCookie('csrfToken', { path: '/' });
     res.clearCookie('session_token', { path: '/' });
-  } catch {}
+  } catch { }
   const next = String(req.query?.next || '').trim();
   if (next) return res.redirect(302, next);
   return res.redirect(302, '/ui/login');
@@ -65,8 +93,18 @@ router.use('/admin', authenticateFromCookie, authorizePage('admin', 'manager'));
 router.use('/ui', authenticateFromCookie);
 
 router.get('/ui/dashboard', sendPage('dashboard.html'));
-router.get('/ui/portal', sendPage('portal.html'));
-router.get('/ui/portal/', sendPage('portal.html'));
+router.get('/ui/portal', (req, res) => {
+  setNoStore(res);
+  const role = roleOf(req.user?.role);
+  if (role === 'admin' || role === 'manager') return res.redirect(302, '/admin/dashboard');
+  return sendHtml(req, res, 'portal.html');
+});
+router.get('/ui/portal/', (req, res) => {
+  setNoStore(res);
+  const role = roleOf(req.user?.role);
+  if (role === 'admin' || role === 'manager') return res.redirect(302, '/admin/dashboard');
+  return sendHtml(req, res, 'portal.html');
+});
 
 router.get('/admin/embed/attendance/monthly', sendPage('attendance-monthly.html'));
 router.get('/admin/embed/attendance/monthly/', sendPage('attendance-monthly.html'));
@@ -74,20 +112,34 @@ router.get('/admin/embed/attendance/monthly/', sendPage('attendance-monthly.html
 router.get('/ui/attendance', sendPage('attendance.html'));
 router.get('/ui/attendance/monthly', sendPage('attendance-monthly.html'));
 router.get('/ui/attendance/monthly/', sendPage('attendance-monthly.html'));
-router.get('/ui/attendance/simple', sendPage('attendance-simple.html'));
-router.get('/ui/attendance/simple/', sendPage('attendance-simple.html'));
 
-router.get('/ui/admin', sendPage('admin.html'));
-router.get('/ui/employees', sendPage('admin.html'));
-router.get('/ui/employees/', sendPage('admin.html'));
+router.get('/ui/admin', (req, res) => {
+  const tab = String(req.query?.tab || '').trim();
+  if (!tab) return res.redirect(302, '/admin/dashboard');
+  if (tab === 'employees') return res.redirect(302, '/admin/employees');
+  if (tab === 'attendance') return res.redirect(302, '/admin/attendance');
+  if (tab === 'shifts') return res.redirect(302, '/admin/attendance/shifts');
+  if (tab === 'calendar') return res.redirect(302, '/admin/attendance/holidays');
+  if (tab === 'leave_grant') return res.redirect(302, '/admin/leave/grants');
+  if (tab === 'leave_balance') return res.redirect(302, '/admin/leave/balance');
+  if (tab === 'approvals') return res.redirect(302, '/admin/leave/requests');
+  if (tab === 'salary_list') return res.redirect(302, '/admin/payroll/salary');
+  if (tab === 'salary_send') return res.redirect(302, '/admin/payroll/payslips');
+  if (tab === 'departments') return res.redirect(302, '/admin/departments');
+  if (tab === 'audit') return res.redirect(302, '/admin/system/audit-logs');
+  if (tab === 'settings') return res.redirect(302, '/admin/system/settings');
+  return res.redirect(302, '/admin/dashboard');
+});
+router.get('/ui/employees', (req, res) => sendAdminPageNoCache(req, res, 'admin.html'));
+router.get('/ui/employees/', (req, res) => sendAdminPageNoCache(req, res, 'admin.html'));
 
-router.get('/admin/attendance/monthly', sendPage('admin-attendance-monthly.html'));
-router.get('/admin/attendance/monthly/', sendPage('admin-attendance-monthly.html'));
-router.get('/admin/employees/monthly-summary', sendPage('admin-employees-monthly-summary.html'));
-router.get('/admin/employees/monthly-summary/', sendPage('admin-employees-monthly-summary.html'));
-router.get('/admin/attendance/adjust-requests', sendPage('admin-attendance-adjust-requests.html'));
-router.get('/admin/attendance/adjust-requests/', sendPage('admin-attendance-adjust-requests.html'));
-router.get(/^\/admin(?:\/.*)?$/, sendPage('admin.html'));
+router.get('/admin/attendance/monthly', (req, res) => sendAdminPageNoCache(req, res, 'admin-attendance-monthly.html'));
+router.get('/admin/attendance/monthly/', (req, res) => sendAdminPageNoCache(req, res, 'admin-attendance-monthly.html'));
+router.get('/admin/employees/monthly-summary', (req, res) => sendAdminPageNoCache(req, res, 'admin-employees-monthly-summary.html'));
+router.get('/admin/employees/monthly-summary/', (req, res) => sendAdminPageNoCache(req, res, 'admin-employees-monthly-summary.html'));
+router.get('/admin/attendance/adjust-requests', (req, res) => sendAdminPageNoCache(req, res, 'admin-attendance-adjust-requests.html'));
+router.get('/admin/attendance/adjust-requests/', (req, res) => sendAdminPageNoCache(req, res, 'admin-attendance-adjust-requests.html'));
+router.get(/^\/admin(?:\/.*)?$/, (req, res) => sendAdminPageNoCache(req, res, 'admin.html'));
 
 router.get('/ui/overtime', sendPage('overtime.html'));
 router.get('/ui/leave', (req, res) => {

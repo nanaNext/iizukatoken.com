@@ -1,8 +1,11 @@
 // admin-attendance-adjust-requests.page.js
 import { fetchJSONAuth } from '../../api/http.api.js';
-import { wireAdminShell } from '../../shell/admin-shell.js';
+import { wireAdminShell } from '../../shell/admin-shell.js?v=navy-20260418-menuhotfix27';
 
 const host = document.getElementById('adjustRequestsHost');
+
+try { document.body.style.visibility = ''; } catch {}
+try { document.getElementById('adminBootMask')?.remove(); } catch {}
 
 // Tháng hiện tại dạng "2026-04"
 const nowDate = new Date();

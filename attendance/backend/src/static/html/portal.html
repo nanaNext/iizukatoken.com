@@ -24,11 +24,37 @@
     .dot-spinner div:nth-child(11){transform:rotate(300deg) translate(24px);animation-delay:-0.12s}
     .dot-spinner div:nth-child(12){transform:rotate(330deg) translate(24px);animation-delay:-0.04s}
   </style>
+  <style>
+    html.portal-preboot body { visibility: hidden !important; }
+  </style>
+  <script>
+    (function () {
+      const roleOf = (v) => {
+        const r = String(v || '').trim().toLowerCase();
+        if (r === 'admin' || r === 'manager' || r === 'employee') return r;
+        if (r === '管理者' || r === 'administrator' || r === 'quanly' || r === 'quản lý') return 'admin';
+        if (r === 'マネージャー' || r === 'supervisor' || r === 'lead') return 'manager';
+        if (r === '従業員' || r === 'nhanvien' || r === 'nhân viên' || r === 'staff') return 'employee';
+        return r;
+      };
+      const reveal = () => { try { document.documentElement.classList.remove('portal-preboot'); } catch {} };
+      try { document.documentElement.classList.add('portal-preboot'); } catch {}
+      const routeAdmin = () => { try { window.location.replace('/admin/dashboard'); } catch { window.location.href = '/admin/dashboard'; } };
+      try {
+        const raw = sessionStorage.getItem('user') || localStorage.getItem('user') || '';
+        const cachedRole = roleOf((raw ? JSON.parse(raw) : {})?.role || '');
+        if (cachedRole === 'admin' || cachedRole === 'manager') {
+          routeAdmin();
+          return;
+        }
+      } catch {}
+      reveal();
+    })();
+  </script>
   <link rel="stylesheet" href="/static/css/base.css?v=navy-20260314">
   <link rel="stylesheet" href="/static/css/portal.css?v=navy-20260416-mobilefix4">
   <link rel="prefetch" href="/ui/attendance/simple">
   <script src="/static/js/pages/session-idle.js?v=navy-20260324-1" defer></script>
-  <script type="module" src="/static/js/pages/portal.debug.js"></script>
   <script type="module" src="/static/js/pages/portal.page.js?v=navy-20260417-3"></script>
   <link rel="icon" href="data:,">
 </head>

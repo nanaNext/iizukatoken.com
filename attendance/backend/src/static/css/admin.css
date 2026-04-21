@@ -2,8 +2,18 @@
   display: flex;
 }
 
-.admin.has-sidebar .subbar+.content {
-  padding-top: calc(var(--topbar-height) + var(--subbar-height));
+/* Keep topbar/user controls above all section overlays/menus */
+.admin .topbar {
+  z-index: 2147483000 !important;
+  pointer-events: auto !important;
+}
+.admin .subbar {
+  z-index: 2147482000 !important;
+}
+
+.admin.has-sidebar #adminChrome + .content,
+.admin.has-sidebar .content {
+  padding-top: calc(var(--topbar-height) + var(--subbar-height) + 24px) !important;
 }
 
 .admin.has-sidebar .tiles {
@@ -24,7 +34,7 @@
 }
 
 .admin.has-sidebar {
-  --subbar-height: 0px;
+  --subbar-height: 40px;
   font-family: system-ui, -apple-system, "Segoe UI", "Meiryo", "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
   background: #f8fbff;
 }
@@ -56,6 +66,8 @@ body.drawer-open.admin.has-sidebar .content {
 .admin.has-sidebar .sidebar {
   display: flex;
   flex-direction: column;
+  top: calc(var(--topbar-height) + var(--subbar-height));
+  height: calc(100vh - (var(--topbar-height) + var(--subbar-height)));
   overflow: hidden;
   background: #f8fbff;
   border-right: 1px solid #cfe0f5;
@@ -99,6 +111,54 @@ body.drawer-open.admin.has-sidebar .content {
 .admin.has-sidebar .topbar-actions {
   display: flex;
   align-items: center;
+}
+
+/* Stable user menu on desktop and mobile (avoid layout jump when opening) */
+.admin .topbar .user {
+  position: relative;
+  z-index: 5002;
+  pointer-events: auto;
+}
+
+.admin .topbar .user .dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 220px;
+  z-index: 3000;
+}
+
+.admin .topbar .user .dropdown[hidden] {
+  display: none !important;
+}
+
+/* Fallback: if JS toggle is blocked on a route, clicking the user button
+   still opens the menu via focus state. */
+.admin .topbar .user .user-menu:focus-within .dropdown,
+.admin .topbar .user .user-menu:focus-within .dropdown[hidden] {
+  display: block !important;
+  pointer-events: auto;
+}
+
+/* Hard guard: user menu must stay clickable above all admin overlays */
+.admin .topbar .user,
+.admin .topbar .user .user-menu,
+.admin .topbar .user .user-btn {
+  position: relative;
+  z-index: 2147483647 !important;
+  pointer-events: auto !important;
+}
+
+.admin .topbar .user .user-menu {
+  isolation: isolate;
+}
+
+.admin .topbar .user .dropdown {
+  position: absolute !important;
+  top: calc(100% + 6px) !important;
+  right: 0 !important;
+  left: auto !important;
+  z-index: 3000 !important;
 }
 
 .admin.has-sidebar .topbar .brand .icon {
@@ -988,13 +1048,17 @@ body.drawer-open.admin.has-sidebar .content {
   border-radius: 10px;
   padding: 12px 14px;
   box-shadow: 0 1px 4px rgba(16, 24, 40, .08);
-  height: 120px;
+  min-height: 120px;
+  height: auto;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 6px;
   font-size: 14px;
   box-sizing: border-box;
   width: 100%;
+  overflow: visible;
+  padding-bottom: 14px;
 }
 
 .admin .kpi-card.clickable {
@@ -1055,6 +1119,7 @@ body.drawer-open.admin.has-sidebar .content {
   color: #0f172a;
   font-weight: 700;
   letter-spacing: .01em;
+  line-height: 1.45;
 }
 
 .admin .kpi-value {
@@ -1062,6 +1127,8 @@ body.drawer-open.admin.has-sidebar .content {
   font-weight: 700;
   color: #0f172a;
   margin-top: 2px;
+  line-height: 1.28;
+  padding-bottom: 2px;
 }
 
 .admin .kpi-sub {
@@ -1069,6 +1136,9 @@ body.drawer-open.admin.has-sidebar .content {
   color: #475569;
   font-weight: 500;
   margin-top: 4px;
+  line-height: 1.45;
+  word-break: break-word;
+  min-height: 16px;
 }
 
 .admin .kpi-delta {
@@ -1154,6 +1224,30 @@ body.drawer-open.admin.has-sidebar .content {
 
 .admin .dash-card li span {
   font-weight: 800;
+}
+
+/* Keep dashboard text readable even when route/theme styles leak in */
+.admin .dashboard .kpi-title,
+.admin .dashboard .kpi-value,
+.admin .dashboard .kpi-sub,
+.admin .dashboard .dash-card,
+.admin .dashboard .dash-card-title,
+.admin .dashboard .dash-card li,
+.admin .dashboard .empty-state,
+.admin .dashboard .dash-card a {
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+:root:not([data-theme='dark']) .admin .dashboard .kpi-title,
+:root:not([data-theme='dark']) .admin .dashboard .kpi-value,
+:root:not([data-theme='dark']) .admin .dashboard .kpi-sub,
+:root:not([data-theme='dark']) .admin .dashboard .dash-card,
+:root:not([data-theme='dark']) .admin .dashboard .dash-card-title,
+:root:not([data-theme='dark']) .admin .dashboard .dash-card li,
+:root:not([data-theme='dark']) .admin .dashboard .empty-state,
+:root:not([data-theme='dark']) .admin .dashboard .dash-card a {
+  color: #0f172a !important;
 }
 
 .admin .dash-chart .bar {
@@ -1656,7 +1750,8 @@ body.drawer-open.admin.has-sidebar .content {
   }
 
   .admin .kpi-card {
-    height: 108px;
+    min-height: 108px;
+    height: auto;
   }
 
   .admin .dash-card {
@@ -1942,6 +2037,28 @@ body.drawer-open.admin.has-sidebar .content {
   .admin .topbar .user .caret {
     font-size: 10px;
     color: #475569;
+  }
+
+  .admin .topbar .user {
+    position: relative;
+  }
+
+  .admin .topbar .user .dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    min-width: 220px;
+    padding: 8px 10px;
+    border: 1px solid #d8dee8;
+    border-radius: 10px;
+    background: #fff;
+    color: #0f172a;
+    box-shadow: 0 8px 24px rgba(2, 6, 23, .12);
+    z-index: 3000;
+  }
+
+  .admin .topbar .user .dropdown[hidden] {
+    display: none !important;
   }
 
   /* Drawer layout to match segmented mobile menu */

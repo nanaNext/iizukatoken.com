@@ -4,6 +4,14 @@ const userRepo = require('../../modules/users/user.repository');
 
 const lastActiveTouch = new Map();
 const touchMinMs = Math.max(5_000, Number.parseInt(process.env.LAST_ACTIVE_TOUCH_MIN_MS || '60000', 10) || 60_000);
+const normalizeRole = (v) => {
+  const r = String(v || '').trim().toLowerCase();
+  if (r === 'admin' || r === 'manager' || r === 'employee' || r === 'payroll') return r;
+  if (r === '管理者' || r === 'administrator' || r === 'quanly' || r === 'quản lý') return 'admin';
+  if (r === 'マネージャー' || r === 'supervisor' || r === 'lead') return 'manager';
+  if (r === '従業員' || r === 'nhanvien' || r === 'nhân viên' || r === 'staff') return 'employee';
+  return r;
+};
 
 function nextUrl(req) {
   try {
@@ -46,7 +54,7 @@ async function authenticateToken(token) {
   }
   return {
     id: user.id,
-    role: user.role || decoded.role,
+    role: normalizeRole(user.role || decoded.role),
     v: dbVersion,
     email: user.email,
     username: user.username
@@ -103,9 +111,9 @@ async function authenticateFromCookie(req, res, next) {
 
 // Phân quyền theo role
 function authorize(...allowedRoles) {
-    const allowed = new Set((allowedRoles || []).map(r => String(r).toLowerCase()));
+    const allowed = new Set((allowedRoles || []).map(r => normalizeRole(r)));
     return (req, res, next) => {
-        const role = String(req.user?.role || '').toLowerCase();
+        const role = normalizeRole(req.user?.role);
         const ok = role && (allowed.has(role) || (role === 'manager' && allowed.has('admin')));
         if (!ok) {
             return res.status(403).json({ message: 'Forbidden: Access denied' });

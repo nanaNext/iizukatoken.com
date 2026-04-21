@@ -59,6 +59,7 @@ const authController = require('./auth.controller');
 const { rateLimit } = require('../../core/middleware/rateLimit');
 const { body } = require('express-validator');
 const { authenticate } = require('../../core/middleware/authMiddleware');
+const enableSuperAdminRecovery = String(process.env.ENABLE_SUPER_ADMIN_RECOVERY || '').toLowerCase() === 'true';
 
 router.post('/login',
   rateLimit({ windowMs: 60_000, max: 10 }),
@@ -89,18 +90,22 @@ router.post('/reset-password',
   body('newPassword').isStrongPassword({ minLength: 8, minLowercase: 1, minUppercase: 1, minNumbers: 1, minSymbols: 0 }),
   authController.resetPassword
 );
-router.post('/super-reset',
-  body('email').isEmail(),
-  body('password').isLength({ min: 6 }),
-  body('code').isLength({ min: 6 }),
-  authController.superReset
-);
-router.post('/super-bootstrap',
-  body('email').isEmail(),
-  body('password').isLength({ min: 6 }),
-  body('code').isLength({ min: 6 }),
-  authController.superBootstrap
-);
+if (enableSuperAdminRecovery) {
+  router.post('/super-reset',
+    body('email').isEmail(),
+    body('password').isLength({ min: 6 }),
+    body('code').isLength({ min: 6 }),
+    rateLimit({ windowMs: 60_000, max: 3 }),
+    authController.superReset
+  );
+  router.post('/super-bootstrap',
+    body('email').isEmail(),
+    body('password').isLength({ min: 6 }),
+    body('code').isLength({ min: 6 }),
+    rateLimit({ windowMs: 60_000, max: 3 }),
+    authController.superBootstrap
+  );
+}
 router.post('/refresh',
   rateLimit({ windowMs: 60_000, max: 30 }),
   body('refreshToken').optional().isLength({ min: 10 }),

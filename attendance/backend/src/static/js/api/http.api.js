@@ -1,4 +1,5 @@
 import { refresh } from '/static/js/api/auth.api.js';
+const REQUEST_TIMEOUT_MS = 15000;
 function getApiBase() {
   try {
     const h = String(window.location.hostname || '').toLowerCase();
@@ -8,6 +9,17 @@ function getApiBase() {
     if (h.endsWith('.iizukatoken.com')) return 'https://api.iizukatoken.com';
   } catch {}
   return '';
+}
+
+async function fetchWithTimeout(url, options, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const ms = Number(timeoutMs || 0) > 0 ? Number(timeoutMs) : REQUEST_TIMEOUT_MS;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ms);
+  try {
+    return await fetch(url, { ...(options || {}), signal: ac.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 function resolveUrl(u) {
   const url = String(u || '');
@@ -98,12 +110,12 @@ async function doFetchAuth(url, options, accessToken) {
     baseHeaders['Content-Type'] = 'application/json';
   }
   const mergedHeaders = { ...baseHeaders, ...(opt.headers || {}) };
-  return fetch(resolveUrl(url), {
+  return fetchWithTimeout(resolveUrl(url), {
     credentials: 'include',
     cache: 'no-store',
     ...opt,
     headers: mergedHeaders
-  });
+  }, REQUEST_TIMEOUT_MS);
 }
 
 async function fetchAuthResponse(url, options) {

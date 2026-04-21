@@ -1,5 +1,6 @@
 const path = require('path');
 const crypto = require('crypto');
+const { execSync } = require('child_process');
 require('./config/loadEnv');
 const express = require('express');
 const swaggerUi = require('swagger-ui-express');
@@ -9,7 +10,16 @@ const cookieParser = require('cookie-parser');
 const security = require('./core/middleware/security');
 
 const app = express();
-const BUILD_ID = process.env.BUILD_ID || 'navy-20260331-1';
+function resolveBuildId() {
+  const explicit = String(process.env.BUILD_ID || process.env.APP_BUILD_ID || process.env.GIT_COMMIT || '').trim();
+  if (explicit) return explicit;
+  try {
+    const sha = String(execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }) || '').trim();
+    if (sha) return `git-${sha}`;
+  } catch {}
+  return `runtime-${Date.now()}`;
+}
+const BUILD_ID = resolveBuildId();
 const STARTED_AT = Date.now();
 process.env.BUILD_ID = BUILD_ID;
 app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS || '1', 10));
@@ -128,6 +138,7 @@ const routes = require('./routes');
 routes(app);
 const uiRoutes = require('./routes/ui.routes');
 app.use('/', uiRoutes);
+const { authenticate, authorize } = require('./core/middleware/authMiddleware');
 app.get('/api/version', (req, res) => {
   res.status(200).json({ buildId: BUILD_ID, startedAt: STARTED_AT, pid: process.pid });
 });
@@ -166,8 +177,12 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { setHeaders
 app.use('/static', express.static(path.join(__dirname, 'static'), {
   setHeaders: (res, p) => {
     const ext = String(p || '').toLowerCase();
-    const isAsset = ext.endsWith('.js') || ext.endsWith('.css') || ext.endsWith('.png') || ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.gif') || ext.endsWith('.webp') || ext.endsWith('.svg') || ext.endsWith('.ico');
-    if (isAsset) {
+    const isScriptOrStyle = ext.endsWith('.js') || ext.endsWith('.css');
+    const isImageAsset = ext.endsWith('.png') || ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.gif') || ext.endsWith('.webp') || ext.endsWith('.svg') || ext.endsWith('.ico');
+    if (isScriptOrStyle) {
+      // Avoid stale frontend bundles after hotfix deploys.
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    } else if (isImageAsset) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     } else {
       res.setHeader('Cache-Control', 'no-store');
@@ -216,7 +231,7 @@ app.get('/sitemap.xml', (req, res) => {
   res.type('application/xml; charset=utf-8');
   res.send(xml);
 });
-app.get('/api/metrics', (req, res) => {
+app.get('/api/metrics', authenticate, authorize('admin'), (req, res) => {
   try {
     const m = require('./core/metrics').snapshot();
     res.status(200).json(m);
