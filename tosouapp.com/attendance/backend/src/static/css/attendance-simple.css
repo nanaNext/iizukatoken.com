@@ -710,10 +710,10 @@ body {
   .simple-grid2 .simple-time { display: contents; }
   .simple-grid2 .simple-select { text-align: left; padding: 8px 24px 8px 8px; font-size: 15px; }
   /* Hàng thời gian + nút: chiều ngang gọn, chiều dọc rõ ràng và đồng đều */
-  .simple-stamp-row { grid-template-columns: minmax(96px, 116px) minmax(78px, 1fr) minmax(86px, 96px); gap: 6px; align-items: stretch; }
+  .simple-stamp-row { grid-template-columns: minmax(90px, 104px) minmax(104px, 120px) minmax(112px, 1fr); gap: 6px; align-items: stretch; }
   .simple-stamp-row > * { min-width: 0; }
-  .simple-stamp-btn { font-size: 12px; padding: 8px 6px; height: 40px !important; width: 100%; min-width: 0; margin: 0; white-space: nowrap; line-height: normal; overflow: hidden; text-overflow: ellipsis; justify-content: center; text-align: center; }
-  .simple-stamp-time { font-size: 14px; padding: 8px 8px; letter-spacing: 0; border: 2px solid #93c5fd; border-radius: 6px; height: 40px !important; min-height: 40px !important; line-height: normal !important; width: 100%; min-width: 0; margin: 0; box-sizing: border-box; text-align: center; }
+  .simple-stamp-btn { font-size: 13px; padding: 8px 8px; height: 40px !important; width: 100%; min-width: 0; margin: 0; white-space: nowrap; line-height: normal; overflow: hidden; text-overflow: ellipsis; justify-content: center; text-align: center; }
+  .simple-stamp-time { font-size: 14px; padding: 8px 8px; letter-spacing: 0; border: 2px solid #93c5fd; border-radius: 6px; height: 40px !important; min-height: 40px !important; line-height: normal !important; width: 100%; max-width: 120px; min-width: 0; margin: 0; box-sizing: border-box; text-align: center; justify-self: start; }
   .simple-time-input { font-size: 14px; letter-spacing: 0; border: 2px solid #93c5fd; border-radius: 6px; width: 100%; min-width: 0; margin: 0; height: 40px !important; min-height: 40px !important; line-height: normal !important; box-sizing: border-box; text-align: center; }
   .simple-stamp-time::-webkit-datetime-edit,
   .simple-time-input::-webkit-datetime-edit {
@@ -828,7 +828,7 @@ body {
 /* Extra-compact phones: prevent time box and stamp button overlap */
 @media (max-width: 430px) {
   .simple-stamp-row {
-    grid-template-columns: minmax(88px, 102px) minmax(72px, 1fr) minmax(84px, 92px);
+    grid-template-columns: minmax(84px, 96px) minmax(96px, 108px) minmax(106px, 1fr);
     gap: 6px;
   }
   .simple-stamp-time,
