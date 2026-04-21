@@ -798,23 +798,6 @@ const load = async (date, opts = {}) => {
     const dailyTask = fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/daily`).catch(() => null);
     const dayTask = fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}`).catch(() => ({ segments: [] }));
     const reportTask = fetchJSONAuth(`/api/work-reports/my?date=${encodeURIComponent(date)}`).catch(() => null);
-    Promise.resolve(dayTask).then((day0) => {
-      if (String(date || '') !== String(window.state?.date || '')) return;
-      const segs = Array.isArray(day0?.segments) ? day0.segments : [];
-      const open = pickOpenSegment(segs);
-      const latest = pickLatestSegment(segs);
-      const src = open || latest || null;
-      const inHm = src?.checkIn ? String(src.checkIn).slice(11, 16) : '';
-      const outHm = src?.checkOut ? String(src.checkOut).slice(11, 16) : '';
-      if (segs.some(s => !!s?.checkIn)) state.hasStartedToday = true;
-      if (segs.some(s => !!s?.checkIn && !!s?.checkOut)) state.hasEndedToday = true;
-      renderStampButtons({
-        date,
-        inHm,
-        outHm,
-        hasOpen: !!open?.checkIn && !open?.checkOut
-      });
-    }).catch(() => {});
 
     state.currentMonthStatus = await monthStatusTask;
     const [isOff, shift, daily0, day] = await Promise.all([isOffTask, shiftTask, dailyTask, dayTask]);
