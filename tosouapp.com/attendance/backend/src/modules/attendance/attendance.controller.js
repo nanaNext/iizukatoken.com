@@ -2280,8 +2280,8 @@ exports.exportMonthXlsx = async (req, res) => {
         const isTimeCell = (ci >= 7 && ci <= 12);
         const isTextWide = ci === 5 || ci === 6 || ci === 15 || ci === 16 || ci === 17;
         const style = (isTimeCell || (ci >= 2 && ci <= 17)) ? 12 : (isTextWide ? 13 : 12);
-        const sundayStyle = isTextWide ? 17 : 16;
-        const styleWithDay = isSunday ? sundayStyle : (isTimeCell ? 12 : style);
+        // Highlight only the date cell (日付) for Sundays.
+        const styleWithDay = (isSunday && ci === 0) ? 16 : (isTimeCell ? 12 : style);
         if (ci === 11) {
           const f = `ROUNDDOWN(S${rowNum}/60,0)&":"&TEXT(MOD(S${rowNum},60),"00")`;
           return formulaCell(ref, f, String(v || '0:00'), styleWithDay);
@@ -2381,7 +2381,7 @@ exports.exportMonthXlsx = async (req, res) => {
     <border><left style="thin"><color rgb="FFD0D7DE"/></left><right style="thin"><color rgb="FFD0D7DE"/></right><top style="thin"><color rgb="FFD0D7DE"/></top><bottom style="thin"><color rgb="FFD0D7DE"/></bottom><diagonal/></border>
   </borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="18">
+  <cellXfs count="20">
     <xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>
     <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>
     <xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
@@ -2400,6 +2400,8 @@ exports.exportMonthXlsx = async (req, res) => {
     <xf numFmtId="0" fontId="1" fillId="11" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
     <xf numFmtId="0" fontId="3" fillId="9" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
     <xf numFmtId="0" fontId="3" fillId="9" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>
   </cellXfs>
   <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
