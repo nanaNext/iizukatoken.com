@@ -11,8 +11,9 @@
   z-index: 2147482000 !important;
 }
 
-.admin.has-sidebar .subbar+.content {
-  padding-top: calc(var(--topbar-height) + var(--subbar-height));
+.admin.has-sidebar #adminChrome + .content,
+.admin.has-sidebar .content {
+  padding-top: calc(var(--topbar-height) + var(--subbar-height) + 24px) !important;
 }
 
 .admin.has-sidebar .tiles {
@@ -33,7 +34,7 @@
 }
 
 .admin.has-sidebar {
-  --subbar-height: 0px;
+  --subbar-height: 40px;
   font-family: system-ui, -apple-system, "Segoe UI", "Meiryo", "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
   background: #f8fbff;
 }
@@ -65,6 +66,8 @@ body.drawer-open.admin.has-sidebar .content {
 .admin.has-sidebar .sidebar {
   display: flex;
   flex-direction: column;
+  top: calc(var(--topbar-height) + var(--subbar-height));
+  height: calc(100vh - (var(--topbar-height) + var(--subbar-height)));
   overflow: hidden;
   background: #f8fbff;
   border-right: 1px solid #cfe0f5;
@@ -151,23 +154,11 @@ body.drawer-open.admin.has-sidebar .content {
 }
 
 .admin .topbar .user .dropdown {
-  position: fixed !important;
-  top: calc(var(--topbar-height) - 2px) !important;
-  right: 10px !important;
+  position: absolute !important;
+  top: calc(100% + 6px) !important;
+  right: 0 !important;
   left: auto !important;
-  z-index: 2147483647 !important;
-}
-
-/* Emergency hard-fix: keep user button always clickable in viewport */
-.admin .topbar {
-  padding-right: 64px !important;
-}
-
-.admin .topbar .user {
-  position: fixed !important;
-  top: 8px !important;
-  right: 10px !important;
-  margin: 0 !important;
+  z-index: 3000 !important;
 }
 
 .admin.has-sidebar .topbar .brand .icon {
@@ -1057,13 +1048,17 @@ body.drawer-open.admin.has-sidebar .content {
   border-radius: 10px;
   padding: 12px 14px;
   box-shadow: 0 1px 4px rgba(16, 24, 40, .08);
-  height: 120px;
+  min-height: 120px;
+  height: auto;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 6px;
   font-size: 14px;
   box-sizing: border-box;
   width: 100%;
+  overflow: visible;
+  padding-bottom: 14px;
 }
 
 .admin .kpi-card.clickable {
@@ -1124,6 +1119,7 @@ body.drawer-open.admin.has-sidebar .content {
   color: #0f172a;
   font-weight: 700;
   letter-spacing: .01em;
+  line-height: 1.45;
 }
 
 .admin .kpi-value {
@@ -1131,6 +1127,8 @@ body.drawer-open.admin.has-sidebar .content {
   font-weight: 700;
   color: #0f172a;
   margin-top: 2px;
+  line-height: 1.28;
+  padding-bottom: 2px;
 }
 
 .admin .kpi-sub {
@@ -1138,6 +1136,9 @@ body.drawer-open.admin.has-sidebar .content {
   color: #475569;
   font-weight: 500;
   margin-top: 4px;
+  line-height: 1.45;
+  word-break: break-word;
+  min-height: 16px;
 }
 
 .admin .kpi-delta {
@@ -1749,7 +1750,8 @@ body.drawer-open.admin.has-sidebar .content {
   }
 
   .admin .kpi-card {
-    height: 108px;
+    min-height: 108px;
+    height: auto;
   }
 
   .admin .dash-card {

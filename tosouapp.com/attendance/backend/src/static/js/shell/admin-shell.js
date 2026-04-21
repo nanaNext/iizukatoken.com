@@ -209,87 +209,9 @@ export function wireUserMenu() {
     };
     const ensureEmergencyUserButton = () => {
       try {
-        const applyBtnStyle = (emBtn) => {
-          emBtn.style.position = 'fixed';
-          emBtn.style.top = '8px';
-          emBtn.style.right = '10px';
-          emBtn.style.width = '40px';
-          emBtn.style.height = '40px';
-          emBtn.style.borderRadius = '999px';
-          emBtn.style.border = '1px solid #86efac';
-          emBtn.style.background = '#d1fae5';
-          emBtn.style.color = '#065f46';
-          emBtn.style.fontWeight = '800';
-          emBtn.style.fontSize = '12px';
-          emBtn.style.lineHeight = '1';
-          emBtn.style.display = 'inline-flex';
-          emBtn.style.alignItems = 'center';
-          emBtn.style.justifyContent = 'center';
-          emBtn.style.zIndex = '2147483647';
-          emBtn.style.cursor = 'pointer';
-          emBtn.style.pointerEvents = 'auto';
-          emBtn.style.touchAction = 'manipulation';
-          emBtn.style.userSelect = 'none';
-          emBtn.style.visibility = 'visible';
-          emBtn.style.opacity = '1';
-          emBtn.style.outline = 'none';
-          emBtn.style.boxShadow = '0 0 0 1px rgba(255,255,255,.85)';
-          emBtn.style.appearance = 'none';
-          emBtn.style.webkitTapHighlightColor = 'transparent';
-          emBtn.style.pointerEvents = 'auto';
-        };
-        let emBtn = document.getElementById(emergencyBtnId);
-        if (!emBtn || emBtn.tagName === 'BUTTON') {
-          const prev = emBtn;
-          emBtn = document.createElement('div');
-          emBtn.id = emergencyBtnId;
-          emBtn.setAttribute('role', 'button');
-          emBtn.setAttribute('tabindex', '0');
-          emBtn.setAttribute('aria-label', 'user menu');
-          if (prev && prev.parentNode) prev.parentNode.replaceChild(emBtn, prev);
-          else document.body.appendChild(emBtn);
-        }
-        applyBtnStyle(emBtn);
-        const syncInitial = () => {
-          try {
-            const initialEl = document.getElementById('userBtnInitial');
-            const ch = (initialEl && initialEl.getAttribute('data-initial')) || '';
-            emBtn.textContent = String(ch || '人').slice(0, 1);
-          } catch {}
-        };
-        syncInitial();
-        setTimeout(syncInitial, 400);
-        let lastToggleAt = Number(emBtn.dataset.lastToggleAt || '0');
-        const safeOpen = () => {
-          const now = Date.now();
-          if (now - lastToggleAt < 220) return;
-          lastToggleAt = now;
-          emBtn.dataset.lastToggleAt = String(lastToggleAt);
-          closeAllSubMenus();
-          closeAllUserMenus();
-          openEmergencyPanel();
-        };
-        // Re-assign handlers every time to survive DOM re-render/replacement.
-        emBtn.onpointerdown = (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          try { ev.stopImmediatePropagation(); } catch {}
-          safeOpen();
-          try { emBtn.blur(); } catch {}
-        };
-        emBtn.onclick = (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          safeOpen();
-          try { emBtn.blur(); } catch {}
-        };
-        emBtn.onkeydown = (ev) => {
-          if (ev.key !== 'Enter' && ev.key !== ' ') return;
-          ev.preventDefault();
-          ev.stopPropagation();
-          toggleEmergencyPanel();
-        };
-        ensureEmergencyUserPanel();
+        // Keep only the original topbar user button; remove emergency duplicate.
+        const emBtn = document.getElementById(emergencyBtnId);
+        if (emBtn) emBtn.remove();
       } catch {}
     };
     const toggleRealUserMenu = () => {
@@ -339,9 +261,17 @@ export function wireUserMenu() {
         }, true);
       } catch {}
     };
-    let lastGlobalToggleAt = 0;
     const bindDynamicUserControls = () => {
-      try { ensureEmergencyUserButton(); } catch {}
+      try {
+        ensureEmergencyUserButton();
+      } catch {}
+      try {
+        bindRealUserButton();
+      } catch {}
+      try {
+        const panel = document.getElementById(emergencyPanelId);
+        if (panel) panel.remove();
+      } catch {}
     };
     bindDynamicUserControls();
     if (!shellState.userMenuBoundDynamic) {
@@ -352,45 +282,14 @@ export function wireUserMenu() {
         setTimeout(bindDynamicUserControls, 100);
         setTimeout(bindDynamicUserControls, 500);
         setTimeout(bindDynamicUserControls, 1500);
-        const mo = new MutationObserver(() => bindDynamicUserControls());
-        mo.observe(document.body, { childList: true, subtree: true });
       } catch {}
     }
     if (!shellState.userMenuBoundDelegated) {
       shellState.userMenuBoundDelegated = '1';
       document.addEventListener('pointerdown', (e) => {
         const t = e && e.target;
-        try {
-          const emBtn = document.getElementById(emergencyBtnId);
-          if (emBtn) {
-            const r = emBtn.getBoundingClientRect();
-            const x = Number(e.clientX || 0);
-            const y = Number(e.clientY || 0);
-            const byRect = x >= (r.left - 6) && x <= (r.right + 6) && y >= (r.top - 6) && y <= (r.bottom + 6);
-            const insidePanel = t && t.closest ? t.closest(`#${emergencyPanelId}`) : null;
-            if (byRect && !insidePanel) {
-              e.preventDefault();
-              e.stopPropagation();
-              try { e.stopImmediatePropagation(); } catch {}
-              closeAllSubMenus();
-              closeAllUserMenus();
-              openEmergencyPanel();
-              return;
-            }
-          }
-        } catch {}
-        const directBtn = t && t.closest ? t.closest('.user .user-btn, .user #userBtnInitial, .user .ud-avatar, .user .caret') : null;
-        if (directBtn) {
-          e.preventDefault();
-          e.stopPropagation();
-          try { e.stopImmediatePropagation(); } catch {}
-          const now = Date.now();
-          if (now - lastGlobalToggleAt < 180) return;
-          lastGlobalToggleAt = now;
-          closeAllUserMenus();
-          toggleEmergencyPanel();
-          return;
-        }
+        const directBtn = t && t.closest ? t.closest('.user .user-btn, .user #userBtnInitial, .user .ud-avatar, .user .caret, #' + emergencyBtnId) : null;
+        if (directBtn) return;
         const inside = t && t.closest ? t.closest(`.user-menu, #${emergencyBtnId}, #${emergencyPanelId}`) : null;
         if (inside) return;
         closeEmergencyPanel();

@@ -1,4 +1,5 @@
-import { me, refresh } from '../api/auth.api.js';
+import { me, refresh } from '../api/auth.api.js?v=navy-20260421-authfix2';
+import { fetchJSONAuth } from '../api/http.api.js';
 import { listEmployees, getEmployee, createEmployee, updateEmployee, deleteEmployee } from '../api/employees.api.js';
 import { listDepartments } from '../api/departments.api.js';
 import { listUsers, deleteUser as deleteUserAccount, resetUserPassword } from '../api/users.api.js';
@@ -75,13 +76,28 @@ async function ensureAdmin() {
     } catch { }
   }
   if (!profile) {
+    try {
+      // Fallback: /api/auth/me can authenticate via session cookie even when
+      // access token in sessionStorage is stale or missing.
+      profile = await fetchJSONAuth('/api/auth/me');
+      if (profile && !token) {
+        try {
+          const r4 = await refresh();
+          if (r4 && r4.accessToken) {
+            sessionStorage.setItem('accessToken', r4.accessToken);
+            token = r4.accessToken;
+          }
+        } catch {}
+      }
+    } catch { }
+  }
+  if (!profile) {
     const err = document.querySelector('#error');
     if (err) { err.style.display = 'block'; err.textContent = 'ログインが必要です。もう一度ログインしてください。'; }
     try {
       const sp = document.querySelector('#pageSpinner');
       if (sp) { sp.setAttribute('hidden', ''); sp.style.display = 'none'; }
     } catch { }
-    setTimeout(() => { try { window.location.replace('/ui/login'); } catch { } }, 200);
     return null;
   }
   const role = String(profile.role || '').toLowerCase();
@@ -93,7 +109,7 @@ async function ensureAdmin() {
   return profile;
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function bootLegacyAdminPage() {
   // Init Shared Styles
   ensureSpinnerStyle();
   ensureJapanSafeColorsStyle();
@@ -124,7 +140,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       const st = document.querySelector('#status');
       if (st) st.textContent = '';
     } catch { }
-    setTimeout(() => { try { window.location.href = '/ui/login'; } catch { } }, 200);
     return;
   }
   
@@ -343,4 +358,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch { }
   if (status) status.textContent = '';
-});
+}
+
+function startLegacyAdminPage() {
+  try {
+    if (window.__legacyAdminPageBooting || window.__legacyAdminPageBooted) return;
+    window.__legacyAdminPageBooting = true;
+  } catch {}
+  Promise.resolve()
+    .then(() => bootLegacyAdminPage())
+    .finally(() => {
+      try {
+        window.__legacyAdminPageBooting = false;
+        window.__legacyAdminPageBooted = true;
+      } catch {}
+    });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startLegacyAdminPage, { once: true });
+} else {
+  startLegacyAdminPage();
+}

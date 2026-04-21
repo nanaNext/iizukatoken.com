@@ -50,10 +50,21 @@ export async function login(email, password) {
 }
 
 export async function me(accessToken) {
-  const res = await fetchWithTimeout(`${AUTH_BASE}/me`, {
-    headers: { 'Authorization': `Bearer ${accessToken}` },
-    credentials: 'include'
-  }, 15000);
+  const token = String(accessToken || '').trim();
+  const requestMe = async (withBearer) => {
+    const headers = withBearer && token ? { 'Authorization': `Bearer ${token}` } : {};
+    return fetchWithTimeout(`${AUTH_BASE}/me`, {
+      headers,
+      credentials: 'include'
+    }, 15000);
+  };
+
+  let res = await requestMe(true);
+  if (!res.ok && (res.status === 401 || res.status === 403) && token) {
+    // If bearer token is stale but session cookie is still valid,
+    // retry once without Authorization header.
+    res = await requestMe(false);
+  }
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try {

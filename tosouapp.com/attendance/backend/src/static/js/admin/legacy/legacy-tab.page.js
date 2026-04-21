@@ -1,18 +1,4 @@
-import { requireAdmin } from '../_shared/require-admin.js';
-
 export async function bootLegacyTab({ tab, hash }) {
-  const profile = await requireAdmin();
-  if (!profile) return;
-
-  try {
-    const userName = document.querySelector('#userName');
-    if (userName) userName.textContent = profile.username || profile.email || '管理者';
-  } catch {}
-  try {
-    const status = document.querySelector('#status');
-    if (status) status.textContent = '';
-  } catch {}
-
   try {
     const url = new URL(window.location.href);
     if (tab) url.searchParams.set('tab', tab);
@@ -34,7 +20,7 @@ export async function bootLegacyTab({ tab, hash }) {
     return;
   }
 
-  let p = '../../pages/admin.page.js';
+  let p = '../../pages/admin.page.js?v=navy-20260421-authfix1';
   try {
     let v = '';
     try {
@@ -44,12 +30,12 @@ export async function bootLegacyTab({ tab, hash }) {
     if (!v) {
       try { v = window.__assetV ? String(window.__assetV) : ''; } catch {}
     }
-    if (v) p = p + '?v=' + encodeURIComponent(String(v));
+    if (v && p.indexOf('v=') < 0) p = p + '?v=' + encodeURIComponent(String(v));
   } catch {}
   await import(p);
   try {
-    if (document.readyState !== 'loading') {
-      document.dispatchEvent(new Event('DOMContentLoaded'));
-    }
+    // Notify legacy page to refresh tab without forcing modern admin router loop.
+    window.__legacyTabPopstate = '1';
+    window.dispatchEvent(new Event('popstate'));
   } catch {}
 }

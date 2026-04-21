@@ -1837,12 +1837,11 @@
     wireFooterResize();
 
     try {
-      const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
-      if (isMobile) {
-        try { if (localStorage.getItem('monthly.contractCollapsed') == null) setContractCollapsed(true); } catch {}
-        try { if (localStorage.getItem('monthly.summaryCollapsed') == null) setSummaryCollapsed(true); } catch {}
-        try { if (localStorage.getItem('monthly.annualCollapsed') == null) setAnnualCollapsed(true); } catch {}
-      }
+      // Always open all monthly sections on first render (requested UX baseline).
+      setDailyCollapsed(false);
+      setContractCollapsed(false);
+      setSummaryCollapsed(false);
+      setAnnualCollapsed(false);
     } catch {}
 
     applyDailyCollapsed(getDailyCollapsed());

@@ -16,6 +16,32 @@
 
 Bạn có thể dùng APP_ENV để phân biệt staging/production kể cả khi NODE_ENV đều là production.
 
+### Chạy local giống production (khuyến nghị)
+
+Mục tiêu là giảm lệch hành vi giữa localhost và production để bắt lỗi UX/UI sớm.
+
+1) Tạo file `.env.production` từ `.env.production.example`:
+
+- Điền đúng DB local/test và các biến bắt buộc.
+- Không dùng DB production thật khi test local.
+
+2) Chạy server bằng script prod-like:
+
+- Tại thư mục project root:
+  - `npm run start:prod:local`
+
+Script này ép:
+
+- `NODE_ENV=production`
+- `APP_ENV=production`
+- `DISABLE_SCHEDULERS=true` (để tránh job nền làm nhiễu khi test UI)
+
+3) Chạy preflight trước khi deploy:
+
+- `npm run preflight:prod:local`
+
+Nếu preflight fail thì sửa biến môi trường trước, không deploy.
+
 ### Thiết lập Staging
 
 1) Copy file mẫu:

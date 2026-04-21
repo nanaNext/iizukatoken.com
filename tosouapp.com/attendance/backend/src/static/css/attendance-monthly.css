@@ -1757,6 +1757,21 @@ input.se-time[disabled][data-row-disabled="1"]::-webkit-datetime-edit-fields-wra
   background: #f8fafc !important;
 }
 
+/* If employee already has actual punch times, keep them readable even when row is locked */
+input.se-time[disabled][data-row-disabled="1"][data-manual="1"] {
+  color: #0b2c66 !important;
+  -webkit-text-fill-color: #0b2c66 !important;
+  font-weight: 800 !important;
+  background: #ffffff !important;
+}
+input.se-time[disabled][data-row-disabled="1"][data-manual="1"]::-webkit-datetime-edit,
+input.se-time[disabled][data-row-disabled="1"][data-manual="1"]::-webkit-datetime-edit-fields-wrapper {
+  color: #0b2c66 !important;
+  -webkit-text-fill-color: #0b2c66 !important;
+  font-weight: 800 !important;
+  background: #ffffff !important;
+}
+
 .se-time::-webkit-calendar-picker-indicator {
   opacity: 0;
   display: none;

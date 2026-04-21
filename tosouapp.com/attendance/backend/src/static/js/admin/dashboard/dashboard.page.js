@@ -30,6 +30,10 @@ const fmtInt = (v) => {
   if (!isFinite(n)) return '0';
   return String(Math.trunc(n));
 };
+const withTimeout = (p, ms = 8000) => Promise.race([
+  p,
+  new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+]);
 
 const makeKpi = (title, value, sub) => {
   const c = document.createElement('div');
@@ -71,15 +75,19 @@ const renderDashboard = async (profile) => {
   wrap.appendChild(head);
 
   showSpinner();
-  const [statsRes, usersRes, pendingLeaveRes, pendingProfileRes, workReportsRes, rosterRes] = await Promise.allSettled([
-    fetchJSONAuth('/api/admin/home/stats'),
-    fetchJSONAuth('/api/admin/users'),
-    fetchJSONAuth('/api/leave/pending'),
-    fetchJSONAuth('/api/manager/profile-change/pending'),
-    fetchJSONAuth('/api/admin/work-reports'),
-    fetchJSONAuth('/api/attendance/today-roster')
-  ]);
-  hideSpinner();
+  let statsRes; let usersRes; let pendingLeaveRes; let pendingProfileRes; let workReportsRes; let rosterRes;
+  try {
+    [statsRes, usersRes, pendingLeaveRes, pendingProfileRes, workReportsRes, rosterRes] = await Promise.allSettled([
+      withTimeout(fetchJSONAuth('/api/admin/home/stats')),
+      withTimeout(fetchJSONAuth('/api/admin/users')),
+      withTimeout(fetchJSONAuth('/api/leave/pending')),
+      withTimeout(fetchJSONAuth('/api/manager/profile-change/pending')),
+      withTimeout(fetchJSONAuth('/api/admin/work-reports')),
+      withTimeout(fetchJSONAuth('/api/attendance/today-roster'))
+    ]);
+  } finally {
+    hideSpinner();
+  }
   if (!isAlive()) return;
 
   const stats = statsRes.status === 'fulfilled' && statsRes.value ? statsRes.value : { todayCheckin: 0, lateCount: 0, leaveCount: 0, pendingCount: 0 };
@@ -125,38 +133,7 @@ const renderDashboard = async (profile) => {
       window.location.href = '/admin/employees#list';
     }
   });
-  try {
-    const listWrap = document.createElement('div');
-    listWrap.style.marginTop = '8px';
-    listWrap.style.maxHeight = '54px';
-    listWrap.style.overflow = 'auto';
-    listWrap.style.fontSize = '12px';
-    listWrap.style.lineHeight = '1.4';
-    listWrap.style.color = '#334155';
-    const ul = document.createElement('ul');
-    ul.style.listStyle = 'none';
-    ul.style.margin = '0';
-    ul.style.padding = '0';
-    const names = employeesOnly
-      .map(u => (u.username || u.email || '').trim())
-      .filter(Boolean)
-      .slice(0, 8);
-    for (const n of names) {
-      const li = document.createElement('li');
-      li.textContent = n;
-      ul.appendChild(li);
-    }
-    if (employeesOnly.length > names.length) {
-      const more = document.createElement('div');
-      more.style.color = '#64748b';
-      more.style.fontSize = '11px';
-      more.style.marginTop = '4px';
-      more.textContent = `他 ${employeesOnly.length - names.length} 名`;
-      listWrap.appendChild(more);
-    }
-    listWrap.appendChild(ul);
-    usersCard.appendChild(listWrap);
-  } catch {}
+  // Keep KPI cards text-only to avoid clipping artifacts from nested mini lists.
   kpi.appendChild(usersCard);
   let plannedCount = 0;
   let plannedNames = [];
@@ -180,28 +157,7 @@ const renderDashboard = async (profile) => {
       window.location.href = '/admin/attendance';
     }
   });
-  try {
-    if (plannedNames.length) {
-      const listWrap = document.createElement('div');
-      listWrap.style.marginTop = '8px';
-      listWrap.style.maxHeight = '54px';
-      listWrap.style.overflow = 'auto';
-      listWrap.style.fontSize = '12px';
-      listWrap.style.lineHeight = '1.4';
-      listWrap.style.color = '#334155';
-      const ul = document.createElement('ul');
-      ul.style.listStyle = 'none';
-      ul.style.margin = '0';
-      ul.style.padding = '0';
-      for (const n of plannedNames) {
-        const li = document.createElement('li');
-        li.textContent = n;
-        ul.appendChild(li);
-      }
-      listWrap.appendChild(ul);
-      workCard.appendChild(listWrap);
-    }
-  } catch {}
+  // Keep KPI cards text-only to avoid clipping artifacts from nested mini lists.
   kpi.appendChild(workCard);
   const showLeaveCard = false;
   if (showLeaveCard) {

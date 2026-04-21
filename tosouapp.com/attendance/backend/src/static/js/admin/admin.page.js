@@ -1,5 +1,5 @@
 import { logout } from '../api/auth.api.js';
-import { wireAdminShell } from '../shell/admin-shell.js?v=navy-20260418-menuhotfix27';
+import { wireAdminShell } from '../shell/admin-shell.js?v=navy-20260421-onecircle1';
 
 const normalizePath = (p) => {
   const s = String(p || '');
@@ -521,6 +521,18 @@ const resetTransientUiState = () => {
   } catch {}
 };
 
+const hardHidePageSpinner = () => {
+  try {
+    const spinner = document.querySelector('#pageSpinner');
+    if (spinner) {
+      spinner.setAttribute('hidden', 'true');
+      spinner.style.display = 'none';
+      spinner.style.pointerEvents = 'none';
+    }
+  } catch {}
+  try { sessionStorage.removeItem('navSpinner'); } catch {}
+};
+
 let currentViewCleanup = null;
 let routeSeq = 0;
 const route = async () => {
@@ -531,6 +543,7 @@ const route = async () => {
     if (typeof cleanup === 'function') await cleanup();
   } catch {}
   resetTransientUiState();
+  hardHidePageSpinner();
   try {
     const prevHost = document.querySelector('#adminContent');
     if (prevHost) {
@@ -554,6 +567,7 @@ const route = async () => {
       return;
     }
     currentViewCleanup = typeof cleanup === 'function' ? cleanup : null;
+    hardHidePageSpinner();
   };
   const renderErr = (err) => {
     try {
@@ -625,7 +639,7 @@ const route = async () => {
     const p2 = normalizePath(window.location.pathname);
 
     if (p2 === '/admin' || p2 === '/admin/dashboard') {
-      const mod = await loadModule('./dashboard/dashboard.page.js');
+      const mod = await loadModule('./dashboard/dashboard.page.js?v=navy-20260418-dashfix3');
       if (seq !== routeSeq) return;
       await mountModule(mod);
       return;
@@ -683,7 +697,7 @@ const route = async () => {
       return;
     }
     if (p2 === '/admin/system/settings' || p2 === '/admin/system/audit-logs') {
-      const mod = await loadModule('./system/system.page.js');
+      const mod = await loadModule('./system/system.page.js?v=navy-20260421-systemplaceholder1');
       if (seq !== routeSeq) return;
       await mountModule(mod);
       return;
@@ -707,6 +721,8 @@ const route = async () => {
     }
   } catch (err) {
     renderErr(err);
+  } finally {
+    hardHidePageSpinner();
   }
 };
 
@@ -772,7 +788,15 @@ const wireSpaNav = () => {
       e.preventDefault();
       navigate(u.pathname + u.search + u.hash);
     });
-    window.addEventListener('popstate', () => { route(); });
+    window.addEventListener('popstate', () => {
+      try {
+        if (window.__legacyTabPopstate === '1') {
+          window.__legacyTabPopstate = '';
+          return;
+        }
+      } catch {}
+      route();
+    });
     window.addEventListener('hashchange', () => { route(); });
   } catch {}
 };
@@ -878,31 +902,11 @@ const boot = async () => {
   wireExpandingSearch();
   wireTopbarMenus();
   wireAdminShell({ logoutRedirect: '/ui/login' });
-  const p = normalizePath(window.location.pathname);
-  if (p === '/admin' || p === '/admin/dashboard') {
-    try {
-      if (document.body.dataset.backLoginBound !== '1') {
-        document.body.dataset.backLoginBound = '1';
-        try { history.pushState({ back_to_login_guard: true }, '', window.location.href); } catch {}
-        window.addEventListener('popstate', async () => {
-          try { await logout(); } catch {}
-          try {
-            sessionStorage.removeItem('accessToken');
-            sessionStorage.removeItem('refreshToken');
-            sessionStorage.removeItem('user');
-          } catch {}
-          try {
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('user');
-          } catch {}
-          try { window.location.replace('/ui/login'); } catch { window.location.href = '/ui/login'; }
-        });
-      }
-    } catch {}
-  }
+  try { window.addEventListener('pageshow', hardHidePageSpinner); } catch {}
   try {
     await route();
   } finally {
+    hardHidePageSpinner();
     try { if (forceRevealTimer) clearTimeout(forceRevealTimer); } catch {}
     try {
       requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(reveal, 40)));
