@@ -139,6 +139,7 @@ const clearDraft = (date) => {
 };
 
 const simpleFastCacheKey = (uid, date) => `attendanceSimple.fast.${uid}.${date}`;
+const simpleFastCachePersistKey = (uid, date) => `attendanceSimple.fast.persist.${uid}.${date}`;
 const saveFastSnapshot = (date) => {
   try {
     if (!simpleUserId || !isISODate(date)) return;
@@ -165,19 +166,26 @@ const saveFastSnapshot = (date) => {
       workSite: String($('#workSite')?.value || ''),
       workContent: String($('#workContent')?.value || '')
     };
-    sessionStorage.setItem(simpleFastCacheKey(simpleUserId, date), JSON.stringify(snap));
+    const raw = JSON.stringify(snap);
+    sessionStorage.setItem(simpleFastCacheKey(simpleUserId, date), raw);
+    // Persist a short-lived fallback across re-login/new tab to improve first paint.
+    localStorage.setItem(simpleFastCachePersistKey(simpleUserId, date), raw);
   } catch {}
 };
 
 const restoreFastSnapshot = (date, stateRef) => {
   try {
     if (!simpleUserId || !isISODate(date)) return false;
-    const raw = sessionStorage.getItem(simpleFastCacheKey(simpleUserId, date)) || '';
+    const sessionKey = simpleFastCacheKey(simpleUserId, date);
+    const persistKey = simpleFastCachePersistKey(simpleUserId, date);
+    let raw = sessionStorage.getItem(sessionKey) || '';
+    if (!raw) raw = localStorage.getItem(persistKey) || '';
     if (!raw) return false;
     const snap = JSON.parse(raw);
     if (!snap || String(snap.uid || '') !== String(simpleUserId) || String(snap.date || '') !== date) return false;
     const ageMs = Date.now() - Number(snap.savedAt || 0);
     if (!Number.isFinite(ageMs) || ageMs > 24 * 60 * 60 * 1000) return false;
+    try { sessionStorage.setItem(sessionKey, raw); } catch {}
 
     stateRef.isOff = !!snap.isOff;
     stateRef.currentMonthStatus = String(snap.currentMonthStatus || '');
@@ -756,8 +764,9 @@ const loadMonthStatus = async (date) => {
     const y = String(date || '').slice(0, 4);
     const m = String(date || '').slice(5, 7);
     if (!/^\d{4}$/.test(y) || !/^\d{2}$/.test(m)) return 'draft';
-    const r = await fetchJSONAuth(`/api/attendance/month?year=${encodeURIComponent(y)}&month=${encodeURIComponent(parseInt(m, 10))}`);
-    const st = String(r?.monthStatus?.status || '').trim();
+    // Fast path: use dedicated lightweight status endpoint instead of full month payload.
+    const r = await fetchJSONAuth(`/api/attendance/month/status?year=${encodeURIComponent(y)}&month=${encodeURIComponent(parseInt(m, 10))}`);
+    const st = String(r?.status || '').trim();
     return st || 'draft';
   } catch {
     return 'draft';
@@ -770,6 +779,17 @@ const load = async (date, opts = {}) => {
   if (useSpinner) showSpinner(true);
   try {
     $('#topDate').textContent = fmtJP(date);
+    if (date === todayJST()) {
+      try {
+        const wtEl = $('#workType');
+        if (wtEl && !String(wtEl.value || '').trim()) {
+          wtEl.value = 'onsite';
+          saveWorkType(date, 'onsite');
+          syncWorkTypeButtons();
+          applyWorkTypeGate();
+        }
+      } catch {}
+    }
     // Parallelize initial fetches to reduce mobile cold-start latency.
     const noticesTask = renderNotices(date).catch(() => null);
     const monthStatusTask = loadMonthStatus(date).catch(() => 'draft');
@@ -778,6 +798,23 @@ const load = async (date, opts = {}) => {
     const dailyTask = fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/daily`).catch(() => null);
     const dayTask = fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}`).catch(() => ({ segments: [] }));
     const reportTask = fetchJSONAuth(`/api/work-reports/my?date=${encodeURIComponent(date)}`).catch(() => null);
+    Promise.resolve(dayTask).then((day0) => {
+      if (String(date || '') !== String(window.state?.date || '')) return;
+      const segs = Array.isArray(day0?.segments) ? day0.segments : [];
+      const open = pickOpenSegment(segs);
+      const latest = pickLatestSegment(segs);
+      const src = open || latest || null;
+      const inHm = src?.checkIn ? String(src.checkIn).slice(11, 16) : '';
+      const outHm = src?.checkOut ? String(src.checkOut).slice(11, 16) : '';
+      if (segs.some(s => !!s?.checkIn)) state.hasStartedToday = true;
+      if (segs.some(s => !!s?.checkIn && !!s?.checkOut)) state.hasEndedToday = true;
+      renderStampButtons({
+        date,
+        inHm,
+        outHm,
+        hasOpen: !!open?.checkIn && !open?.checkOut
+      });
+    }).catch(() => {});
 
     state.currentMonthStatus = await monthStatusTask;
     const [isOff, shift, daily0, day] = await Promise.all([isOffTask, shiftTask, dailyTask, dayTask]);
@@ -853,7 +890,7 @@ const load = async (date, opts = {}) => {
     if (!openSeg?.checkIn && !seg?.checkIn) {
       if (date === todayJST()) {
         try {
-          const st = await fetchJSONAuth(`/api/attendance/status?date=${encodeURIComponent(date)}`);
+          const st = await fetchJSONAuth(`/api/attendance/status?date=${encodeURIComponent(date)}`).catch(() => null);
           if (st?.attendance?.checkIn) {
             const fromStatus = { checkIn: st.attendance.checkIn, checkOut: st.attendance.checkOut || null };
             if (!isTodayShiftGhostSegment(fromStatus, shiftStart, shiftEnd, date)) {
