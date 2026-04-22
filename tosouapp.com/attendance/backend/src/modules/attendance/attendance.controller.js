@@ -531,7 +531,10 @@ async function resolveTargetUserId(req) {
     const me = await userRepo.getUserById(meId);
     const target = await userRepo.getUserById(targetId);
     if (!target) return null;
-    if (!me?.departmentId || String(me.departmentId) !== String(target.departmentId)) {
+    // Backward-compatible scope check:
+    // only enforce department match when both sides have departmentId.
+    // Older prod data may have NULL departmentId for manager/employee records.
+    if (me?.departmentId && target?.departmentId && String(me.departmentId) !== String(target.departmentId)) {
       return '__forbidden__';
     }
   }
