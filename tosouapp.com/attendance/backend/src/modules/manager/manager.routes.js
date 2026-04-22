@@ -6,6 +6,14 @@ const controller = require('./manager.controller');
 const db = require('../../core/database/mysql');
 const upload = require('../../core/middleware/upload');
 const userRepo = require('../users/user.repository');
+const uploadEmployeePhotos = (req, res, next) => {
+  upload.array('files', 12)(req, res, (err) => {
+    if (!err) return next();
+    const msg = String(err?.message || 'Upload failed');
+    const code = /file too large/i.test(msg) ? 413 : 400;
+    return res.status(code).json({ message: msg });
+  });
+};
 router.get('/report', authenticate, authorize('manager','admin'), controller.groupReport);
 router.post('/shifts',
   rateLimitNamed('manager_shifts', { windowMs: 60_000, max: 20 }),
@@ -73,7 +81,7 @@ router.get('/employees/:id/photos', authenticate, authorize('manager','admin'), 
   }
 });
 
-router.post('/employees/:id/photos', authenticate, authorize('manager','admin'), upload.array('files', 12), async (req, res) => {
+router.post('/employees/:id/photos', authenticate, authorize('manager','admin'), uploadEmployeePhotos, async (req, res) => {
   try {
     await ensureEmployeeProfilePhotosSchema();
     const id = parseInt(req.params.id, 10);

@@ -22,6 +22,14 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { buildPayslipPdf } = require('../salary/payslipPdf');
 const allowDebugRoutes = process.env.NODE_ENV !== 'production' || String(process.env.ENABLE_DEBUG_ROUTES || '').toLowerCase() === 'true';
+const uploadEmployeePhotos = (req, res, next) => {
+  upload.array('files', 12)(req, res, (err) => {
+    if (!err) return next();
+    const msg = String(err?.message || 'Upload failed');
+    const code = /file too large/i.test(msg) ? 413 : 400;
+    return res.status(code).json({ message: msg });
+  });
+};
 
 async function ensureEmployeeProfilePhotosSchema() {
   try {
@@ -417,7 +425,7 @@ router.get('/employees/:id/photos', permit('employees','view'), async (req, res)
     res.status(500).json({ message: err.message });
   }
 });
-router.post('/employees/:id/photos', permit('employees','manage'), upload.array('files', 12), async (req, res) => {
+router.post('/employees/:id/photos', permit('employees','manage'), uploadEmployeePhotos, async (req, res) => {
   try {
     await ensureEmployeeProfilePhotosSchema();
     const id = parseInt(req.params.id, 10);
@@ -434,8 +442,6 @@ router.post('/employees/:id/photos', permit('employees','manage'), upload.array(
       );
       items.push({ url, originalName: f.originalname, mimeType: f.mimetype, sizeBytes: f.size });
     }
-    // Keep compatibility with existing UI using avatar_url.
-    await userRepo.updateUser(id, { avatarUrl: items[0]?.url || null });
     try {
       await auditRepo.writeLog({
         userId: req.user.id,
@@ -469,11 +475,6 @@ router.delete('/employees/:id/photos/:photoId', permit('employees','manage'), as
       const p = path.join(__dirname, '..', '..', String(row.url || '').replace(/^\/+uploads\//, 'uploads' + path.sep));
       if (fs.existsSync(p)) fs.unlinkSync(p);
     } catch {}
-    const [[latest]] = await db.query(
-      `SELECT url FROM employee_profile_photos WHERE userId = ? ORDER BY created_at DESC, id DESC LIMIT 1`,
-      [id]
-    );
-    await userRepo.updateUser(id, { avatarUrl: latest?.url || null });
     res.status(200).json({ ok: true, id, photoId });
   } catch (err) {
     res.status(500).json({ message: err.message });
