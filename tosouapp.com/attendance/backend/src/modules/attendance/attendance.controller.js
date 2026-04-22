@@ -528,13 +528,15 @@ async function resolveTargetUserId(req) {
   if (!meId || !targetId) return null;
   if (role === 'employee') return meId;
   if (role === 'manager' && String(targetId) !== String(meId)) {
+    // Keep behavior aligned with manager user listing (company-wide by default).
+    // Enable strict department scoping only when explicitly configured.
+    const strictDept = String(process.env.MANAGER_STRICT_DEPT || '').toLowerCase() === 'true';
+    if (!strictDept) return targetId;
     const me = await userRepo.getUserById(meId);
     const target = await userRepo.getUserById(targetId);
     if (!target) return null;
-    // Backward-compatible scope check:
-    // only enforce department match when both sides have departmentId.
-    // Older prod data may have NULL departmentId for manager/employee records.
-    if (me?.departmentId && target?.departmentId && String(me.departmentId) !== String(target.departmentId)) {
+    // In strict mode, deny when department is missing or mismatched.
+    if (!me?.departmentId || !target?.departmentId || String(me.departmentId) !== String(target.departmentId)) {
       return '__forbidden__';
     }
   }
