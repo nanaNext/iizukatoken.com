@@ -924,7 +924,8 @@ async function renderEmployees(profile) {
           <tr><td>性別</td><td><select id="empGender" style="width:180px"><option value="">未設定</option><option value="male" ${u.gender==='male'?'selected':''}>男</option><option value="female" ${u.gender==='female'?'selected':''}>女</option><option value="other" ${u.gender==='other'?'selected':''}>その他</option></select></td></tr>
           <tr><td>電話番号</td><td><input id="empPhone" style="width:240px" value="${u.phone || ''}"></td></tr>
           <tr><td>住所</td><td><input id="empAddr" style="width:320px" value="${u.address || ''}"></td></tr>
-          <tr><td>プロフィール写真（アップロード）</td><td><input id="empAvatarFile" type="file" accept="image/*"> <button type="button" id="btnAvatarUpload">アップロード</button> <span id="avatarUploadStatus" style="margin-left:8px;color:#334155;"></span></td></tr>
+          <tr><td>プロフィール写真（アップロード）</td><td><input id="empAvatarFile" type="file" accept="image/*" multiple> <button type="button" id="btnAvatarUpload">アップロード</button> <span id="avatarUploadStatus" style="margin-left:8px;color:#334155;"></span></td></tr>
+          <tr><td>保存済み写真</td><td><div id="empAvatarGallery" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;"></div></td></tr>
         </tbody>
       </table>
       <table class="excel-table" style="margin-bottom:12px;">
@@ -1157,6 +1158,51 @@ async function renderEmployees(profile) {
       } catch {}
       await renderEmployees(profile);
     });
+    const galleryEl = formEdit.querySelector('#empAvatarGallery');
+    const renderAvatarGallery = (rows) => {
+      if (!galleryEl) return;
+      const list = Array.isArray(rows) ? rows : [];
+      if (!list.length) {
+        galleryEl.innerHTML = `<span style="color:#64748b;">保存済み写真はありません</span>`;
+        return;
+      }
+      galleryEl.innerHTML = list.map((it) => {
+        const id = String(it?.id || '');
+        const url = String(it?.url || '').trim();
+        const name = String(it?.originalName || '').trim();
+        return `
+          <div style="border:1px solid #cbd5e1;border-radius:8px;padding:6px;background:#fff;">
+            <a href="${url}" target="_blank" rel="noopener noreferrer">
+              <img src="${url}" alt="${name || 'photo'}" style="width:72px;height:72px;object-fit:cover;border-radius:6px;display:block;">
+            </a>
+            <div style="max-width:96px;font-size:11px;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px;" title="${name}">${name || 'photo'}</div>
+            <button type="button" class="btn-avatar-del" data-photo-id="${id}" style="margin-top:4px;font-size:11px;">削除</button>
+          </div>
+        `;
+      }).join('');
+      galleryEl.querySelectorAll('.btn-avatar-del').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          const pid = String(e.currentTarget?.dataset?.photoId || '').trim();
+          if (!pid) return;
+          if (!window.confirm('この写真を削除しますか？')) return;
+          try {
+            await fetchJSONAuth(`/api/admin/employees/${encodeURIComponent(String(u.id))}/photos/${encodeURIComponent(pid)}`, { method: 'DELETE' });
+            await loadAvatarGallery();
+          } catch (err) {
+            window.alert(String(err?.message || '削除に失敗しました'));
+          }
+        });
+      });
+    };
+    const loadAvatarGallery = async () => {
+      try {
+        const rows = await fetchJSONAuth(`/api/admin/employees/${encodeURIComponent(String(u.id))}/photos`);
+        renderAvatarGallery(rows);
+      } catch {
+        renderAvatarGallery([]);
+      }
+    };
+    await loadAvatarGallery();
     const btnAvatar = formEdit.querySelector('#btnAvatarUpload');
     if (btnAvatar) {
       btnAvatar.addEventListener('click', async (e) => {
@@ -1164,18 +1210,21 @@ async function renderEmployees(profile) {
         try {
           const fileEl = formEdit.querySelector('#empAvatarFile');
           const statusEl = formEdit.querySelector('#avatarUploadStatus');
-          if (!fileEl || !fileEl.files || !fileEl.files[0]) { if (statusEl) statusEl.textContent = 'ファイル未選択'; return; }
+          const files = fileEl && fileEl.files ? Array.from(fileEl.files) : [];
+          if (!files.length) { if (statusEl) statusEl.textContent = 'ファイル未選択'; return; }
           const fd = new FormData();
-          fd.append('file', fileEl.files[0]);
+          files.forEach((f) => fd.append('files', f));
           const tok = sessionStorage.getItem('accessToken') || '';
-          const res = await fetch(`/api/admin/employees/${encodeURIComponent(u.id)}/avatar`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + tok }, body: fd, credentials: 'include' });
+          const res = await fetch(`/api/admin/employees/${encodeURIComponent(u.id)}/photos`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + tok }, body: fd, credentials: 'include' });
           if (!res.ok) {
             let msg = `HTTP ${res.status}`; try { const j = await res.json(); msg = j.message || msg; } catch {}
             if (statusEl) statusEl.textContent = msg;
             return;
           }
-          await res.json();
-          if (statusEl) statusEl.textContent = 'アップロード完了';
+          const out = await res.json();
+          if (statusEl) statusEl.textContent = `アップロード完了 (${Number(out?.count || files.length)}件)`;
+          try { fileEl.value = ''; } catch {}
+          await loadAvatarGallery();
         } catch {}
       });
     }
@@ -1335,7 +1384,7 @@ async function renderEmployees(profile) {
         <thead><tr><th colspan="2">その他</th></tr></thead>
         <tbody>
           <tr><td style="width:180px;">プロフィール写真URL（任意）</td><td><input id="empAvatarUrl" style="width:320px" placeholder="https://..."></td></tr>
-          <tr><td>プロフィール写真（アップロード）</td><td><input id="empAvatarFile" type="file" accept="image/*"></td></tr>
+          <tr><td>プロフィール写真（アップロード）</td><td><input id="empAvatarFile" type="file" accept="image/*" multiple></td></tr>
         </tbody>
       </table>
       <div class="form-actions" style="justify-content:flex-end;">
@@ -1381,11 +1430,11 @@ async function renderEmployees(profile) {
         const r = await createEmployee(b);
         try {
           const fileEl = document.querySelector('#empAvatarFile');
-          if (fileEl && fileEl.files && fileEl.files[0] && r && r.id) {
+          if (fileEl && fileEl.files && fileEl.files.length && r && r.id) {
             const fd = new FormData();
-            fd.append('file', fileEl.files[0]);
+            Array.from(fileEl.files).forEach((f) => fd.append('files', f));
             const tok = sessionStorage.getItem('accessToken') || '';
-            await fetch(`/api/admin/employees/${encodeURIComponent(r.id)}/avatar`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + tok }, body: fd, credentials: 'include' });
+            await fetch(`/api/admin/employees/${encodeURIComponent(r.id)}/photos`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + tok }, body: fd, credentials: 'include' });
           }
         } catch {}
         if (msgEl) { msgEl.style.color = '#0f172a'; msgEl.textContent = '保存しました（1名追加）'; }

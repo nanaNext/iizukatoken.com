@@ -22,6 +22,24 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { buildPayslipPdf } = require('../salary/payslipPdf');
 const allowDebugRoutes = process.env.NODE_ENV !== 'production' || String(process.env.ENABLE_DEBUG_ROUTES || '').toLowerCase() === 'true';
+
+async function ensureEmployeeProfilePhotosSchema() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS employee_profile_photos (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        userId BIGINT UNSIGNED NOT NULL,
+        url VARCHAR(255) NOT NULL,
+        original_name VARCHAR(255) NULL,
+        mime_type VARCHAR(100) NULL,
+        size_bytes BIGINT UNSIGNED NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user_created (userId, created_at),
+        CONSTRAINT fk_employee_profile_photos_user FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+  } catch {}
+}
 // Admin tổng hợp
 router.use(authenticate);
 // Users
@@ -378,6 +396,85 @@ router.post('/employees/:id/avatar', permit('employees','manage'), async (req, r
     await userRepo.updateUser(id, { avatarUrl: url });
     try { await auditRepo.writeLog({ userId: req.user.id, action: 'admin_employee_avatar_upload', path: req.path, method: req.method, ip: req.ip, userAgent: req.headers['user-agent'], beforeData: null, afterData: JSON.stringify({ id, avatarUrl: url, originalName: req.file.originalname }) }); } catch {}
     res.status(201).json({ id, url, originalName: req.file.originalname });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+router.get('/employees/:id/photos', permit('employees','view'), async (req, res) => {
+  try {
+    await ensureEmployeeProfilePhotosSchema();
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ message: 'Missing id' });
+    const [rows] = await db.query(
+      `SELECT id, userId, url, original_name AS originalName, mime_type AS mimeType, size_bytes AS sizeBytes, created_at AS createdAt
+       FROM employee_profile_photos
+       WHERE userId = ?
+       ORDER BY created_at DESC, id DESC`,
+      [id]
+    );
+    res.status(200).json(Array.isArray(rows) ? rows : []);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+router.post('/employees/:id/photos', permit('employees','manage'), upload.array('files', 12), async (req, res) => {
+  try {
+    await ensureEmployeeProfilePhotosSchema();
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ message: 'Missing id' });
+    const files = Array.isArray(req.files) ? req.files : [];
+    if (!files.length) return res.status(400).json({ message: 'No files uploaded' });
+    const items = [];
+    for (const f of files) {
+      const url = `/uploads/${f.filename}`;
+      await db.query(
+        `INSERT INTO employee_profile_photos (userId, url, original_name, mime_type, size_bytes)
+         VALUES (?, ?, ?, ?, ?)`,
+        [id, url, String(f.originalname || ''), String(f.mimetype || ''), Number(f.size || 0)]
+      );
+      items.push({ url, originalName: f.originalname, mimeType: f.mimetype, sizeBytes: f.size });
+    }
+    // Keep compatibility with existing UI using avatar_url.
+    await userRepo.updateUser(id, { avatarUrl: items[0]?.url || null });
+    try {
+      await auditRepo.writeLog({
+        userId: req.user.id,
+        action: 'admin_employee_photos_upload',
+        path: req.path,
+        method: req.method,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        beforeData: null,
+        afterData: JSON.stringify({ id, count: items.length, items })
+      });
+    } catch {}
+    res.status(201).json({ id, count: items.length, items });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+router.delete('/employees/:id/photos/:photoId', permit('employees','manage'), async (req, res) => {
+  try {
+    await ensureEmployeeProfilePhotosSchema();
+    const id = parseInt(req.params.id, 10);
+    const photoId = parseInt(req.params.photoId, 10);
+    if (!id || !photoId) return res.status(400).json({ message: 'Missing id/photoId' });
+    const [[row]] = await db.query(
+      `SELECT id, userId, url FROM employee_profile_photos WHERE id = ? AND userId = ? LIMIT 1`,
+      [photoId, id]
+    );
+    if (!row) return res.status(404).json({ message: 'Photo not found' });
+    await db.query(`DELETE FROM employee_profile_photos WHERE id = ? AND userId = ?`, [photoId, id]);
+    try {
+      const p = path.join(__dirname, '..', '..', String(row.url || '').replace(/^\/+uploads\//, 'uploads' + path.sep));
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    } catch {}
+    const [[latest]] = await db.query(
+      `SELECT url FROM employee_profile_photos WHERE userId = ? ORDER BY created_at DESC, id DESC LIMIT 1`,
+      [id]
+    );
+    await userRepo.updateUser(id, { avatarUrl: latest?.url || null });
+    res.status(200).json({ ok: true, id, photoId });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
