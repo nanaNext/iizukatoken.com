@@ -27,6 +27,19 @@ const monthRange = (month) => {
   return { start, end };
 };
 
+const roleScopeSql = (req, alias = 'u') => {
+  const role = String(req.user?.role || '').toLowerCase();
+  if (role === 'manager') return ` AND ${alias}.role = 'employee'`;
+  return ` AND ${alias}.role IN ('employee','manager')`;
+};
+
+const canManagerAccessUser = async (req, userId) => {
+  const role = String(req.user?.role || '').toLowerCase();
+  if (role !== 'manager') return true;
+  const [[u]] = await db.query(`SELECT id, role FROM users WHERE id = ? LIMIT 1`, [Number(userId)]);
+  return String(u?.role || '').toLowerCase() === 'employee';
+};
+
 router.use(authenticate);
 
 router.get('/', authorize('admin', 'manager'), async (req, res) => {
@@ -73,7 +86,7 @@ router.get('/', authorize('admin', 'manager'), async (req, res) => {
       LEFT JOIN work_reports wr
         ON wr.userId = u.id AND wr.date = ?
       WHERE u.employment_status = 'active'
-        AND u.role IN ('employee','manager')
+        ${roleScopeSql(req, 'u')}
         AND lr.id IS NULL
       ORDER BY
         CASE WHEN a.checkIn IS NULL THEN 1 ELSE 0 END ASC,
@@ -225,7 +238,7 @@ router.get('/export.xlsx',
       FROM users u
       LEFT JOIN departments d ON d.id = u.departmentId
       WHERE u.employment_status = 'active'
-        AND u.role IN ('employee','manager')
+        ${roleScopeSql(req, 'u')}
       ORDER BY COALESCE(u.employee_code, '') ASC, u.id ASC
     `);
 
@@ -480,7 +493,7 @@ router.get('/month', authorize('admin', 'manager'), async (req, res) => {
       FROM users u
       LEFT JOIN departments d ON d.id = u.departmentId
       WHERE u.employment_status = 'active'
-        AND u.role IN ('employee','manager')
+        ${roleScopeSql(req, 'u')}
       ORDER BY COALESCE(u.employee_code, '') ASC, u.id ASC
     `);
 
@@ -542,7 +555,7 @@ router.get('/month', authorize('admin', 'manager'), async (req, res) => {
             SELECT id
             FROM users
             WHERE employment_status = 'active'
-              AND role IN ('employee','manager')
+              ${String(req.user?.role || '').toLowerCase() === 'manager' ? "AND role = 'employee'" : "AND role IN ('employee','manager')"}
           )
       `, [start + ' 00:00:00', end + ' 00:00:00']);
       latestRows = x;
@@ -556,7 +569,7 @@ router.get('/month', authorize('admin', 'manager'), async (req, res) => {
               SELECT id
               FROM users
               WHERE employment_status = 'active'
-                AND role IN ('employee','manager')
+                ${String(req.user?.role || '').toLowerCase() === 'manager' ? "AND role = 'employee'" : "AND role IN ('employee','manager')"}
             )
         `, [start + ' 00:00:00', end + ' 00:00:00']);
         latestRows = attRows;
@@ -763,7 +776,7 @@ router.get('/month/list', authorize('admin', 'manager'), async (req, res) => {
       FROM users u
       LEFT JOIN departments d ON d.id = u.departmentId
       WHERE u.employment_status = 'active'
-        AND u.role IN ('employee','manager')
+        ${roleScopeSql(req, 'u')}
       ORDER BY COALESCE(u.employee_code, '') ASC, u.id ASC
     `);
     const userMap = new Map((users || []).map(u => [Number(u.userId), u]));
@@ -779,8 +792,8 @@ router.get('/month/list', authorize('admin', 'manager'), async (req, res) => {
         AND a.userId IN (
           SELECT id
           FROM users
-          WHERE employment_status = 'active'
-            AND role IN ('employee','manager')
+            WHERE employment_status = 'active'
+            ${String(req.user?.role || '').toLowerCase() === 'manager' ? "AND role = 'employee'" : "AND role IN ('employee','manager')"}
         )
       GROUP BY a.userId, DATE(a.checkIn)
       ORDER BY DATE(a.checkIn) ASC, a.userId ASC
@@ -877,6 +890,7 @@ router.get('/month/:userId', authorize('admin', 'manager'), async (req, res) => 
   try {
     const userId = parseInt(String(req.params.userId || ''), 10);
     if (!userId) return res.status(400).json({ message: 'Invalid userId' });
+    if (!(await canManagerAccessUser(req, userId))) return res.status(403).json({ message: 'Forbidden' });
     const month = isYM(req.query?.month) ? String(req.query.month) : monthJST();
     const { start, end } = monthRange(month);
     const closed = await repo.isMonthClosed(month).catch(() => false);
@@ -969,6 +983,7 @@ router.get('/:userId', authorize('admin', 'manager'), async (req, res) => {
   try {
     const userId = parseInt(String(req.params.userId || ''), 10);
     if (!userId) return res.status(400).json({ message: 'Invalid userId' });
+    if (!(await canManagerAccessUser(req, userId))) return res.status(403).json({ message: 'Forbidden' });
     const date = isISODate(req.query?.date) ? String(req.query.date) : todayJST();
     const [[row]] = await db.query(`
       SELECT
