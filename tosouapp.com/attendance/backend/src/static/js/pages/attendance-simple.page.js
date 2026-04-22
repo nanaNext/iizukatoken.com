@@ -845,9 +845,17 @@ const load = async (date, opts = {}) => {
       }
     } catch {}
     const segmentsRaw = Array.isArray(day?.segments) ? day.segments : [];
-    const plannedOpenSeg = segmentsRaw.find((s) =>
+    // If monthly data was explicitly edited/saved, treat shift-like rows as actual
+    // (do not auto-classify them as planned ghost rows).
+    const hasExplicitDailyInput = !!(
+      kubunSaved ||
+      String(daily?.workType || '').trim() ||
+      String(daily?.location || '').trim() ||
+      String(daily?.memo || '').trim()
+    );
+    const plannedOpenSeg = (!hasExplicitDailyInput ? segmentsRaw.find((s) =>
       isPlannedPlaceholderSegment(s, shiftStart, shiftEnd) && s?.checkIn && !s?.checkOut
-    ) || null;
+    ) : null) || null;
     const shiftLikeOpenSeg = segmentsRaw.find((s) => {
       try {
         if (!s?.id || !s?.checkIn || s?.checkOut) return false;
@@ -857,16 +865,17 @@ const load = async (date, opts = {}) => {
         return false;
       }
     }) || null;
-    const ghostSeg = segmentsRaw.find((s) =>
+    const ghostSeg = (!hasExplicitDailyInput ? segmentsRaw.find((s) =>
       isTodayShiftGhostSegment(s, shiftStart, shiftEnd, date)
-    ) || null;
+    ) : null) || null;
     state.plannedOpenAttendanceId = plannedOpenSeg?.id || null;
     state.shiftLikeOpenAttendanceId = shiftLikeOpenSeg?.id || null;
     state.plannedStampAttendanceId = ghostSeg?.id || null;
-    const segments = segmentsRaw.filter((s) =>
-      !isPlannedPlaceholderSegment(s, shiftStart, shiftEnd) &&
-      !isTodayShiftGhostSegment(s, shiftStart, shiftEnd, date)
-    );
+    const segments = segmentsRaw.filter((s) => {
+      if (hasExplicitDailyInput) return true;
+      return !isPlannedPlaceholderSegment(s, shiftStart, shiftEnd) &&
+        !isTodayShiftGhostSegment(s, shiftStart, shiftEnd, date);
+    });
     let seg = pickLatestSegment(segments);
     const openSeg = pickOpenSegment(segments);
     if (date === todayJST() && seg?.checkIn && seg?.checkOut) {
@@ -884,7 +893,7 @@ const load = async (date, opts = {}) => {
           const st = await fetchJSONAuth(`/api/attendance/status?date=${encodeURIComponent(date)}`).catch(() => null);
           if (st?.attendance?.checkIn) {
             const fromStatus = { checkIn: st.attendance.checkIn, checkOut: st.attendance.checkOut || null };
-            if (!isTodayShiftGhostSegment(fromStatus, shiftStart, shiftEnd, date)) {
+            if (hasExplicitDailyInput || !isTodayShiftGhostSegment(fromStatus, shiftStart, shiftEnd, date)) {
               seg = fromStatus;
             }
           }
@@ -1169,13 +1178,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const doStartStamp = async () => {
     if (startStampInFlight) return;
     showErr('');
-    const startFieldHm = String($('#startTime')?.value || '').trim();
-    const shiftStartHm = String(state.shiftStart || '').trim();
-    const allowShiftLikeOverride = state.date === todayJST()
-      && !!state.shiftLikeOpenAttendanceId
-      && !!shiftStartHm
-      && startFieldHm === shiftStartHm;
-    if (state.hasStartedToday && !state.plannedStampAttendanceId && !allowShiftLikeOverride) {
+    // Strict lock: once started, do not allow re-stamping from simple screen.
+    if (state.hasStartedToday && !state.plannedStampAttendanceId) {
       showErr('開始打刻は1日1回までです。修正は月次勤怠入力で行ってください。');
       return;
     }
@@ -1192,7 +1196,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       showSpinner(true);
       let r = null;
       const hmNow = nowHmJST();
-      const overrideAttendanceId = state.plannedStampAttendanceId || (allowShiftLikeOverride ? state.shiftLikeOpenAttendanceId : null);
+      const overrideAttendanceId = state.plannedStampAttendanceId || null;
       if (overrideAttendanceId) {
         const cinNow = toMySQLDateTime(state.date, hmNow);
         await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(state.date)}`, {

@@ -14,6 +14,13 @@ const statusMeta = (status) => {
   if (status === 'submitted') return { label: '提出済', style: 'background:#eef5ff;color:#0b2c66;border-color:#bfd7ff;' };
   if (status === 'missing') return { label: '未提出', style: 'background:#fff1f1;color:#991b1b;border-color:#ffcccc;' };
   if (status === 'checkout_missing') return { label: '退勤漏れ', style: 'background:#fff1f1;color:#991b1b;border-color:#ffb4b4;' };
+  if (status === 'checkout_missing_submitted') return { label: '退勤漏れ(入力済み)', style: 'background:#eef5ff;color:#0b2c66;border-color:#bfd7ff;' };
+  if (status === 'monthly_input_only') return { label: '月次入力済み（打刻なし）', style: 'background:#eef5ff;color:#0b2c66;border-color:#bfd7ff;' };
+  if (status === 'off') return { label: '休日', style: 'background:#f8fafc;color:#475569;border-color:#e2e8f0;' };
+  if (status === 'paid_leave') return { label: '有給休暇', style: 'background:#f8fafc;color:#475569;border-color:#e2e8f0;' };
+  if (status === 'unpaid_leave') return { label: '無給休暇', style: 'background:#f8fafc;color:#475569;border-color:#e2e8f0;' };
+  if (status === 'absence') return { label: '欠勤', style: 'background:#fff1f1;color:#991b1b;border-color:#ffcccc;' };
+  if (status === 'not_punched') return { label: '未打刻', style: 'background:#fff1f1;color:#991b1b;border-color:#ffcccc;' };
   if (status === 'working') return { label: '勤務中', style: 'background:#f8fafc;color:#475569;border-color:#cbd5e1;' };
   return { label: '—', style: 'background:#f8fafc;color:#475569;border-color:#e2e8f0;' };
 };
@@ -26,10 +33,14 @@ const workTypeLabel = (value) => {
 const todayJST = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 const effectiveStatus = (it) => {
   const st = String(it?.status || '');
+  const hasContent = !!(String(it?.site || '').trim() || String(it?.work || '').trim());
+  if (st === 'checkout_missing' && hasContent) return 'checkout_missing_submitted';
   if (st !== 'working') return st;
   const d = String(it?.date || '').slice(0, 10);
   const hasOut = !!it?.attendance?.checkOut;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(d) && d < todayJST() && !hasOut) return 'checkout_missing';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d) && d < todayJST() && !hasOut) {
+    return hasContent ? 'checkout_missing_submitted' : 'checkout_missing';
+  }
   return st;
 };
 const dowClass = (w) => {
@@ -206,6 +217,8 @@ export async function mount() {
   const statusRank = (st) => {
     if (st === 'checkout_missing') return 0;
     if (st === 'missing') return 0;
+    if (st === 'checkout_missing_submitted') return 1;
+    if (st === 'monthly_input_only') return 1;
     if (st === 'working') return 1;
     if (st === 'submitted') return 2;
     return 3;
@@ -302,7 +315,10 @@ export async function mount() {
         const st = effectiveStatus(x);
         return st === 'missing' || st === 'checkout_missing';
       }).length;
-      g.submitted = g.items.filter(x => effectiveStatus(x) === 'submitted').length;
+      g.submitted = g.items.filter(x => {
+        const st = effectiveStatus(x);
+        return st === 'submitted' || st === 'checkout_missing_submitted';
+      }).length;
       g.total = g.items.length;
     }
     arr.sort((a, b) => {
@@ -438,8 +454,8 @@ export async function mount() {
         const work = String(rep?.work || '').trim() || null;
         const status = st === 'checked_out'
           ? ((site || work) ? 'submitted' : 'missing')
-          : (String(d).slice(0, 10) < today ? 'checkout_missing' : 'working');
-        if (status === 'submitted') submitted++;
+          : (String(d).slice(0, 10) < today ? ((site || work) ? 'checkout_missing_submitted' : 'checkout_missing') : 'working');
+        if (status === 'submitted' || status === 'checkout_missing_submitted') submitted++;
         else if (status === 'missing' || status === 'checkout_missing') missing++;
         workingUsers.add(uid);
         out.push({

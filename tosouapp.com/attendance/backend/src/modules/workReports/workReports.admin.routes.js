@@ -772,6 +772,7 @@ router.get('/month/list', authorize('admin', 'manager'), async (req, res) => {
       SELECT u.id AS userId,
              u.employee_code AS employeeCode,
              u.username AS username,
+             u.shift_id AS shiftId,
              u.departmentId AS departmentId,
              d.name AS departmentName
       FROM users u
@@ -781,6 +782,64 @@ router.get('/month/list', authorize('admin', 'manager'), async (req, res) => {
       ORDER BY COALESCE(u.employee_code, '') ASC, u.id ASC
     `);
     const userMap = new Map((users || []).map(u => [Number(u.userId), u]));
+
+    // Fallback checkout time from assigned shift end-time (for monthly-input synchronization view).
+    let shiftDefs = [];
+    try { shiftDefs = await attendanceRepo.listShiftDefinitions(); } catch { shiftDefs = []; }
+    const shiftById = new Map();
+    const shiftByName = new Map();
+    for (const s of shiftDefs || []) {
+      if (s?.id != null) shiftById.set(Number(s.id), s);
+      if (s?.name) shiftByName.set(String(s.name), s);
+    }
+    let assigns = [];
+    try {
+      const userIds = Array.from(userMap.keys());
+      if (userIds.length) {
+        const placeholders = userIds.map(() => '?').join(',');
+        const [rows] = await db.query(`
+          SELECT userId, shiftId, shift, start_date, end_date
+          FROM user_shift_assignments
+          WHERE userId IN (${placeholders})
+            AND start_date <= ?
+            AND (end_date IS NULL OR end_date >= ?)
+          ORDER BY userId ASC, start_date ASC, id ASC
+        `, [...userIds, end, start]);
+        assigns = rows || [];
+      }
+    } catch { assigns = []; }
+    const assignByUser = new Map();
+    for (const a of assigns) {
+      const uid = Number(a.userId || 0);
+      if (!uid) continue;
+      if (!assignByUser.has(uid)) assignByUser.set(uid, []);
+      assignByUser.get(uid).push(a);
+    }
+    const resolveShiftEndHm = (uid, ds) => {
+      const arr = assignByUser.get(Number(uid)) || [];
+      let pick = null;
+      for (const a of arr) {
+        const st = String(a.start_date || '').slice(0, 10);
+        const ed = a.end_date ? String(a.end_date).slice(0, 10) : '';
+        if (!st || st > ds) continue;
+        if (ed && ed < ds) continue;
+        pick = a;
+      }
+      let def = null;
+      if (pick?.shiftId != null) def = shiftById.get(Number(pick.shiftId)) || null;
+      if (!def && pick?.shift) def = shiftByName.get(String(pick.shift)) || null;
+      const hm = String(def?.end_time || '').trim();
+      if (/^\d{2}:\d{2}$/.test(hm)) return hm;
+      // Fallback 2: user default shift_id
+      const u = userMap.get(Number(uid));
+      if (u?.shiftId != null) {
+        const d2 = shiftById.get(Number(u.shiftId)) || null;
+        const hm2 = String(d2?.end_time || '').trim();
+        if (/^\d{2}:\d{2}$/.test(hm2)) return hm2;
+      }
+      // Fallback 3: default business end time for report sync display
+      return '17:00';
+    };
 
     const [attRows] = await db.query(`
       SELECT a.userId,
@@ -821,10 +880,17 @@ router.get('/month/list', authorize('admin', 'manager'), async (req, res) => {
       reportMap.set(`${r.userId}|${String(r.date).slice(0, 10)}`, r);
     }
 
+    const workKubun = new Set(['出勤', '休日出勤', '代替出勤', '半休']);
+    const holidayKubun = new Set(['休日', '代替休日']);
+    const paidLeaveKubun = new Set(['有給休暇']);
+    const unpaidLeaveKubun = new Set(['無給休暇']);
+    const absenceKubun = new Set(['欠勤']);
+
     const items = [];
     let submitted = 0;
     let missing = 0;
     const workingUsers = new Set();
+    const keySet = new Set();
     for (const a of (attRows || [])) {
       const userId = Number(a.userId);
       const user = userMap.get(userId);
@@ -832,15 +898,20 @@ router.get('/month/list', authorize('admin', 'manager'), async (req, res) => {
       const date = String(a.date || a.firstCheckIn || '').slice(0, 10);
       if (!date) continue;
       const key = `${userId}|${date}`;
+      keySet.add(key);
       const rep = reportMap.get(key) || null;
       const daily = dailyMap.get(key) || null;
       const site = String(rep?.site || daily?.location || '').trim() || null;
       const work = String(rep?.work || daily?.memo || '').trim() || null;
+      const fallbackOutHm = (!a.lastCheckOut && (site || work)) ? resolveShiftEndHm(userId, date) : '';
       const workType = rep?.work_type || daily?.workType || a.attendanceWorkType || null;
+      const hasReportContent = !!(site || work);
       const status = a.lastCheckOut
-        ? ((site || work) ? 'submitted' : 'missing')
-        : (date < today ? 'checkout_missing' : 'working');
-      if (status === 'submitted') submitted++;
+        ? (hasReportContent ? 'submitted' : 'missing')
+        : (date < today
+            ? (hasReportContent ? 'checkout_missing_submitted' : 'checkout_missing')
+            : 'working');
+      if (status === 'submitted' || status === 'checkout_missing_submitted') submitted++;
       else if (status === 'missing' || status === 'checkout_missing') missing++;
       workingUsers.add(userId);
       items.push({
@@ -853,9 +924,57 @@ router.get('/month/list', authorize('admin', 'manager'), async (req, res) => {
         weekday: weekdayJa(date),
         attendance: {
           checkIn: a.firstCheckIn || null,
-          checkOut: a.lastCheckOut || null
+          checkOut: a.lastCheckOut || (fallbackOutHm ? `${date} ${fallbackOutHm}:00` : null)
         },
         kubun: daily?.kubun || null,
+        workType,
+        site,
+        work,
+        status
+      });
+    }
+
+    // Add rows that exist only in monthly input (attendance_daily / work_reports) without punch data.
+    const extraKeys = new Set([
+      ...Array.from(dailyMap.keys()),
+      ...Array.from(reportMap.keys())
+    ]);
+    for (const key of extraKeys) {
+      if (keySet.has(key)) continue;
+      const [uidStr, date] = String(key).split('|');
+      const userId = Number(uidStr);
+      if (!userId || !/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) continue;
+      const user = userMap.get(userId);
+      if (!user) continue;
+      const daily = dailyMap.get(key) || null;
+      const rep = reportMap.get(key) || null;
+      const kubun = String(daily?.kubun || '').trim();
+      const site = String(rep?.site || daily?.location || '').trim() || null;
+      const work = String(rep?.work || daily?.memo || '').trim() || null;
+      const hasContent = !!(site || work);
+      const workType = rep?.work_type || daily?.workType || null;
+      const fallbackOutHm = hasContent ? resolveShiftEndHm(userId, String(date).slice(0, 10)) : '';
+
+      let status = '';
+      if (holidayKubun.has(kubun)) status = 'off';
+      else if (paidLeaveKubun.has(kubun)) status = 'paid_leave';
+      else if (unpaidLeaveKubun.has(kubun)) status = 'unpaid_leave';
+      else if (absenceKubun.has(kubun)) status = 'absence';
+      else if (workKubun.has(kubun) || hasContent) status = 'monthly_input_only';
+      else continue;
+
+      if (status === 'monthly_input_only') submitted++;
+      workingUsers.add(userId);
+      items.push({
+        userId,
+        employeeCode: user.employeeCode || null,
+        username: user.username || null,
+        departmentId: user.departmentId || null,
+        departmentName: user.departmentName || null,
+        date: String(date).slice(0, 10),
+        weekday: weekdayJa(date),
+        attendance: { checkIn: null, checkOut: fallbackOutHm ? `${String(date).slice(0, 10)} ${fallbackOutHm}:00` : null },
+        kubun: kubun || null,
         workType,
         site,
         work,
