@@ -72,6 +72,18 @@ module.exports.listAll = async function() {
   return rows;
 };
 
+module.exports.listForManager = async function() {
+  const sql = `
+    SELECT r.*, u.username, u.email
+    FROM time_adjust_requests r
+    INNER JOIN users u ON r.userId = u.id
+    WHERE u.role = 'employee'
+    ORDER BY r.created_at DESC
+  `;
+  const [rows] = await db.query(sql);
+  return rows;
+};
+
 module.exports.ensureSchema = async function() {
   await db.query(`
     CREATE TABLE IF NOT EXISTS time_adjust_requests (

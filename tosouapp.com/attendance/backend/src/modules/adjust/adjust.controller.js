@@ -60,11 +60,13 @@ exports.updateStatus = async (req, res) => {
 };
 exports.listAll = async (req, res) => {
   try {
-    // Chỉ cho admin
-    if (!req.user || String(req.user.role).toLowerCase() !== 'admin') {
+    const role = String(req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    const rows = await repo.listAll();
+    const rows = role === 'manager'
+      ? await repo.listForManager()
+      : await repo.listAll();
     res.status(200).json(rows);
   } catch (err) {
     res.status(500).json({ message: err.message });

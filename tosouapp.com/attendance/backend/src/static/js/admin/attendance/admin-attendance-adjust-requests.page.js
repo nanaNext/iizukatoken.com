@@ -64,9 +64,9 @@ async function checkAdminAuth() {
   try {
     const profile = await fetchJSONAuth('/api/auth/me');
     const role = String(profile?.role || '').toLowerCase();
-    if (!profile || role !== 'admin') { window.location.replace('/ui/login'); return false; }
+    if (!profile || (role !== 'admin' && role !== 'manager')) { window.location.replace('/ui/login'); return false; }
     const nameEl = document.querySelector('#userName');
-    if (nameEl) nameEl.textContent = profile.username || profile.email || 'Admin';
+    if (nameEl) nameEl.textContent = profile.username || profile.email || 'User';
     return true;
   } catch { window.location.replace('/ui/login'); return false; }
 }
