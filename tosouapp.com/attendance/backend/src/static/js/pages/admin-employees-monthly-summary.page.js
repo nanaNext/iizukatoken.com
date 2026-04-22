@@ -99,6 +99,14 @@ function num(v) {
   return Number.isFinite(x) ? x : 0;
 }
 
+async function withTimeout(promise, ms, label) {
+  const timeoutMs = Math.max(1000, Number(ms || 0));
+  return await Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label || 'request'} timeout`)), timeoutMs))
+  ]);
+}
+
 function fromDateTime(s) {
   const t = String(s || '').trim();
   if (!t) return '';
@@ -836,17 +844,49 @@ export async function mount() {
     const saStart = $('#saStart', root);
     if (saStart && !saStart.value) saStart.value = `${ym}-01`;
     setStatus('読込中...');
-    const bust = `&_=${Date.now()}`;
-    const [detail, timesheet] = await Promise.all([
-      fetchJSONAuth(`/api/attendance/month/detail?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}&userId=${encodeURIComponent(uid)}${bust}`),
-      fetchJSONAuth(`/api/attendance/month?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}&userId=${encodeURIComponent(uid)}${bust}`).catch(() => null)
-    ]);
-    // Fast path: compute directly from API payload to avoid long iframe-based extraction.
-    setSummaryValues(root, 'sumAll', computeSummary(detail, timesheet, 'sumAll'));
-    setSummaryValues(root, 'sumIh', computeSummary(detail, timesheet, 'sumIh'));
+    let hasAnyData = false;
+    let usedStored = false;
+    let warnMsg = '';
+    try {
+      // Always try stored monthly summary first so the form is never empty on slow detail APIs.
+      const stored = await withTimeout(
+        fetchJSONAuth(`/api/attendance/month/summary?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}&userId=${encodeURIComponent(uid)}`),
+        8000,
+        'month-summary'
+      ).catch(() => null);
+      if (stored && (stored.all || stored.inhouse)) {
+        if (stored.all) setSummaryValues(root, 'sumAll', stored.all);
+        if (stored.inhouse) setSummaryValues(root, 'sumIh', stored.inhouse);
+        hasAnyData = true;
+        usedStored = true;
+      }
+
+      const bust = `&_=${Date.now()}`;
+      const detailRes = await Promise.allSettled([
+        withTimeout(fetchJSONAuth(`/api/attendance/month/detail?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}&userId=${encodeURIComponent(uid)}${bust}`), 12000, 'month-detail'),
+        withTimeout(fetchJSONAuth(`/api/attendance/month?year=${encodeURIComponent(y)}&month=${encodeURIComponent(m)}&userId=${encodeURIComponent(uid)}${bust}`).catch(() => null), 12000, 'month-timesheet')
+      ]);
+      const detail = detailRes[0].status === 'fulfilled' ? detailRes[0].value : null;
+      const timesheet = detailRes[1].status === 'fulfilled' ? detailRes[1].value : null;
+      if (detail && typeof detail === 'object') {
+        // Preferred source: recompute from detailed monthly data.
+        setSummaryValues(root, 'sumAll', computeSummary(detail, timesheet, 'sumAll'));
+        setSummaryValues(root, 'sumIh', computeSummary(detail, timesheet, 'sumIh'));
+        hasAnyData = true;
+      } else if (detailRes[0].status === 'rejected') {
+        warnMsg = String(detailRes[0].reason?.message || 'detail load failed');
+      }
+    } catch (e) {
+      warnMsg = String(e?.message || '読込失敗');
+    }
+
     await loadSa().catch(() => {});
     await loadWd().catch(() => {});
-    setStatus('読込完了');
+    if (hasAnyData) {
+      setStatus(usedStored && warnMsg ? '読込完了（保存データ表示）' : '読込完了');
+    } else {
+      setStatus(`読込失敗${warnMsg ? `: ${warnMsg}` : ''}`);
+    }
     try {
       const u = new URL(window.location.href);
       u.searchParams.set('userId', uid);
@@ -1127,7 +1167,7 @@ export async function mount() {
   empSelect?.addEventListener('change', () => { load().catch(e => setStatus(String(e?.message || '読込失敗'))); });
   monthEl?.addEventListener('change', () => { load().catch(e => setStatus(String(e?.message || '読込失敗'))); });
   await loadShiftDefs().catch(() => {});
-  await load().catch(() => {});
+  await load().catch((e) => setStatus(String(e?.message || '読込失敗')));
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
