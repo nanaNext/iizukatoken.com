@@ -90,7 +90,7 @@ router.get('/month/missing', authenticate, authorize('manager','admin'), control
 router.post('/month/approve-ready', authenticate, authorize('manager','admin'), controller.approveReadyMonth);
 router.get('/month/summary', authenticate, authorize('employee','manager','admin'), controller.getMonthSummary);
 router.put('/month/summary', authenticate, authorize('manager','admin'), controller.putMonthSummary);
-router.get('/shifts/assignments', authenticate, authorize('employee','manager','admin'), controller.getShiftAssignments);
+router.get('/shifts/assignments', authenticate, authorize('employee','manager','admin','payroll'), controller.getShiftAssignments);
 router.post('/shifts/assignments',
   rateLimitNamed('attendance_shift_assign', { windowMs: 60_000, max: 20 }),
   authenticate, authorize('manager','admin'), controller.postShiftAssignment);
@@ -104,7 +104,7 @@ router.post('/month/sync-salary',
 router.put('/plan', authenticate, authorize('employee','manager','admin'), controller.putPlan);
 router.get('/month/export.xlsx', authenticate, authorize('employee','manager','admin','payroll'), controller.exportMonthXlsx);
 router.get('/user-profile', authenticate, authorize('employee','manager','admin'), controller.userProfileForMonthly);
-router.get('/work-details', authenticate, authorize('employee','manager','admin'), controller.getWorkDetails);
+router.get('/work-details', authenticate, authorize('employee','manager','admin','payroll'), controller.getWorkDetails);
 router.post('/work-details',
   rateLimitNamed('attendance_work_details_post', { windowMs: 60_000, max: 30 }),
   authenticate, authorize('manager','admin'), controller.postWorkDetail);
@@ -114,7 +114,7 @@ router.put('/work-details/:id',
 router.delete('/work-details/:id',
   rateLimitNamed('attendance_work_details_delete', { windowMs: 60_000, max: 20 }),
   authenticate, authorize('manager','admin'), controller.deleteWorkDetail);
-router.get('/shifts/definitions', authenticate, authorize('manager','admin'), controller.listShiftDefinitions);
+router.get('/shifts/definitions', authenticate, authorize('manager','admin','payroll'), controller.listShiftDefinitions);
 router.post('/shifts/definitions',
   rateLimitNamed('attendance_shift_def_post', { windowMs: 60_000, max: 10 }),
   authenticate, authorize('manager','admin'), controller.postShiftDefinition);
