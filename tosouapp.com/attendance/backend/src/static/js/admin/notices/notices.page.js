@@ -373,6 +373,11 @@ export async function mount() {
             min-width: 72px;
             width: 72px;
             grid-column: 4 / 5;
+            white-space: normal;
+            min-height: 30px;
+            height: auto;
+            line-height: 1.15;
+            padding: 3px 6px;
           }
           .notice-controls #noticeDate,
           .notice-controls #noticeMonth {
@@ -390,14 +395,16 @@ export async function mount() {
             -webkit-overflow-scrolling: touch;
           }
           .notice-table {
-            min-width: 460px;
-            width: 460px;
-            table-layout: auto;
+            min-width: 0;
+            width: 100%;
+            table-layout: fixed;
           }
           .notice-table th,
           .notice-table td {
             white-space: nowrap;
             word-break: normal;
+            writing-mode: horizontal-tb;
+            text-orientation: mixed;
             padding: 6px 7px;
             font-size: 11px;
           }

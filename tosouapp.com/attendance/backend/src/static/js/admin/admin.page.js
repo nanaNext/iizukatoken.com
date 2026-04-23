@@ -717,7 +717,7 @@ const route = async () => {
       return;
     }
     if (p2 === '/admin/notices') {
-      const mod = await loadModule('./notices/notices.page.js?v=navy-20260423-noticemobile4');
+      const mod = await loadModule('./notices/notices.page.js?v=navy-20260423-noticemobile5');
       if (seq !== routeSeq) return;
       await mountModule(mod);
       return;
