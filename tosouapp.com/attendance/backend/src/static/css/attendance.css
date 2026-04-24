@@ -182,10 +182,29 @@ body.nav-js {
   font-weight: 800;
   letter-spacing: .2px;
   font-size: 32px;
-  line-height: var(--kintai-top-h);
-  height: var(--kintai-top-h);
+  line-height: 1.15;
+  height: auto;
   padding-left: 12px;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  top: 2px;
+}
+
+@media (min-width: 901px) {
+  .kintai-top {
+    overflow: visible;
+    padding-top: 0;
+    align-items: center;
+  }
+  .kintai-logo {
+    font-size: 30px;
+    line-height: 1;
+    top: 0;
+    text-rendering: geometricPrecision;
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
 .kintai-nav {

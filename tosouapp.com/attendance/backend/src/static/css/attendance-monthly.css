@@ -27,10 +27,10 @@ html, body {
 .kintai-main {
   --se-bottom-bar-h: 72px;
   --se-bottom-bar-bottom: 12px;
-  height: calc(100vh - 30px); /* Full height trừ Topbar (mobile rộng hơn) */
+  height: calc(100vh - var(--kintai-top-h, 48px));
   overflow: auto !important; /* Vùng cuộn duy nhất */
   position: relative;
-  padding: 0;
+  padding: var(--kintai-top-h, 48px) 0 0 0;
 }
 
 .kintai-top-inner {
@@ -560,7 +560,7 @@ body:not(.embed) .se-month-table-wrap {
 }
 body:not(.embed) #monthTable.se-table #monthTableReal thead th {
   position: sticky;
-  top: 0;
+  top: calc(var(--kintai-top-h, 48px) - 1px);
   z-index: 40;
   background: #0b2c66;
   color: #fff;
@@ -600,10 +600,10 @@ body.embed .se-month-scroll {
 
 /* Employee page: single horizontal scrollbar (custom #monthHScroll), hide native */
 body:not(.embed) .kintai-main {
-  height: calc(100vh - 48px);
+  height: calc(100vh - var(--kintai-top-h, 48px));
   overflow: auto !important;
   position: relative;
-  padding: 0;
+  padding: var(--kintai-top-h, 48px) 0 0 0;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
 }
@@ -829,7 +829,7 @@ body:not(.embed) #monthTable .se-month-scroll {
     box-sizing: border-box;
   }
   body:not(.embed) .se-month-table-wrap #monthTableReal thead th {
-    top: calc(var(--kintai-top-height, 44px) - 1px);
+    top: calc(var(--kintai-top-h, 44px) - 1px);
   }
   .se-summary th,
   .se-summary td {
@@ -2161,7 +2161,7 @@ input.se-time[disabled][data-row-disabled="1"][data-manual="1"]::-webkit-datetim
 
 @media (max-width: 900px) {
   #monthTable.se-table thead th {
-    top: calc(var(--kintai-top-height, 44px) - 1px);
+    top: calc(var(--kintai-top-h, 44px) - 1px);
   }
 
 }
