@@ -571,7 +571,6 @@
     bindSummaryEditor();
     bindTableHost();
     try { wireUserMenu(); } catch {}
-    try { wireTopNavDropdowns(); } catch {}
   };
 
   const boot = async () => {

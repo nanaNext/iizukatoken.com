@@ -7,9 +7,27 @@ function getCookie(name) {
 
 async function chatbotFetchJSON(url, options) {
   const csrf = getCookie('csrfToken');
-  const res = await fetch(url, { headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf || '' }, credentials: 'include', ...options });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  
+  // Add timeout to prevent hanging
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+  
+  try {
+    const res = await fetch(url, { 
+      headers: { 
+        'Content-Type': 'application/json', 
+        'X-CSRF-Token': csrf || '' 
+      }, 
+      credentials: 'include', 
+      signal: controller.signal,
+      ...options 
+    });
+    
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function getChatbotCategories() {

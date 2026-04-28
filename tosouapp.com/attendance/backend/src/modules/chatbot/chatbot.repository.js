@@ -123,7 +123,8 @@ async function search(text) {
 }
 
 async function submitQuestion(userId, categoryId, question) {
-  const [r] = await db.query('INSERT INTO chatbot_user_questions (user_id, category_id, question) VALUES (?,?,?)', [userId || null, categoryId ? parseInt(categoryId, 10) : null, String(question || '').trim()]);
+  // Save employee questions to faq_user_questions so admin can see them
+  const [r] = await db.query('INSERT INTO faq_user_questions (user_id, question, category, status) VALUES (?,?,?,?)', [userId || null, String(question || '').trim(), null, '未回答']);
   return { id: r.insertId };
 }
 

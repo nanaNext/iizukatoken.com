@@ -94,7 +94,9 @@
         if (hasActual) kubunInit = '休日出勤';
       }
       // Consider row "actual" only when visible (non-placeholder) punch times exist.
-      const hasActual = !!(inHm || outHm);
+      const hasActualIn = !!inHm;
+      const hasActualOut = !!outHm;
+      const hasActual = hasActualIn || hasActualOut;
       // For working-day classifications, only real punches can make row "actual".
       // This prevents auto/scheduled values from appearing as confirmed 出勤.
       // Keep explicitly saved kubun visible even when there is no check-in/out yet.
@@ -126,10 +128,11 @@
       const autoIn = isWorkDay && !inHm && shiftStartOk;
       const autoOut = isWorkDay && !outHm && shiftEndOk;
       
-      // CSS Class: only planned auto-filled values should be faded.
-      // Once employee has real punch-in, keep it readable (not faded).
-      const inAutoCls = (autoIn && (isPlanned || isPlannedLikeWork) && !isManualIn) ? 'is-auto' : '';
-      const outAutoCls = (autoOut && (isPlanned || isPlannedLikeWork) && !isManualOut) ? 'is-auto' : '';
+      // Field-level visual logic:
+      // - check-in stays faded until it has real value.
+      // - check-out stays faded until it has real value (even if check-in is real).
+      const inAutoCls = (autoIn && !isManualIn && !hasActualIn) ? 'is-auto' : '';
+      const outAutoCls = (autoOut && !isManualOut && !hasActualOut) ? 'is-auto' : '';
 
       const shiftBrRaw = Number(shift?.break_minutes ?? 60);
       const shiftBrMin = Number.isFinite(shiftBrRaw) && shiftBrRaw >= 0 ? shiftBrRaw : 60;
@@ -137,9 +140,11 @@
       const nbMin = (isWorkDay || hasActual) ? (primary ? Number(daily?.nightBreakMinutes ?? 0) : 0) : 0;
       const totalBmin = brMin + nbMin;
 
-      const workHm = (hasActual && finalIn && finalOut) ? (fmtWorkHours(finalIn, finalOut, totalBmin) || '') : '';
+      // Show planned work hours (faded) even before actual punches exist.
+      const workHm = (isWorkDay && finalIn && finalOut) ? (fmtWorkHours(finalIn, finalOut, totalBmin) || '') : '';
       const isAutoWork = isWorkDay && (autoIn || autoOut) && !!workHm;
-      const workAutoCls = (isAutoWork && (isPlanned || isPlannedLikeWork)) ? 'is-auto' : '';
+      const hasCompletedActual = hasActualIn && hasActualOut;
+      const workAutoCls = (isAutoWork && !hasCompletedActual) ? 'is-auto' : '';
 
       // OT Calculation
       const whMin = (() => {
@@ -161,7 +166,7 @@
         return Math.max(0, whMin - (8 * 60));
       })();
       const otHm = (hasActual && otMin > 0 && finalIn && finalOut) ? fmtHm(otMin) : '';
-      const otAutoCls = (otMin > 0 && isAutoWork && (isPlanned || isPlannedLikeWork)) ? 'is-auto' : '';
+      const otAutoCls = (otMin > 0 && isAutoWork && !hasCompletedActual) ? 'is-auto' : '';
 
       const statusStr = String(state.currentMonthStatus || '');
       const approved = statusStr === 'approved';
@@ -445,6 +450,19 @@
       const isWorkDay = workKubunSet.has(effectiveKubun);
       const isPlanned = !cls && !idVal && !confirmed;
       const canEditWorkInputs = !!state.editableMonth && isWorkDay && !!cls;
+      const inValNow = String(inEl?.value || '').trim();
+      const outValNow = String(outEl?.value || '').trim();
+      const inAutoNow = String(inEl?.dataset?.auto || '') === '1';
+      const outAutoNow = String(outEl?.dataset?.auto || '') === '1';
+      const inAutoVal = String(inEl?.dataset?.autoVal || '').trim();
+      const outAutoVal = String(outEl?.dataset?.autoVal || '').trim();
+      const inIsPlannedAuto = !!(inValNow && inAutoNow && !inManual && inAutoVal && inValNow === inAutoVal);
+      const outIsPlannedAuto = !!(outValNow && outAutoNow && !outManual && outAutoVal && outValNow === outAutoVal);
+      const hasActualInNow = !!(inValNow && !inIsPlannedAuto);
+      const hasActualOutNow = !!(outValNow && !outIsPlannedAuto);
+      const hasActualNow = !!idVal || hasActualInNow || hasActualOutNow;
+      const isPlannedLikeWork = isWorkDay && !hasActualNow;
+      const visualPlanned = isPlanned || isPlannedLikeWork;
 
       if (clsSel) {
         clsSel.classList.toggle('is-planned', !cls);
@@ -465,19 +483,6 @@
         const roleStr = String(root.State?.profile?.role || '').toLowerCase();
         const isAdminView = roleStr === 'admin' || roleStr === 'manager';
         const monthApproved = String(state.currentMonthStatus || '') === 'approved';
-        const inValNow = String(inEl?.value || '').trim();
-        const outValNow = String(outEl?.value || '').trim();
-        const inAutoNow = String(inEl?.dataset?.auto || '') === '1';
-        const outAutoNow = String(outEl?.dataset?.auto || '') === '1';
-        const inAutoVal = String(inEl?.dataset?.autoVal || '').trim();
-        const outAutoVal = String(outEl?.dataset?.autoVal || '').trim();
-        const inIsPlannedAuto = !!(inValNow && inAutoNow && !inManual && inAutoVal && inValNow === inAutoVal);
-        const outIsPlannedAuto = !!(outValNow && outAutoNow && !outManual && outAutoVal && outValNow === outAutoVal);
-        const hasActualNow = !!(
-          idVal ||
-          (inValNow && !inIsPlannedAuto) ||
-          (outValNow && !outIsPlannedAuto)
-        );
         let stText = '未承認';
         let stCls = 'warn';
         if (isPlanned && !hasActualNow) {
@@ -504,15 +509,6 @@
       if (clsSel && isEmployee) {
         const plannedOpt = clsSel.querySelector('option[value=""]');
         if (plannedOpt) {
-          const inValNow = String(inEl?.value || '').trim();
-          const outValNow = String(outEl?.value || '').trim();
-          const inAutoNow = String(inEl?.dataset?.auto || '') === '1';
-          const outAutoNow = String(outEl?.dataset?.auto || '') === '1';
-          const inAutoVal = String(inEl?.dataset?.autoVal || '').trim();
-          const outAutoVal = String(outEl?.dataset?.autoVal || '').trim();
-          const inIsPlannedAuto = !!(inValNow && inAutoNow && !inManual && inAutoVal && inValNow === inAutoVal);
-          const outIsPlannedAuto = !!(outValNow && outAutoNow && !outManual && outAutoVal && outValNow === outAutoVal);
-          const hasActualNow = !!(idVal || (inValNow && !inIsPlannedAuto) || (outValNow && !outIsPlannedAuto));
           const shouldDisable = !!cls || hasActualNow;
           if (plannedOpt.disabled !== shouldDisable) {
             plannedOpt.disabled = shouldDisable;
@@ -631,7 +627,7 @@
       // - Nhạt (is-auto) CHỈ KHI: (là giờ tự động) VÀ (trạng thái dự kiến - isPlanned) VÀ (CHƯA bị người dùng sửa - !inManual)
       if (inEl) {
         const hasVal = String(inEl.value || '').trim() !== '';
-        const shouldBeAuto = inAuto && isPlanned && !inManual;
+        const shouldBeAuto = inAuto && !inManual && !hasActualInNow;
         // Nếu có giá trị nhưng không phải là autoVal ban đầu, nó phải ĐẬM
         const forceBold = hasVal && inAuto && String(inEl.value) !== String(inEl.dataset.autoVal);
         const finalAuto = shouldBeAuto && !forceBold;
@@ -641,7 +637,7 @@
       }
       if (outEl) {
         const hasVal = String(outEl.value || '').trim() !== '';
-        const shouldBeAuto = outAuto && isPlanned && !outManual;
+        const shouldBeAuto = outAuto && !outManual && !hasActualOutNow;
         const forceBold = hasVal && outAuto && String(outEl.value) !== String(outEl.dataset.autoVal);
         const finalAuto = shouldBeAuto && !forceBold;
         if (outEl.classList.contains('is-auto') !== finalAuto) {
@@ -695,7 +691,8 @@
       if (worked) {
         const text = !isWorkDay ? '' : ((inVal && outVal) ? whStr : (isAutoWork ? whStr : ''));
         if (worked.textContent !== text) worked.textContent = text;
-        const shouldWorkAuto = isAutoWork && isPlanned;
+        const hasCompletedActualNow = hasActualInNow && hasActualOutNow;
+        const shouldWorkAuto = isAutoWork && !hasCompletedActualNow;
         if (worked.classList.contains('is-auto') !== shouldWorkAuto) {
           worked.classList.toggle('is-auto', shouldWorkAuto);
         }
@@ -703,7 +700,8 @@
       if (excess) {
         const text = !isWorkDay ? '' : ((inVal && outVal && whMin > 0 && otMin > 0) ? fmtHm(otMin) : '');
         if (excess.textContent !== text) excess.textContent = text;
-        const shouldExcessAuto = isAutoWork && otMin > 0 && isPlanned;
+        const hasCompletedActualNow = hasActualInNow && hasActualOutNow;
+        const shouldExcessAuto = isAutoWork && otMin > 0 && !hasCompletedActualNow;
         if (excess.classList.contains('is-auto') !== shouldExcessAuto) {
           excess.classList.toggle('is-auto', shouldExcessAuto);
         }

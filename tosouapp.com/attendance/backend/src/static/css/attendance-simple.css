@@ -411,6 +411,10 @@ body {
   color: #94a3b8 !important;
   font-weight: 400 !important;
 }
+.simple-stamp-time[data-auto="1"]:not([data-touched="1"]) {
+  color: #94a3b8 !important;
+  font-weight: 400 !important;
+}
 .simple-time-input:disabled {
   background: #eef2f7;
   color: #64748b;
@@ -486,6 +490,7 @@ body {
   margin-right: 6px;
 }
 .simple-static { font-weight: 400; color: #0f172a; font-size: 16px; display:flex; align-items:center; }
+.simple-static.is-auto { color: #94a3b8; }
 .simple-grid1 { display: grid; grid-template-columns: 1fr; gap: 10px; }
 .simple-grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .simple-time { display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); gap: 10px; align-items: stretch; min-width: 0; }

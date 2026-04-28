@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=0.75,minimum-scale=0.75,maximum-scale=3,user-scalable=yes">
+  <title>FAQ管理 - 管理者</title>
+  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260408-1">
+  <link rel="stylesheet" href="/static/css/attendance.css?v=navy-20260424-2">
+  <link rel="icon" href="data:,">
+  <style>
+    .admin-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; }
+    .tab-btn { 
+      padding: 10px 20px; 
+      border: none; 
+      background: none;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      font-weight: bold;
+      color: #666;
+      transition: all 0.3s;
+    }
+    .tab-btn.active {
+      color: #1e40af;
+      border-bottom-color: #1e40af;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .question-item {
+      background: #f9f9f9;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-left: 4px solid #1e40af;
+      border-radius: 4px;
+    }
+    .question-item.answered {
+      border-left-color: #28a745;
+      background: #f0f8f0;
+    }
+    .question-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+    .question-title {
+      font-weight: bold;
+      color: #1e40af;
+      font-size: 14px;
+      flex: 1;
+    }
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    .status-unanswered {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .status-answered {
+      background: #d4edda;
+      color: #155724;
+    }
+    .question-meta {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+    .question-content {
+      background: white;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: #334155;
+      line-height: 1.5;
+    }
+    .answer-section {
+      background: white;
+      padding: 12px;
+      border-radius: 4px;
+      border-left: 3px solid #28a745;
+    }
+    .answer-text {
+      font-size: 13px;
+      color: #155724;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      line-height: 1.5;
+    }
+    .answer-form {
+      display: none;
+      background: white;
+      padding: 12px;
+      border-radius: 4px;
+    }
+    .answer-form.show { display: block; }
+    .answer-form textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .btn-primary {
+      background: #28a745;
+      color: white;
+    }
+    .btn-primary:hover { background: #218838; }
+    .btn-secondary {
+      background: #ccc;
+      color: #333;
+    }
+    .btn-secondary:hover { background: #aaa; }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: white;
+      padding: 15px;
+      border-radius: 6px;
+      border-left: 4px solid #1e40af;
+      text-align: center;
+    }
+    .stat-card.answered { border-left-color: #28a745; }
+    .stat-number {
+      font-size: 24px;
+      font-weight: bold;
+      color: #1e40af;
+    }
+    .stat-card.answered .stat-number { color: #28a745; }
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+    .loading { text-align: center; padding: 40px; color: #999; }
+    .error { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 4px; margin-bottom: 10px; }
+    .success { background: #d4edda; color: #155724; padding: 12px; border-radius: 4px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <header class="kintai-top">
+    <div class="kintai-top-inner">
+      <div class="kintai-brand">
+        <div class="kintai-logo">スマートE勤怠</div>
+      </div>
+      <nav class="kintai-nav" aria-label="main">
+        <div class="kintai-nav-dd">
+          <button class="kintai-nav-btn" type="button" data-dd="admin" aria-haspopup="true" aria-expanded="false">
+            管理機能 <span class="kintai-caret">▾</span>
+          </button>
+          <div class="kintai-dd" data-dd-panel="admin" hidden>
+            <a href="/ui/admin">管理画面</a>
+            <a href="/ui/admin-faq">FAQ管理</a>
+          </div>
+        </div>
+      </nav>
+      <div class="kintai-user">
+        <div class="kintai-top-links">
+          <a class="kintai-top-link logout-link" href="/ui/logout" data-action="logout">ログアウト</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="kintai-main">
+    <section class="admin-container">
+      <div class="kintai-card" style="margin-bottom:20px;">
+        <div class="kintai-card-title">FAQ管理</div>
+        <div style="padding:20px;color:#334155;font-size:14px;">
+          社員から寄せられた質問を管理します。回答することで、社員の画面に表示されます。
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-number" id="totalCount">0</div>
+          <div class="stat-label">総質問数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">0</div>
+          <div class="stat-label">未回答</div>
+        </div>
+        <div class="stat-card answered">
+          <div class="stat-number" id="answeredCount">0</div>
+          <div class="stat-label">回答済み</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('unanswered')">
+          未回答 (<span id="unansweredBadge">0</span>)
+        </button>
+        <button class="tab-btn" onclick="switchTab('answered')">
+          回答済み (<span id="answeredBadge">0</span>)
+        </button>
+        <button class="tab-btn" onclick="switchTab('all')">
+          すべて
+        </button>
+      </div>
+
+      <!-- Messages -->
+      <div id="messageBox"></div>
+
+      <!-- Unanswered Questions -->
+      <div id="unanswered-tab" class="tab-content active">
+        <div id="unansweredContainer" class="loading">読み込み中...</div>
+      </div>
+
+      <!-- Answered Questions -->
+      <div id="answered-tab" class="tab-content">
+        <div id="answeredContainer" class="loading">読み込み中...</div>
+      </div>
+
+      <!-- All Questions -->
+      <div id="all-tab" class="tab-content">
+        <div id="allContainer" class="loading">読み込み中...</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/js/pages/kintai-topbar-links.js?v=navy-20260427-5"></script>
+  <script>
+    let allQuestions = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadQuestions();
+      setupLogout();
+    });    async function loadQuestions() {
+      try {
+        console.log('📥 Loading admin questions from /api/faq/admin/questions...');
+        const response = await fetch('/api/faq/admin/questions', {
+          credentials: 'include'
+        });
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          const error = await response.json();
+          console.error('API error:', error);
+          throw new Error(`Failed to load questions: ${error.message || response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log('API response:', result);
+        
+        const { data } = result;
+        allQuestions = data || [];
+        console.log(`✅ Loaded ${allQuestions.length} questions`);
+        renderQuestions();
+      } catch (e) {
+        console.error('❌ Error:', e);
+        showMessage('エラー: ' + e.message, 'error');
+      }
+    }
+
+    function renderQuestions() {
+      const unanswered = allQuestions.filter(q => q.status === '未回答');
+      const answered = allQuestions.filter(q => q.status === '回答済み');
+
+      // Update stats
+      document.getElementById('totalCount').textContent = allQuestions.length;
+      document.getElementById('answeredCount').textContent = answered.length;
+      document.getElementById('unansweredBadge').textContent = unanswered.length;
+      document.getElementById('answeredBadge').textContent = answered.length;
+
+      // Render tabs
+      renderQuestionList(unanswered, 'unansweredContainer');
+      renderQuestionList(answered, 'answeredContainer');
+      renderQuestionList(allQuestions, 'allContainer');
+    }
+
+    function renderQuestionList(questions, containerId) {
+      const container = document.getElementById(containerId);
+      
+      if (questions.length === 0) {
+        container.innerHTML = '<div class="loading">質問がありません</div>';
+        return;
+      }
+
+      const html = questions.map(q => `
+        <div class="question-item ${q.status === '回答済み' ? 'answered' : ''}">
+          <div class="question-header">
+            <div style="flex:1;">
+              <div class="question-title">${escapeHtml(q.question)}</div>
+              <div class="question-meta">
+                社員: <strong>${escapeHtml(q.name || 'N/A')}</strong> (ID: ${q.employee_id || 'N/A'})
+                <br>
+                送信日: ${new Date(q.created_at).toLocaleString('ja-JP')}
+                ${q.category ? `<br>カテゴリー: <span style="background:#e8f4f8;padding:2px 6px;border-radius:3px;font-size:11px;">${escapeHtml(q.category)}</span>` : ''}
+              </div>
+            </div>
+            <span class="status-badge ${q.status === '未回答' ? 'status-unanswered' : 'status-answered'}">
+              ${q.status}
+            </span>
+          </div>
+
+          ${q.detail ? `
+            <div class="question-content">
+              <strong>詳細:</strong><br>
+              ${escapeHtml(q.detail)}
+            </div>
+          ` : ''}
+
+          ${q.admin_answer ? `
+            <div class="answer-section">
+              <div style="font-weight:bold;color:#28a745;margin-bottom:8px;">✓ 回答:</div>
+              <div class="answer-text">${escapeHtml(q.admin_answer)}</div>
+              <div style="font-size:11px;color:#666;margin-top:8px;">
+                回答日: ${new Date(q.answered_at).toLocaleString('ja-JP')}
+              </div>
+            </div>
+          ` : `
+            <div class="answer-form" id="form-${q.id}">
+              <textarea id="answerText-${q.id}" placeholder="ここに回答を入力してください（2000文字以下）" maxlength="2000"></textarea>
+              <div class="btn-group">
+                <button class="btn btn-primary" onclick="submitAnswer(${q.id})">回答を保存</button>
+                <button class="btn btn-secondary" onclick="cancelAnswer(${q.id})">キャンセル</button>
+              </div>
+            </div>
+          `}
+
+          ${!q.admin_answer ? `
+            <div class="btn-group" style="margin-top:10px;">
+              <button class="btn btn-primary btn-sm" onclick="showAnswerForm(${q.id})">回答する</button>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+
+      container.innerHTML = html;
+    }
+
+    function showAnswerForm(questionId) {
+      const form = document.getElementById(`form-${questionId}`);
+      if (form) form.classList.add('show');
+    }
+
+    function cancelAnswer(questionId) {
+      const form = document.getElementById(`form-${questionId}`);
+      if (form) {
+        form.classList.remove('show');
+        document.getElementById(`answerText-${questionId}`).value = '';
+      }
+    }
+
+    async function submitAnswer(questionId) {
+      const answerText = document.getElementById(`answerText-${questionId}`).value.trim();
+      
+      if (!answerText) {
+        showMessage('回答内容を入力してください', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/faq/admin/questions/${questionId}/answer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answer: answerText })
+        });
+
+        if (response.ok) {
+          showMessage('✓ 回答を保存しました', 'success');
+          await loadQuestions();
+          switchTab('answered');
+        } else {
+          const result = await response.json();
+          throw new Error(result.message || 'エラーが発生しました');
+        }
+      } catch (e) {
+        showMessage('エラー: ' + e.message, 'error');
+      }
+    }
+
+    function switchTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+      // Show selected tab
+      document.getElementById(tabName + '-tab').classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    function showMessage(msg, type) {
+      const box = document.getElementById('messageBox');
+      box.innerHTML = `<div class="${type}">${msg}</div>`;
+      setTimeout(() => box.innerHTML = '', 5000);
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function setupLogout() {
+      document.querySelectorAll('[data-action="logout"]').forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          doLogout();
+        });
+      });
+    }
+
+    async function doLogout() {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      } catch {}
+      window.location.href = '/ui/login';
+    }
+  </script>
+</body>
+</html>

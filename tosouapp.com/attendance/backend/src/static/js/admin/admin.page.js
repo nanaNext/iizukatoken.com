@@ -61,11 +61,8 @@ const toLegacyState = (path) => {
   if (p === '/admin/payroll/payslips') return { tab: 'salary_send', hash: '' };
 
   if (p === '/admin/departments' || p === '/admin/organization/departments') return { tab: 'departments', hash: '' };
-
-  if (p === '/admin/chatbot/faq') return { redirect: '/ui/chatbot' };
   if (p === '/admin/chatbot/categories') return { redirect: '/ui/chatbot' };
   if (p === '/admin/chatbot/user-questions') return { redirect: '/ui/chatbot' };
-
   if (p === '/admin/system/settings') return { tab: 'settings', hash: '' };
   if (p === '/admin/system/audit-logs') return { tab: 'audit', hash: '' };
 
@@ -715,9 +712,14 @@ const route = async () => {
       if (seq !== routeSeq) return;
       await mountModule(mod);
       return;
-    }
-    if (p2 === '/admin/notices') {
+    }    if (p2 === '/admin/notices') {
       const mod = await loadModule('./notices/notices.page.js?v=navy-20260423-noticemobile5');
+      if (seq !== routeSeq) return;
+      await mountModule(mod);
+      return;
+    }
+    if (p2 === '/admin/chatbot/faq') {
+      const mod = await loadModule('./chatbot/faq.page.js');
       if (seq !== routeSeq) return;
       await mountModule(mod);
       return;

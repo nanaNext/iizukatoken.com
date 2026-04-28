@@ -10,9 +10,18 @@ router.get('/ping', (req, res) => {
 
 router.get('/categories', async (req, res) => {
   try {
-    await repo.init();
-    await repo.ensureSeedCategories();
-    await repo.ensureSeedFaqs();
+    // Add 5-second timeout to prevent hanging on DB initialization
+    const initPromise = (async () => {
+      await repo.init();
+      await repo.ensureSeedCategories();
+      await repo.ensureSeedFaqs();
+    })();
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('DB initialization timeout')), 5000)
+    );
+    
+    await Promise.race([initPromise, timeoutPromise]);
     const rows = await repo.getCategories();
     res.status(200).json(rows);
   } catch (err) {
@@ -24,7 +33,14 @@ router.get('/questions', async (req, res) => {
   try {
     const categoryId = parseInt(String(req.query.categoryId || ''), 10);
     if (!categoryId) return res.status(400).json({ message: 'Missing categoryId' });
-    const rows = await repo.listQuestions(categoryId);
+    
+    // Add 3-second timeout for question loading
+    const questionsPromise = repo.listQuestions(categoryId);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Questions loading timeout')), 3000)
+    );
+    
+    const rows = await Promise.race([questionsPromise, timeoutPromise]);
     res.status(200).json(rows);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -35,7 +51,14 @@ router.get('/answer/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ message: 'Missing id' });
-    const row = await repo.getAnswerById(id);
+    
+    // Add 2-second timeout for answer loading
+    const answerPromise = repo.getAnswerById(id);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Answer loading timeout')), 2000)
+    );
+    
+    const row = await Promise.race([answerPromise, timeoutPromise]);
     if (!row) return res.status(404).json({ message: 'Not found' });
     res.status(200).json(row);
   } catch (err) {
@@ -47,7 +70,14 @@ router.post('/search', async (req, res) => {
   try {
     const text = String((req.body?.text ?? req.query?.text) || '').trim();
     if (!text) return res.status(400).json({ message: 'Missing text' });
-    const rows = await repo.search(text);
+    
+    // Add 3-second timeout for search
+    const searchPromise = repo.search(text);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Search timeout')), 3000)
+    );
+    
+    const rows = await Promise.race([searchPromise, timeoutPromise]);
     res.status(200).json(rows);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -69,7 +99,14 @@ router.post('/question', async (req, res) => {
     const question = String((req.body?.question ?? req.query?.question) || '').trim();
     if (!question) return res.status(400).json({ message: 'Missing question' });
     const userId = req.user?.id || null;
-    const r = await repo.submitQuestion(userId, categoryId, question);
+    
+    // Add 2-second timeout for question submission
+    const submitPromise = repo.submitQuestion(userId, categoryId, question);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Question submission timeout')), 2000)
+    );
+    
+    const r = await Promise.race([submitPromise, timeoutPromise]);
     res.status(201).json(r);
   } catch (err) {
     res.status(500).json({ message: err.message });

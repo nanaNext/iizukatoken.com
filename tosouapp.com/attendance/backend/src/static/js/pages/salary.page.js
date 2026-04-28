@@ -131,6 +131,13 @@ const wireDrawer = () => {
   const closeBtn = $('#mobileClose');
   const close = () => {
     try { drawer.setAttribute('hidden', ''); backdrop.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); } catch {}
+    try {
+      drawer?.querySelectorAll?.('.drawer-group-btn[data-drawer-group]').forEach((b) => {
+        b.setAttribute('aria-expanded', 'false');
+        b.classList.remove('open');
+      });
+      drawer?.querySelectorAll?.('.drawer-group-list[data-drawer-panel]').forEach((p) => p.setAttribute('hidden', ''));
+    } catch {}
   };
   const open = () => {
     try { drawer.removeAttribute('hidden'); backdrop.removeAttribute('hidden'); btn.setAttribute('aria-expanded', 'true'); } catch {}
@@ -138,6 +145,29 @@ const wireDrawer = () => {
   if (btn) btn.addEventListener('click', () => { if (drawer?.hasAttribute('hidden')) open(); else close(); });
   if (closeBtn) closeBtn.addEventListener('click', close);
   if (backdrop) backdrop.addEventListener('click', close);
+  try {
+    drawer?.querySelectorAll?.('.drawer-group-btn[data-drawer-group]').forEach((groupBtn) => {
+      groupBtn.addEventListener('click', () => {
+        const key = String(groupBtn.getAttribute('data-drawer-group') || '');
+        const panel = drawer.querySelector(`.drawer-group-list[data-drawer-panel="${key}"]`);
+        if (!panel) return;
+        const openNow = panel.hasAttribute('hidden');
+        drawer.querySelectorAll('.drawer-group-btn[data-drawer-group]').forEach((b) => {
+          b.setAttribute('aria-expanded', 'false');
+          b.classList.remove('open');
+        });
+        drawer.querySelectorAll('.drawer-group-list[data-drawer-panel]').forEach((p) => p.setAttribute('hidden', ''));
+        if (openNow) {
+          panel.removeAttribute('hidden');
+          groupBtn.setAttribute('aria-expanded', 'true');
+          groupBtn.classList.add('open');
+        }
+      });
+    });
+    drawer?.querySelectorAll?.('a.drawer-item[href]').forEach((a) => {
+      a.addEventListener('click', () => close());
+    });
+  } catch {}
 };
 
 const render = async () => {
@@ -219,6 +249,34 @@ const render = async () => {
     }
     .sal-list a{color:#1d4ed8;text-decoration:underline;font-weight:700}
     .sal-list a:hover{color:#1e40af}
+    .mobile-drawer .drawer-group-btn{
+      width: 100%;
+      text-align: left;
+      border: 0;
+      border-top: 1px solid #cfe0f5;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font: inherit;
+      color: #124;
+    }
+    .mobile-drawer .drawer-group-btn .drawer-group-caret{
+      transition: transform .15s ease;
+    }
+    .mobile-drawer .drawer-group-btn.open .drawer-group-caret{
+      transform: rotate(180deg);
+    }
+    .mobile-drawer .drawer-group-list[hidden]{
+      display: none !important;
+    }
+    .mobile-drawer .drawer-sub-item{
+      padding-left: 28px;
+      background: #f4f9ff;
+      border-top-color: #e2eefc;
+      font-size: 14px;
+    }
     .sal-sub{font-size:12px;color:#64748b;margin-top:2px}
     .sal-list table{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
     .sal-list td{padding:10px 12px}

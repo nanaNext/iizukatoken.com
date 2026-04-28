@@ -47,30 +47,47 @@ const wireExpandingSearch = () => {
 async function ensureAuthProfile() {
   let token = sessionStorage.getItem('accessToken');
   let profile = null;
-  if (token) {
-    try { profile = await me(token); } catch {}
-  }
-  if (!profile) {
-    try {
-      const r = await refresh();
-      sessionStorage.setItem('accessToken', r.accessToken);
-      token = r.accessToken;
-      profile = await me(token);
-    } catch {}
-  }
-  if (!profile) {
-    try {
-      const userStr = sessionStorage.getItem('user') || localStorage.getItem('user') || '';
-      const user = userStr ? JSON.parse(userStr) : null;
-      if (user && (user.role === 'admin' || user.role === 'manager' || user.role === 'employee')) {
-        profile = user;
-        try {
-          const r2 = await refresh();
-          sessionStorage.setItem('accessToken', r2.accessToken);
-        } catch {}
+  
+  // Add timeout to prevent hanging
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('Auth timeout')), 5000)
+  );
+  
+  try {
+    if (token) {
+      try { profile = await Promise.race([me(token), timeoutPromise]); } catch (e) {
+        console.warn('⚠️ Me() failed:', e.message);
       }
-    } catch {}
+    }
+    if (!profile) {
+      try {
+        const r = await Promise.race([refresh(), timeoutPromise]);
+        sessionStorage.setItem('accessToken', r.accessToken);
+        token = r.accessToken;
+        profile = await me(token);
+      } catch (e) {
+        console.warn('⚠️ Refresh failed:', e.message);
+      }
+    }
+    if (!profile) {
+      try {
+        const userStr = sessionStorage.getItem('user') || localStorage.getItem('user') || '';
+        const user = userStr ? JSON.parse(userStr) : null;
+        if (user && (user.role === 'admin' || user.role === 'manager' || user.role === 'employee')) {
+          profile = user;
+          try {
+            const r2 = await Promise.race([refresh(), timeoutPromise]);
+            sessionStorage.setItem('accessToken', r2.accessToken);
+          } catch {}
+        }
+      } catch (e) {
+        console.warn('⚠️ Fallback profile failed:', e.message);
+      }
+    }
+  } catch (e) {
+    console.error('❌ ensureAuthProfile error:', e);
   }
+  
   if (!profile) { return null; }
   return profile;
 }

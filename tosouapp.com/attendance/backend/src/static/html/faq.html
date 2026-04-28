@@ -8,9 +8,10 @@
   <link rel="stylesheet" href="/static/css/attendance.css?v=navy-20260424-2">
   <link rel="stylesheet" href="/static/css/attendance-monthly.css?v=navy-20260416-1">
   <link rel="icon" href="data:,">
-  <script src="/static/js/pages/kintai-topbar-links.js?v=navy-20260417-3" defer></script>
+  <script src="/static/js/pages/session-idle.js?v=navy-20260403-1" defer></script>
+  <script src="/static/js/pages/kintai-topbar-links.js?v=navy-20260427-5" defer></script>
 </head>
-<body class="nav-js">
+<body>
   <header class="kintai-top">
     <div class="kintai-top-inner">
       <div class="kintai-brand">
@@ -52,15 +53,421 @@
         </div>
       </div>
     </div>
-  </header>
-  <main class="kintai-main">
-    <section class="kintai-grid" style="max-width:980px;margin:0 auto;">
-      <div class="kintai-card">
+  </header>  <main class="kintai-main">
+    <section class="kintai-grid" style="max-width:1000px;margin:0 auto;padding:20px;">
+      <!-- Title -->
+      <div class="kintai-card" style="margin-bottom:20px;">
         <div class="kintai-card-title">よくある質問</div>
-        <div style="padding:12px;color:#334155;font-weight:650;">準備中です。</div>
+        <div style="padding:20px;color:#334155;">
+          <p style="margin:0;">
+            本ページでは、よくあるご質問と回答をまとめています。
+            <br>
+            ご質問がありましたら、下部のフォームからお気軽にお問い合わせください。
+          </p>
+        </div>
+      </div>
+
+      <!-- Category Tabs -->
+      <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;padding:0 20px;">
+        <button class="faq-tab-btn active" onclick="filterByCategory('all')" style="padding:8px 16px;border:none;border-radius:6px;background:#1e40af;color:white;cursor:pointer;font-size:13px;font-weight:500;">
+          すべて
+        </button>        <button class="faq-tab-btn" onclick="filterByCategory('ログイン')" style="padding:8px 16px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">
+          ログイン
+        </button>
+        <button class="faq-tab-btn" onclick="filterByCategory('勤怠入力')" style="padding:8px 16px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">
+          勤怠入力
+        </button>
+        <button class="faq-tab-btn" onclick="filterByCategory('有休管理')" style="padding:8px 16px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">
+          有休管理
+        </button>
+        <button class="faq-tab-btn" onclick="filterByCategory('技術的な問題')" style="padding:8px 16px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:13px;">
+          技術的な問題
+        </button>
+      </div>
+
+      <!-- FAQ Items -->
+      <div id="faqContainer" style="margin-bottom:40px;">
+        <div style="text-align:center;padding:40px;color:#999;">
+          <div style="font-size:14px;">読み込み中...</div>
+        </div>
+      </div>
+
+      <!-- Question Form -->
+      <div class="kintai-card" style="margin-bottom:30px;background:#f9f9f9;">
+        <div class="kintai-card-title" style="background:#1e40af;color:white;">❓ ご質問がございましたら</div>
+        <div style="padding:20px;">
+          <p style="margin:0 0 20px 0;color:#334155;font-size:14px;">
+            上記の「よくある質問」に該当する質問がない場合は、以下のフォームからご質問ください。
+            管理者が確認後、ご回答させていただきます。
+          </p>
+
+          <form id="questionForm" style="display:grid;gap:15px;">
+            <div>
+              <label style="display:block;margin-bottom:5px;font-weight:bold;color:#334155;font-size:14px;">
+                質問カテゴリー（任意）
+              </label>
+              <select id="categorySelect" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                <option value="">選択してください</option>
+                <option value="ログイン">ログイン</option>
+                <option value="勤怠入力">勤怠入力</option>
+                <option value="有休管理">有休管理</option>
+                <option value="技術的な問題">技術的な問題</option>
+                <option value="その他">その他</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="display:block;margin-bottom:5px;font-weight:bold;color:#334155;font-size:14px;">
+                質問タイトル <span style="color:red;">*</span>
+              </label>
+              <input 
+                id="questionInput" 
+                type="text" 
+                placeholder="例：打刻ボタンが押せません"
+                style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:13px;box-sizing:border-box;"
+                required
+              />
+              <div style="font-size:11px;color:#999;margin-top:5px;">
+                5文字以上500文字以下
+              </div>
+            </div>
+
+            <div>
+              <label style="display:block;margin-bottom:5px;font-weight:bold;color:#334155;font-size:14px;">
+                詳細（任意）
+              </label>
+              <textarea 
+                id="detailInput" 
+                placeholder="詳しい状況や画面のエラーメッセージなど（2000文字以下）"
+                style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:13px;min-height:120px;resize:vertical;box-sizing:border-box;font-family:inherit;"
+              ></textarea>
+            </div>            <div style="display:flex;gap:10px;">
+              <button 
+                type="submit" 
+                style="flex:1;padding:12px;background:#28a745;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;font-size:14px;transition: all 0.2s;"
+              >
+                ✉️ 質問を送信
+              </button>
+              <button 
+                type="reset" 
+                style="flex:0 0 120px;padding:12px;background:#ccc;color:#333;border:none;border-radius:6px;cursor:pointer;font-size:14px;"
+              >
+                クリア
+              </button>
+            </div>
+          </form>
+
+          <!-- My Questions -->
+          <div style="margin-top:30px;padding-top:30px;border-top:1px solid #ddd;">
+            <div style="font-weight:bold;color:#334155;margin-bottom:15px;font-size:14px;">
+              📝 あなたの質問（<span id="myQuestionsCount">0</span>件）
+            </div>
+            <div id="myQuestionsContainer" style="display:grid;gap:12px;">
+              <div style="text-align:center;color:#999;padding:20px;">
+                質問がまだありません
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   </main>
+
+  <script>
+    let allFaqItems = [];
+    let allMyQuestions = [];
+    let currentFilter = 'all';    // Initialize
+    document.addEventListener('DOMContentLoaded', async () => {
+      console.log('🚀 Page loaded - initializing FAQ...');
+      loadFaqItems();
+      loadMyQuestions();
+      
+      // DEBUG: Log all data after 2 seconds
+      setTimeout(() => {
+        console.log('=== DEBUG INFO ===');
+        console.log('allFaqItems count:', allFaqItems.length);
+        console.log('allMyQuestions count:', allMyQuestions.length);
+        console.log('allMyQuestions data:', allMyQuestions);
+        
+        // Also fetch debug API
+        fetch('/api/faq/debug/all-questions')
+          .then(r => r.json())
+          .then(data => {
+            console.log('📊 Debug API - All questions in DB:', data);
+          })
+          .catch(e => console.error('Debug API error:', e));
+      }, 2000);
+      
+      // Form submission
+      document.getElementById('questionForm').addEventListener('submit', submitQuestion);
+    });// Load FAQ items
+    async function loadFaqItems() {
+      try {
+        console.log('📥 Loading FAQ items from /api/faq...');
+        const response = await fetch('/api/faq');
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log('FAQ data received:', result);
+        
+        allFaqItems = result.data || [];
+        console.log(`✅ Loaded ${allFaqItems.length} FAQ items`);
+        renderFaqItems();
+      } catch (e) {
+        console.error('❌ Error loading FAQ:', e);
+        document.getElementById('faqContainer').innerHTML = `<div style="color:red;padding:20px;"><strong>FAQ読み込みエラー:</strong><br>${e.message}</div>`;
+      }
+    }
+
+    // Render FAQ items
+    function renderFaqItems() {
+      const filtered = currentFilter === 'all' 
+        ? allFaqItems 
+        : allFaqItems.filter(item => item.category === currentFilter);
+
+      if (filtered.length === 0) {
+        document.getElementById('faqContainer').innerHTML = '<div style="text-align:center;padding:40px;color:#999;">該当する質問がありません</div>';
+        return;
+      }
+
+      const html = filtered.map((item, idx) => `
+        <div class="kintai-card" style="margin-bottom:12px;">
+          <div onclick="toggleAnswer(${idx})" style="cursor:pointer;padding:15px;display:flex;justify-content:space-between;align-items:center;background:#f9f9f9;border-radius:6px;">
+            <div>
+              <div style="color:#666;font-size:12px;margin-bottom:5px;">
+                <span style="background:#e8f4f8;color:#1e40af;padding:2px 8px;border-radius:3px;font-size:11px;">
+                  ${item.category || 'その他'}
+                </span>
+              </div>
+              <div style="font-weight:bold;color:#1e40af;font-size:14px;">
+                Q: ${item.question}
+              </div>
+            </div>
+            <div style="font-size:18px;margin-left:10px;" id="arrow-${idx}">▼</div>
+          </div>
+          <div id="answer-${idx}" style="display:none;padding:15px;background:white;border-left:4px solid #1e40af;">
+            <div style="font-size:13px;color:#334155;line-height:1.6;">
+              A: ${item.answer}
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      document.getElementById('faqContainer').innerHTML = html;
+    }
+
+    // Toggle answer visibility
+    function toggleAnswer(idx) {
+      const answerDiv = document.getElementById(`answer-${idx}`);
+      const arrowDiv = document.getElementById(`arrow-${idx}`);
+      const isVisible = answerDiv.style.display !== 'none';
+      answerDiv.style.display = isVisible ? 'none' : 'block';
+      arrowDiv.textContent = isVisible ? '▼' : '▲';
+    }
+
+    // Filter by category
+    function filterByCategory(category) {
+      currentFilter = category;
+      
+      // Update button styles
+      document.querySelectorAll('.faq-tab-btn').forEach(btn => {
+        btn.style.background = btn.onclick.toString().includes(category) ? '#1e40af' : '#fff';
+        btn.style.color = btn.onclick.toString().includes(category) ? '#fff' : '#000';
+        btn.style.border = btn.onclick.toString().includes(category) ? 'none' : '1px solid #ddd';
+      });
+      
+      renderFaqItems();
+    }    // Load my questions
+    async function loadMyQuestions() {
+      try {
+        console.log('📥 Loading my questions from /api/faq/questions/my...');
+        const response = await fetch('/api/faq/questions/my');
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          console.warn(`⚠️ API returned ${response.status}`);
+          return;
+        }
+        
+        const result = await response.json();
+        console.log('My questions data:', result);
+        
+        allMyQuestions = result.data || [];
+        console.log(`✅ Loaded ${allMyQuestions.length} my questions`);
+        renderMyQuestions();
+      } catch (e) {
+        console.error('❌ Error loading my questions:', e);
+      }
+    }
+
+    // Render my questions
+    function renderMyQuestions() {
+      document.getElementById('myQuestionsCount').textContent = allMyQuestions.length;
+
+      if (allMyQuestions.length === 0) {
+        document.getElementById('myQuestionsContainer').innerHTML = '<div style="text-align:center;color:#999;padding:20px;">質問がまだありません</div>';
+        return;
+      }
+
+      const html = allMyQuestions.map(q => {
+        const statusColor = q.status === '回答済み' ? '#28a745' : '#ffc107';
+        const statusBg = q.status === '回答済み' ? '#d4edda' : '#fff3cd';
+        return `
+          <div style="padding:12px;border:1px solid #ddd;border-radius:6px;background:#f9f9f9;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+              <div style="font-weight:bold;color:#334155;font-size:13px;">
+                ${q.question}
+              </div>
+              <span style="background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:3px;font-size:11px;white-space:nowrap;">
+                ${q.status}
+              </span>
+            </div>
+            <div style="font-size:12px;color:#666;margin-bottom:8px;">
+              送信日: ${new Date(q.created_at).toLocaleString('ja-JP')}
+            </div>
+            ${q.admin_answer ? `
+              <div style="background:white;padding:10px;border-left:3px solid #28a745;margin-top:8px;font-size:12px;color:#334155;">
+                <div style="font-weight:bold;color:#28a745;margin-bottom:5px;">✓ 回答:</div>
+                <div>${q.admin_answer}</div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('myQuestionsContainer').innerHTML = html;
+    }    // Show toast notification
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 16px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        max-width: 300px;
+        z-index: 9999;
+        animation: slideIn 0.3s ease-out;
+      `;
+
+      if (type === 'success') {
+        toast.style.background = '#28a745';
+        toast.style.color = 'white';
+        toast.textContent = '✓ ' + message;
+      } else if (type === 'error') {
+        toast.style.background = '#dc3545';
+        toast.style.color = 'white';
+        toast.textContent = '❌ ' + message;
+      } else {
+        toast.style.background = '#17a2b8';
+        toast.style.color = 'white';
+        toast.textContent = 'ℹ️ ' + message;
+      }
+
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // Add animation styles
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);    // Submit question
+    async function submitQuestion(e) {
+      e.preventDefault();
+      
+      const question = document.getElementById('questionInput').value.trim();
+      const detail = document.getElementById('detailInput').value.trim();
+      const category = document.getElementById('categorySelect').value;
+      const submitBtn = document.querySelector('#questionForm button[type="submit"]');
+      const originalBtnText = submitBtn.textContent;
+
+      console.log('📤 Submitting question:', { question, detail, category });
+
+      // Validation
+      if (!question) {
+        console.warn('⚠️ No question text');
+        showToast('質問タイトルを入力してください', 'error');
+        return;
+      }
+
+      if (question.length < 5) {
+        console.warn('⚠️ Question too short:', question.length);
+        showToast('質問は5文字以上である必要があります', 'error');
+        return;
+      }
+
+      if (detail.length > 2000) {
+        console.warn('⚠️ Detail too long:', detail.length);
+        showToast('詳細は2000文字以下である必要があります', 'error');
+        return;
+      }
+
+      // Show loading state
+      submitBtn.disabled = true;
+      submitBtn.textContent = '送信中...';
+
+      try {
+        console.log('🌐 Sending POST to /api/faq/questions...');
+        const response = await fetch('/api/faq/questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ question, detail, category })
+        });
+
+        console.log('📨 Response status:', response.status);
+        const result = await response.json();
+        console.log('📦 Response data:', result);
+
+        if (response.ok) {
+          console.log('✅ Question submitted successfully!');
+          showToast(result.message || '質問を送信しました', 'success');
+          document.getElementById('questionForm').reset();
+          await loadMyQuestions();
+        } else {
+          // Handle specific error messages
+          console.error('❌ API error:', result);
+          if (response.status === 401) {
+            console.log('🔐 Unauthorized - redirecting to login');
+            showToast('ログインが必要です', 'error');
+            window.location.href = '/ui/login';
+          } else if (response.status === 400) {
+            const errorMsg = result.errors?.[0]?.msg || result.message || '入力値が正しくありません';
+            console.warn('❌ Validation error:', errorMsg);
+            showToast(errorMsg, 'error');
+          } else {
+            console.error('❌ Server error:', result.message);
+            showToast(result.message || 'エラーが発生しました', 'error');
+          }
+        }
+      } catch (e) {
+        console.error('❌ Network error:', e);
+        showToast('通信エラーが発生しました: ' + e.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalBtnText;
+      }
+    }
+  </script>
 </body>
 </html>
 

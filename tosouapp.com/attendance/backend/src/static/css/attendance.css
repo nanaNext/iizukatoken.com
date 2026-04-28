@@ -356,6 +356,12 @@ body.nav-js .kintai-nav-dd.open .kintai-dd {
   top: 100%;
   height: 10px;
 }
+@media (max-width: 700px) {
+  /* Hover bridge can block taps to first dropdown item on mobile. */
+  .kintai-nav-dd::after {
+    display: none;
+  }
+}
 
 .kintai-dd a {
   display: block;
@@ -480,7 +486,7 @@ body.nav-js .kintai-nav-dd.open .kintai-dd {
 
 @media (max-width: 900px) {
   :root {
-    --kintai-top-h: 44px;
+    --kintai-top-h: 52px;
   }
   .kintai-top {
     height: var(--kintai-top-h);
@@ -832,22 +838,22 @@ body.nav-js .kintai-nav-dd.open .kintai-dd {
 
   .kintai-top-inner::before,
   .kintai-top-inner::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 14px;
-    pointer-events: none;
+    content: none !important;
+    display: none !important;
   }
 
-  .kintai-top-inner::before {
-    left: 0;
-    background: linear-gradient(90deg, rgba(11, 44, 102, 1) 0%, rgba(11, 44, 102, 0) 100%);
+  .kintai-brand {
+    flex: 0 0 auto !important;
+    min-width: max-content !important;
+    z-index: 2;
   }
 
-  .kintai-top-inner::after {
-    right: 0;
-    background: linear-gradient(270deg, rgba(11, 44, 102, 1) 0%, rgba(11, 44, 102, 0) 100%);
+  .kintai-logo {
+    font-size: 17px;
+    line-height: 1.1;
+    height: auto;
+    position: static;
+    top: auto;
   }
 
   .kintai-nav-dd {
@@ -867,7 +873,7 @@ body.nav-js .kintai-nav-dd.open .kintai-dd {
   }
 
   .kintai-main {
-    padding: 6px;
+    padding: calc(var(--kintai-top-h) + 6px) 6px 12px;
     padding-bottom: 12px;
     box-sizing: border-box;
   }
@@ -896,6 +902,20 @@ body.nav-js .kintai-nav-dd.open .kintai-dd {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+
+  /* Keep brand/logo visible on narrow devices; let nav area shrink/scroll first */
+  .kintai-nav {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .kintai-nav::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -1284,7 +1304,8 @@ body.nav-js .kintai-nav-dd.open .kintai-dd {
   }
 
   .kintai-brand {
-    min-width: 0;
+    min-width: max-content;
+    flex: 0 0 auto;
   }
 
   .kintai-nav {

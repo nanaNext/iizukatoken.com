@@ -21,6 +21,7 @@ const noticesRoutes = require('../modules/notices/notices.routes');
 const expensesRoutes = require('../modules/expenses/expenses.routes');
 const webauthnRoutes = require('../modules/webauthn/webauthn.routes');
 const requestsRoutes = require('../modules/requests/requests.routes');
+const faqRoutes = require('../modules/faq/faq.routes');
 
 const BUILD_ID = process.env.BUILD_ID || 'navy-20260331-1';
 const STARTED_AT = Date.now();
@@ -88,9 +89,9 @@ module.exports = function(app) {
   app.use('/api/notices', noticesRoutes);
   app.use('/api/expenses', expensesRoutes);
   const stationsRoutes = require('../modules/stations/stations.routes');
-  app.use('/api/stations', stationsRoutes);
-  app.use('/api/webauthn', webauthnRoutes);
+  app.use('/api/stations', stationsRoutes);  app.use('/api/webauthn', webauthnRoutes);
   app.use('/api/requests', requestsRoutes);
+  app.use('/api/faq', faqRoutes);
   if (allowDebugRoutes) {
     app.get('/api/debug/version', authenticate, authorize('employee','manager','admin','payroll'), (req, res) => {
       res.status(200).json({ buildId: BUILD_ID, startedAt: STARTED_AT, pid: process.pid });

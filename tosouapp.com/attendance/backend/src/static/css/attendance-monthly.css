@@ -6,6 +6,18 @@
   overflow: visible; /* Cho phép sticky hoạt động */
 }
 
+/* Page-level override: do not reserve a persistent scrollbar gutter on this screen */
+html,
+body,
+body.nav-js {
+  scrollbar-gutter: auto !important;
+}
+
+body.nav-js {
+  overflow-y: auto !important;
+}
+
+
 .layout-container {
   display: block; /* Tránh flexbox làm mất sticky */
   width: 100%;
@@ -39,6 +51,101 @@ html, body {
 
 .kintai-top {
   border-bottom: 0;
+  z-index: 5005 !important;
+  pointer-events: auto !important;
+}
+
+/* Desktop monthly page: align header density with legacy smart-E sample bar */
+@media (min-width: 901px) {
+  :root {
+    --kintai-top-h: 40px !important;
+  }
+
+  .kintai-top {
+    height: var(--kintai-top-h) !important;
+    min-height: var(--kintai-top-h) !important;
+    border-bottom: 1px solid #072149 !important;
+    left: 0 !important;
+    right: auto !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  .kintai-top-inner {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 4px !important;
+    gap: 6px !important;
+    justify-content: space-between !important;
+  }
+
+  .kintai-brand {
+    min-width: 0;
+    margin-left: 0;
+    height: var(--kintai-top-h) !important;
+    align-items: stretch !important;
+  }
+
+  .kintai-logo {
+    font-size: 30px !important;
+    line-height: var(--kintai-top-h) !important;
+    height: var(--kintai-top-h) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    top: 0 !important;
+    display: inline-block !important;
+    vertical-align: top !important;
+  }
+
+  .kintai-nav {
+    flex: 1 1 auto !important;
+    gap: 0 !important;
+    justify-content: flex-start !important;
+  }
+
+  .kintai-user {
+    margin-left: auto !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    flex: 0 0 auto !important;
+  }
+
+  .kintai-nav-btn {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 5px 9px;
+    border-radius: 4px;
+  }
+
+  .kintai-caret {
+    font-size: 12px;
+  }
+
+  .kintai-top-links {
+    justify-content: flex-end !important;
+    gap: 4px !important;
+    margin-right: 0 !important;
+  }
+
+  .kintai-top-link {
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    padding: 5px 9px !important;
+    border-radius: 4px;
+    color: #fff !important;
+    opacity: 1 !important;
+    letter-spacing: 0.1px;
+  }
+}
+
+.kintai-top *,
+.kintai-nav,
+.kintai-nav-dd,
+.kintai-nav-btn,
+.kintai-dd,
+.kintai-top-links,
+.kintai-top-link {
+  pointer-events: auto !important;
 }
 
 @media (min-width: 901px) {
@@ -68,13 +175,14 @@ html, body {
 
 @media (min-width: 901px) {
   .se-month {
-  max-width: 1400px;
+  max-width: none;
   margin: 0 8px;
   padding: 0;
 }
 
   .kintai-top-inner {
-    max-width: 1400px;
+    max-width: none !important;
+    width: 100% !important;
   }
 
   .kintai-error {
@@ -767,7 +875,80 @@ body:not(.embed) #monthTable .se-month-scroll {
   height: 1px;
 }
 
+@media (max-width: 900px) {
+  html,
+  body {
+    scrollbar-gutter: auto !important;
+  }
+
+  /* Paint the viewport gutter area (including scrollbar lane) in topbar color */
+  html {
+    background: linear-gradient(
+      to bottom,
+      #0b2c66 0,
+      #0b2c66 var(--kintai-top-h),
+      #ffffff var(--kintai-top-h),
+      #ffffff 100%
+    ) !important;
+  }
+
+  body {
+    background: transparent !important;
+  }
+
+  body.nav-js {
+    overflow-y: auto !important;
+  }
+
+  .kintai-top {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow: hidden !important;
+  }
+
+  .kintai-top-inner {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 4px !important;
+    gap: 4px !important;
+    align-items: center !important;
+  }
+
+  .kintai-user {
+    margin-left: auto !important;
+    min-width: 0;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .kintai-top-links {
+    gap: 6px !important;
+    align-items: center !important;
+    white-space: nowrap !important;
+  }
+
+  .kintai-top-link {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    padding: 0 6px !important;
+    height: var(--kintai-top-h) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+}
+
 @media (max-width: 700px) {
+  /* Use baseline mobile topbar behavior from attendance.css (stable state). */
+  .kintai-top-inner::before,
+  .kintai-top-inner::after {
+    content: none !important;
+    display: none !important;
+    pointer-events: none !important;
+  }
+
   :root { --se-sticky-top: 42px; }
   .se-page-head .se-target-month { display: none !important; }
   .se-page-head .se-target-month .se-target-label {
@@ -781,7 +962,8 @@ body:not(.embed) #monthTable .se-month-scroll {
     min-width: 120px;
   }
   body:not(.embed) .kintai-main {
-    padding: 0;
+    /* Keep header blocks visible below fixed topbar on phones */
+    padding: calc(var(--kintai-top-h, 44px) + 6px) 0 0;
     padding-bottom: calc(var(--se-bottom-bar-h, 72px) + 6px);
     box-sizing: border-box;
   }
@@ -808,7 +990,16 @@ body:not(.embed) #monthTable .se-month-scroll {
   .se-target-label { font-size: 10px; padding: 4px 6px; border-radius: 6px; background: #0b2c66; color: #fff; }
   .se-target-input { height: 30px; padding: 0 8px; font-size: 12px; border-radius: 6px; }
   .se-target-month-seg { display: none; }
-  .se-target-month-sample, .se-target-label-sample { display: none !important; }
+  .se-target-month-sample,
+  .se-target-label-sample {
+    display: inline-flex !important;
+  }
+  .se-target-month.se-target-month-sample {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
   .se-target-select { display: none !important; }
   .layout-container,
   .layout-main,
@@ -2247,6 +2438,442 @@ input.se-time[disabled][data-row-disabled="1"][data-manual="1"]::-webkit-datetim
   z-index: auto !important;
 }
 
+/* Mobile final: force cloned sticky month header to stay visible under topbar */
+@media (max-width: 900px) {
+  #monthTable .se-sticky-month-head {
+    display: block !important;
+    position: sticky !important;
+    top: calc(var(--kintai-top-h, 30px) - 1px) !important;
+    z-index: 5200 !important;
+    pointer-events: auto !important;
+    background: #0b2c66 !important;
+  }
+
+  #monthTable .se-sticky-month-head.se-sticky-month-head-bottom {
+    display: none !important;
+  }
+
+  #monthTable .se-sticky-month-head th {
+    background: #0b2c66 !important;
+    color: #fff !important;
+    border-color: rgba(255, 255, 255, .16) !important;
+    white-space: nowrap !important;
+  }
+
+  #monthTable #monthTableReal thead th {
+    position: static !important;
+    top: auto !important;
+  }
+}
+
+/* Mobile: keep month-table header visible under topbar while scrolling */
+@media (max-width: 900px) {
+  #monthTable .se-sticky-month-head.se-sticky-month-head-top {
+    display: block !important;
+    position: sticky !important;
+    top: calc(var(--kintai-top-h, 30px) - 1px) !important;
+    z-index: 140 !important;
+    background: #0b2c66 !important;
+    border-bottom: 1px solid #072149 !important;
+  }
+
+  #monthTable #monthTableReal thead th {
+    position: static !important;
+    top: auto !important;
+  }
+
+  /* Keep same visible columns as desktop (do not hide by mobile-compact) */
+  body.mobile-compact #monthTable thead th:nth-child(3),
+  body.mobile-compact #monthTable tbody td:nth-child(3),
+  body.mobile-compact #monthTable thead th:nth-child(4),
+  body.mobile-compact #monthTable tbody td:nth-child(4),
+  body.mobile-compact #monthTable thead th:nth-child(5),
+  body.mobile-compact #monthTable tbody td:nth-child(5),
+  body.mobile-compact #monthTable thead th:nth-child(6),
+  body.mobile-compact #monthTable tbody td:nth-child(6),
+  body.mobile-compact #monthTable thead th:nth-child(7),
+  body.mobile-compact #monthTable tbody td:nth-child(7),
+  body.mobile-compact #monthTable thead th:nth-child(11),
+  body.mobile-compact #monthTable tbody td:nth-child(11) {
+    display: table-cell !important;
+  }
+
+  #monthTable .se-sticky-month-head th {
+    background: #0b2c66 !important;
+    color: #fff !important;
+    border-color: rgba(255, 255, 255, .16) !important;
+    font-size: 10px !important;
+    font-weight: 900 !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* Mobile topbar grouping: make left/center/right areas look like clear clusters */
+@media (max-width: 900px) {
+  .kintai-top {
+    background: #0b2c66 !important;
+    border-bottom: 1px solid #072149 !important;
+  }
+
+  .kintai-top-inner {
+    gap: 4px !important;
+    padding: 2px 4px !important;
+    align-items: center !important;
+  }
+
+  .kintai-brand,
+  .kintai-nav,
+  .kintai-user {
+    min-height: calc(var(--kintai-top-h) - 8px) !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(255, 255, 255, .22) !important;
+    background: rgba(255, 255, 255, .08) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+
+  .kintai-brand {
+    padding: 0 4px !important;
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+  }
+
+  .kintai-nav {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    padding: 0 3px !important;
+    gap: 2px !important;
+  }
+
+  .kintai-user {
+    flex: 0 0 auto !important;
+    margin-left: 0 !important;
+    padding: 0 2px !important;
+  }
+
+  .kintai-logo,
+  .kintai-nav-btn,
+  .kintai-top-link {
+    height: calc(var(--kintai-top-h) - 10px) !important;
+    line-height: calc(var(--kintai-top-h) - 10px) !important;
+  }
+
+  .kintai-nav-btn,
+  .kintai-top-link {
+    border-radius: 4px !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  .kintai-top-links {
+    gap: 2px !important;
+  }
+}
+
+/* Mobile topbar spacing tune: keep left 3 and right 3 items tighter */
+@media (max-width: 900px) {
+  .kintai-brand,
+  .kintai-nav,
+  .kintai-user {
+    border: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  .kintai-top-inner {
+    gap: 1px !important;
+  }
+
+  .kintai-nav {
+    gap: 0 !important;
+  }
+
+  .kintai-nav-dd {
+    margin: 0 !important;
+  }
+
+  .kintai-nav-btn {
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+    margin: 0 !important;
+  }
+
+  .kintai-top-links {
+    gap: 0 !important;
+  }
+
+  .kintai-top-link {
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+    margin: 0 !important;
+  }
+}
+
+/* FINAL LOCK: match mobile topbar density to reference */
+@media (max-width: 900px) {
+  :root {
+    --kintai-top-h: 30px !important;
+  }
+
+  .kintai-top {
+    height: var(--kintai-top-h) !important;
+    min-height: var(--kintai-top-h) !important;
+  }
+
+  .kintai-top-inner {
+    padding: 0 3px !important;
+    gap: 1px !important;
+    align-items: center !important;
+  }
+
+  .kintai-brand,
+  .kintai-nav,
+  .kintai-user,
+  .kintai-top-links {
+    min-width: 0 !important;
+    min-height: 0 !important;
+    gap: 0 !important;
+  }
+
+  .kintai-logo,
+  .kintai-nav-btn,
+  .kintai-top-link {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    height: 24px !important;
+    line-height: 24px !important;
+    padding: 0 2px !important;
+    border-radius: 3px !important;
+    letter-spacing: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  .kintai-caret {
+    font-size: 8px !important;
+    margin-left: 1px !important;
+  }
+
+  /* Remove right-side gap on mobile caused by viewport gutter/overflow */
+  html,
+  body {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow-x: hidden !important;
+    scrollbar-gutter: auto !important;
+  }
+
+  .kintai-main,
+  .layout-container,
+  .layout-main,
+  .layout-contents,
+  .se-month {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    overflow-x: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  .kintai-top,
+  .kintai-top-inner {
+    overflow: visible !important;
+  }
+
+  .se-month-table-wrap,
+  #monthTable.se-table {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Compact mobile preset: closer density to left-side reference */
+@media (max-width: 900px) {
+  :root { --kintai-top-h: 34px !important; }
+
+  .kintai-main {
+    padding-top: calc(var(--kintai-top-h) + 4px) !important;
+  }
+
+  .kintai-logo,
+  .kintai-nav-btn,
+  .kintai-top-link {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    height: var(--kintai-top-h) !important;
+    line-height: var(--kintai-top-h) !important;
+    padding: 0 4px !important;
+  }
+
+  .se-page-head { margin-bottom: 3px !important; gap: 4px !important; }
+  .se-page-title { font-size: 15px !important; line-height: 1.15 !important; }
+
+  .se-employee-bar {
+    padding: 6px 8px !important;
+    gap: 6px !important;
+    margin-bottom: 4px !important;
+    border-radius: 8px !important;
+  }
+  .se-employee-left {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+  .se-employee-meta {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    column-gap: 8px !important;
+    row-gap: 0 !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .se-employee-meta::-webkit-scrollbar {
+    display: none;
+  }
+  .se-employee-line { gap: 3px !important; font-size: 11px !important; }
+  .se-employee-k { font-size: 10px !important; }
+  .se-employee-v { font-size: 11px !important; white-space: nowrap !important; }
+
+  .se-target-label-sample,
+  .se-target-label {
+    height: 24px !important;
+    font-size: 10px !important;
+    padding: 0 7px !important;
+  }
+  .se-target-input-sample,
+  .se-target-input {
+    height: 24px !important;
+    font-size: 11px !important;
+    padding: 0 7px !important;
+    min-width: 104px !important;
+  }
+
+  .se-section { margin: 3px 0 !important; border-radius: 8px !important; }
+  .se-section-head { padding: 3px 6px !important; }
+  .se-section-body { padding: 3px 6px !important; }
+  .se-daily-text, .se-section-title { font-size: 12px !important; }
+
+  .se-btn {
+    height: 24px !important;
+    font-size: 11px !important;
+    padding: 2px 7px !important;
+    border-radius: 6px !important;
+  }
+  .se-btn.small {
+    height: 22px !important;
+    font-size: 10px !important;
+    padding: 1px 6px !important;
+  }
+
+  #monthTable thead th {
+    font-size: 10px !important;
+    padding: 4px 5px !important;
+  }
+  #monthTable tbody td {
+    font-size: 10px !important;
+    padding: 3px 5px !important;
+    line-height: 1.2 !important;
+  }
+  #monthTable input,
+  #monthTable select {
+    height: 22px !important;
+    font-size: 10px !important;
+    padding: 0 4px !important;
+  }
+}
+
+/* Mobile topbar typography normalization: keep all labels visually even */
+@media (max-width: 900px) {
+  .kintai-top-inner,
+  .kintai-brand,
+  .kintai-nav,
+  .kintai-user,
+  .kintai-top-links {
+    align-items: center !important;
+  }
+
+  .kintai-logo,
+  .kintai-nav-btn,
+  .kintai-top-link {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    line-height: var(--kintai-top-h) !important;
+    height: var(--kintai-top-h) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    letter-spacing: 0 !important;
+  }
+
+  .kintai-logo {
+    padding: 0 4px !important;
+    margin: 0 !important;
+  }
+
+  .kintai-nav-btn,
+  .kintai-top-link {
+    padding: 0 6px !important;
+    border-radius: 4px !important;
+  }
+
+  .kintai-caret {
+    font-size: 10px !important;
+    line-height: 1 !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .kintai-logo,
+  .kintai-nav-btn,
+  .kintai-top-link {
+    font-size: 11px !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+}
+
+/* Mobile: show full top-right links instead of hiding non-logout items */
+@media (max-width: 700px) {
+  .kintai-top-inner {
+    gap: 2px !important;
+    padding: 0 2px !important;
+  }
+
+  .kintai-logo {
+    font-size: 18px !important;
+    padding-left: 4px !important;
+  }
+
+  .kintai-top-links {
+    display: flex !important;
+    gap: 4px !important;
+    align-items: center !important;
+    white-space: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .kintai-top-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .kintai-top-links .kintai-top-link:not(.logout-link) {
+    display: inline-flex !important;
+  }
+
+  .kintai-top-link {
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    padding: 0 4px !important;
+    height: var(--kintai-top-h) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+}
+
 /* Hard override for legacy sticky-col-1 rules on body cells */
 .se-month-table-wrap #monthTableReal td.sticky-col-1 {
   position: static !important;
@@ -2270,23 +2897,228 @@ input.se-time[disabled][data-row-disabled="1"][data-manual="1"]::-webkit-datetim
   text-align: center !important;
 }
 
-/* Final behavior: use only real table header; remove cloned sticky header */
-#monthTable .se-sticky-month-head {
-  display: none !important;
+/* Final behavior:
+   - Desktop: keep real thead sticky, hide cloned sticky header
+   - Mobile: show cloned sticky header under topbar (like desktop visibility while scrolling) */
+@media (min-width: 901px) {
+  #monthTable .se-sticky-month-head {
+    display: none !important;
+  }
+
+  #monthTable #monthTableReal thead th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 80 !important;
+  }
+
+  #monthTable #monthTableReal thead th.sticky-col-1 {
+    left: auto !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 81 !important;
+  }
+
+  #monthTable #monthTableReal tbody td.sticky-col-1 {
+    position: static !important;
+    left: auto !important;
+    z-index: auto !important;
+  }
 }
-#monthTable #monthTableReal thead th {
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 80 !important;
+
+@media (max-width: 900px) {
+  #monthTable .se-sticky-month-head {
+    display: block !important;
+  }
+
+  #monthTable .se-sticky-month-head.se-sticky-month-head-top {
+    position: sticky !important;
+    top: calc(var(--kintai-top-h, 30px) - 1px) !important;
+    z-index: 5200 !important;
+    background: #0b2c66 !important;
+    border-bottom: 1px solid #072149 !important;
+  }
+
+  #monthTable .se-sticky-month-head.se-sticky-month-head-bottom {
+    display: none !important;
+  }
+
+  #monthTable .se-sticky-month-head[hidden] {
+    display: block !important;
+  }
+
+  #monthTable .se-sticky-month-head th {
+    background: #0b2c66 !important;
+    color: #fff !important;
+    border-color: rgba(255, 255, 255, .16) !important;
+    white-space: nowrap !important;
+  }
+
+  #monthTable #monthTableReal thead th {
+    position: static !important;
+    top: auto !important;
+  }
 }
-#monthTable #monthTableReal thead th.sticky-col-1 {
-  left: auto !important; /* do not pin date column horizontally */
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 81 !important;
+
+/* Mobile hard lock:
+   Always use real thead sticky like desktop and hide cloned sticky header. */
+@media (max-width: 900px) {
+  #monthTable .se-sticky-month-head,
+  #monthTable .se-sticky-month-head[hidden] {
+    display: none !important;
+  }
+
+  body:not(.embed) #monthTable.se-table #monthTableReal thead th,
+  #monthTable #monthTableReal thead th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 600 !important;
+    background: #0b2c66 !important;
+    color: #fff !important;
+  }
+
+  #monthTable #monthTableReal thead th.sticky-col-1 {
+    left: auto !important;
+    z-index: 601 !important;
+  }
 }
-#monthTable #monthTableReal tbody td.sticky-col-1 {
-  position: static !important;
-  left: auto !important;
-  z-index: auto !important;
+
+/* FINAL COMPACT PRESET (mobile): keep layout dense like the reference screenshot */
+@media (max-width: 900px) {
+  :root { --kintai-top-h: 28px !important; }
+
+  .kintai-top {
+    height: var(--kintai-top-h) !important;
+    min-height: var(--kintai-top-h) !important;
+  }
+
+  .kintai-top-inner {
+    padding: 0 2px !important;
+    gap: 0 !important;
+    min-height: var(--kintai-top-h) !important;
+  }
+
+  .kintai-logo,
+  .kintai-nav-btn,
+  .kintai-top-link {
+    height: 22px !important;
+    line-height: 22px !important;
+    padding: 0 3px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    border-radius: 3px !important;
+  }
+
+  .kintai-nav,
+  .kintai-top-links {
+    gap: 0 !important;
+  }
+
+  .kintai-main {
+    padding-top: calc(var(--kintai-top-h) + 2px) !important;
+  }
+
+  #monthTable #monthTableReal thead th {
+    font-size: 9px !important;
+    padding: 3px 4px !important;
+    height: 24px !important;
+    line-height: 1.1 !important;
+  }
+
+  #monthTable #monthTableReal tbody td {
+    font-size: 9px !important;
+    padding: 2px 4px !important;
+    min-height: 24px !important;
+    line-height: 1.1 !important;
+  }
+
+  #monthTable #monthTableReal input:not(.se-check),
+  #monthTable #monthTableReal select,
+  #monthTable #monthTableReal .se-input,
+  #monthTable #monthTableReal .se-select,
+  #monthTable #monthTableReal .se-time {
+    height: 20px !important;
+    min-height: 20px !important;
+    font-size: 9px !important;
+    padding: 0 3px !important;
+  }
+
+  #monthTable .se-check {
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px !important;
+    min-height: 14px !important;
+    padding: 0 !important;
+    border-radius: 2px !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* FINAL WIDTH TUNE (mobile):
+   tighten per-column widths so controls do not look stretched */
+@media (max-width: 900px) {
+  #monthTable.se-table table,
+  #monthTable #monthTableReal {
+    min-width: 980px !important;
+  }
+
+  #monthTable #monthTableReal thead th.sticky-col-1,
+  #monthTable #monthTableReal tbody td.sticky-col-1 {
+    min-width: 60px !important;
+    width: 60px !important;
+    max-width: 60px !important;
+    padding-left: 3px !important;
+    padding-right: 2px !important;
+  }
+
+  #monthTable #monthTableReal thead th:nth-child(2),
+  #monthTable #monthTableReal tbody td:nth-child(2) {
+    min-width: 82px !important;
+    width: 82px !important;
+  }
+
+  #monthTable #monthTableReal thead th:nth-child(3),
+  #monthTable #monthTableReal thead th:nth-child(4),
+  #monthTable #monthTableReal thead th:nth-child(5),
+  #monthTable #monthTableReal tbody td:nth-child(3),
+  #monthTable #monthTableReal tbody td:nth-child(4),
+  #monthTable #monthTableReal tbody td:nth-child(5) {
+    min-width: 44px !important;
+    width: 44px !important;
+  }
+
+  #monthTable #monthTableReal thead th:nth-child(6),
+  #monthTable #monthTableReal thead th:nth-child(7),
+  #monthTable #monthTableReal tbody td:nth-child(6),
+  #monthTable #monthTableReal tbody td:nth-child(7) {
+    min-width: 66px !important;
+    width: 66px !important;
+  }
+
+  #monthTable #monthTableReal td input.se-input,
+  #monthTable #monthTableReal td select.se-select,
+  #monthTable #monthTableReal td input.se-time {
+    width: calc(100% - 2px) !important;
+    max-width: calc(100% - 2px) !important;
+  }
+
+  #monthTable #monthTableReal input.se-time[data-field="checkIn"],
+  #monthTable #monthTableReal input.se-time[data-field="checkOut"] {
+    width: 54px !important;
+    min-width: 54px !important;
+  }
+
+  #monthTable #monthTableReal select.se-select[data-field="break"],
+  #monthTable #monthTableReal select.se-select[data-field="nightBreak"] {
+    width: 50px !important;
+    min-width: 50px !important;
+  }
+
+  #monthTable #monthTableReal .se-check {
+    width: 12px !important;
+    height: 12px !important;
+    min-width: 12px !important;
+    min-height: 12px !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
 }

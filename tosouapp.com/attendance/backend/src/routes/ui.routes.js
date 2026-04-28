@@ -154,6 +154,10 @@ router.get('/ui/requests', sendPage('requests.html'));
 router.get('/ui/salary', sendPage('salary.html'));
 router.get('/ui/chatbot', sendPage('chatbot.html'));
 router.get('/ui/change-password', sendPage('change-password.html'));
+router.get('/ui/manual', sendPage('manual.html'));
+router.get('/ui/faq', sendPage('faq.html'));
+router.get('/admin/faq', authenticateFromCookie, authorizePage('admin', 'manager'), (req, res) => sendAdminPageNoCache(req, res, 'admin.html'));
+router.get('/faq-test', authenticateFromCookie, authorizePage('admin', 'manager'), sendPage('faq-test.html'));
 // React SPA entry (built by Vite to /static/react-app)
 router.get('/ui/app', (req, res) => {
   const p = path.join(__dirname, '..', 'static', 'react-app', 'index.html');

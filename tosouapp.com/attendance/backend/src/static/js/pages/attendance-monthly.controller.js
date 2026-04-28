@@ -819,44 +819,8 @@
           if (v) tr.dataset.kubunConfirmed = '1';
         }
       } catch {}
-      try {
-        const todayStr = (() => {
-          try { return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10); } catch { return null; }
-        })();
-        const workNeedTimes = new Set(['出勤', '休日出勤', '代替出勤']);
-        const rows = Array.from(ctx.tableHost?.querySelectorAll?.('[data-row="1"][data-date]') || []);
-        for (const tr of rows) {
-          const dateStr = String(tr.dataset.date || '').slice(0, 10);
-          if (todayStr && dateStr > todayStr) continue;
-          const idRaw = String(tr.dataset.id || '').trim();
-          if (idRaw) continue;
-          const sel = tr.querySelector('select[data-field="classification"]');
-          const v = String(sel?.value || '').trim();
-          if (!workNeedTimes.has(v)) continue;
-          const inEl = tr.querySelector('input.se-time[data-field="checkIn"]');
-          const outEl = tr.querySelector('input.se-time[data-field="checkOut"]');
-          const inV = String(inEl?.value || '').trim();
-          const outV = String(outEl?.value || '').trim();
-          const inAuto = String(inEl?.dataset?.auto || '') === '1';
-          const outAuto = String(outEl?.dataset?.auto || '') === '1';
-          const inAutoVal = String(inEl?.dataset?.autoVal || '').trim();
-          const outAutoVal = String(outEl?.dataset?.autoVal || '').trim();
-          const hasAutoHint = (inAuto && inAutoVal && inV === inAutoVal) || (outAuto && outAutoVal && outV === outAutoVal);
-          if (!hasAutoHint) continue;
-          if (inEl) {
-            inEl.dataset.auto = '';
-            inEl.dataset.autoVal = '';
-            try { inEl.classList.remove('is-auto'); } catch {}
-          }
-          if (outEl) {
-            outEl.dataset.auto = '';
-            outEl.dataset.autoVal = '';
-            try { outEl.classList.remove('is-auto'); } catch {}
-          }
-          try { tr.dataset.dirty = '1'; } catch {}
-          try { tr.dataset.kubunConfirmed = v ? '1' : ''; } catch {}
-        }
-      } catch {}
+      // Keep auto planned times as virtual hints.
+      // They must not be converted to "actual" just because user presses save.
       try {
         const rows = Array.from(ctx.tableHost?.querySelectorAll?.('[data-row="1"][data-date]') || []);
         for (const tr of rows) {
@@ -1794,14 +1758,12 @@
     ctx.profile = profile;
     state.profile = profile;
     ctx.role = String(profile.role || '').toLowerCase();
+    // Attendance monthly page should always keep topbar/navigation visible.
+    // Admin embed view uses a dedicated page, so do not auto-hide by URL param here.
     try {
-      const u = new URL(window.location.href);
-      const embed = String(u.searchParams.get('embed') || '').toLowerCase();
-      if (embed === '1' || embed === 'true') {
-        const top = document.querySelector('.kintai-top');
-        if (top) top.style.display = 'none';
-        try { document.body.classList.add('embed'); } catch {}
-      }
+      const top = document.querySelector('.kintai-top');
+      if (top) top.style.display = '';
+      try { document.body.classList.remove('embed'); } catch {}
     } catch {}
     try { $('#userName').textContent = profile.username || profile.email || 'ユーザー'; } catch {}
     try {

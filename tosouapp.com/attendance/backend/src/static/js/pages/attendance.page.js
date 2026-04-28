@@ -80,22 +80,122 @@ const wireUserMenu = () => {
 };
 
 const wireTopNavDropdowns = () => {
+  const targetEl = (e) => {
+    const t = e && e.target;
+    if (!t) return null;
+    return t.nodeType === 3 ? t.parentElement : t;
+  };
+  const normalizeNavHref = (href) => {
+    const raw = String(href || '').trim();
+    if (!raw.startsWith('/')) return raw;
+    if (raw.startsWith('/ui/')) return raw;
+    if (
+      raw.startsWith('/attendance') ||
+      raw.startsWith('/leave-ledger') ||
+      raw.startsWith('/change-password') ||
+      raw.startsWith('/manual') ||
+      raw.startsWith('/faq') ||
+      raw.startsWith('/logout')
+    ) return `/ui${raw}`;
+    return raw;
+  };
+  const ensurePanelLinks = () => {
+    const defaults = {
+      att: [
+        { href: '/ui/attendance', label: '個人カレンダー登録画面' },
+        { href: '/ui/attendance/monthly', label: '月次勤怠入力へ' },
+        { href: '/ui/attendance/simple', label: '簡易登録画面' }
+      ],
+      leave: [
+        { href: '/ui/leave-ledger', label: '休暇欠勤台帳' }
+      ],
+      common: [
+        { href: '/ui/change-password', label: 'パスワード変更画面' }
+      ]
+    };
+    document.querySelectorAll('.kintai-dd[data-dd-panel]').forEach((panel) => {
+      const key = String(panel.getAttribute('data-dd-panel') || '');
+      const hasLink = !!panel.querySelector('a[href]');
+      if (hasLink) return;
+      const rows = defaults[key] || [];
+      if (!rows.length) return;
+      panel.innerHTML = rows.map((r) => `<a href="${r.href}">${r.label}</a>`).join('');
+    });
+  };
+  try { ensurePanelLinks(); } catch {}
+  // Normalize old/cached links that may miss "/ui" prefix on mobile devices.
+  try {
+    document.querySelectorAll('.kintai-dd[data-dd-panel] a[href^="/"]').forEach((a) => {
+      const href = String(a.getAttribute('href') || '').trim();
+      const fixed = normalizeNavHref(href);
+      if (fixed && fixed !== href) a.setAttribute('href', fixed);
+    });
+  } catch {}
+  // If shared topbar script already owns nav dropdowns, skip local binding.
+  try {
+    if (document.documentElement.dataset.kintaiTopNavDdBound === '1') return;
+    if (document.documentElement.dataset.attendancePageNavBound === '1') return;
+    document.documentElement.dataset.attendancePageNavBound = '1';
+  } catch {}
   const btns = Array.from(document.querySelectorAll('.kintai-nav-btn[data-dd]'));
   const panels = Array.from(document.querySelectorAll('.kintai-dd[data-dd-panel]'));
   if (!btns.length || !panels.length) return;
   try { document.body.classList.add('nav-js'); } catch {}
+
+  // Ensure dropdown links always navigate even when other handlers interfere.
+  try {
+    if (document.documentElement.dataset.attendancePageNavLinkBound !== '1') {
+      document.documentElement.dataset.attendancePageNavLinkBound = '1';
+      let navGoAt = 0;
+      let navGoHref = '';
+      const go = (e) => {
+        const t = targetEl(e);
+        const a = t?.closest?.('.kintai-dd a[href]');
+        if (!a) return;
+        const fixed = normalizeNavHref(a.getAttribute('href') || '');
+        if (!fixed) return;
+        const now = Date.now();
+        if (now - navGoAt < 800 && fixed === navGoHref) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        navGoAt = now;
+        navGoHref = fixed;
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = fixed;
+      };
+      document.addEventListener('pointerup', go, true);
+      document.addEventListener('touchend', go, true);
+      document.addEventListener('click', go, true);
+    }
+  } catch {}
 
   const closeAll = () => {
     for (const b of btns) {
       try { b.setAttribute('aria-expanded', 'false'); } catch {}
     }
     for (const p of panels) {
-      try { p.setAttribute('hidden', ''); p.style.display = ''; } catch {}
+      try {
+        p.setAttribute('hidden', '');
+        p.style.display = '';
+        p.style.position = '';
+        p.style.top = '';
+        p.style.left = '';
+        p.style.right = '';
+        p.style.maxWidth = '';
+        p.style.maxHeight = '';
+        p.style.overflow = '';
+        p.style.zIndex = '';
+        p.style.transform = '';
+      } catch {}
     }
     document.querySelectorAll('.kintai-nav-dd').forEach(dd => { try { dd.classList.remove('open'); } catch {} });
   };
 
   const openOne = (key) => {
+    try { ensurePanelLinks(); } catch {}
     closeAll();
     const btn = btns.find(b => b.dataset.dd === key);
     const panel = panels.find(p => p.dataset.ddPanel === key);
@@ -104,43 +204,73 @@ const wireTopNavDropdowns = () => {
     try { panel.removeAttribute('hidden'); panel.style.display = 'block'; } catch {}
     try { btn.closest('.kintai-nav-dd')?.classList.add('open'); } catch {}
     try {
-      panel.style.position = '';
-      panel.style.left = '';
-      panel.style.top = '';
-      panel.style.maxWidth = '';
-      panel.style.width = '';
+      const mobile = !!(window.matchMedia && window.matchMedia('(max-width: 900px)').matches);
+      if (mobile) {
+        const r = btn.getBoundingClientRect();
+        const gap = 4;
+        const top = Math.round(r.bottom + gap);
+        let left = Math.round(r.left);
+        panel.style.position = 'fixed';
+        panel.style.top = `${top}px`;
+        panel.style.left = `${left}px`;
+        panel.style.right = 'auto';
+        panel.style.zIndex = '3200';
+        panel.style.maxWidth = '90vw';
+        panel.style.maxHeight = 'calc(100vh - 72px)';
+        panel.style.overflow = 'auto';
+        try {
+          const w = panel.offsetWidth || 0;
+          const maxLeft = Math.max(6, (window.innerWidth || 0) - w - 6);
+          left = Math.min(left, maxLeft);
+          panel.style.left = `${left}px`;
+        } catch {}
+        try { panel.style.transform = 'none'; } catch {}
+      } else {
+        panel.style.position = '';
+        panel.style.left = '';
+        panel.style.top = '';
+        panel.style.right = '';
+        panel.style.maxWidth = '';
+        panel.style.maxHeight = '';
+        panel.style.overflow = '';
+        panel.style.zIndex = '';
+        panel.style.transform = '';
+      }
     } catch {}
   };
 
   for (const b of btns) {
-    b.addEventListener('click', (e) => {
+    let lastTouchLikeAt = 0;
+    const toggle = (e) => {
       e.preventDefault();
       const key = b.dataset.dd;
       const panel = panels.find(p => p.dataset.ddPanel === key);
       const isOpen = panel && !panel.hasAttribute('hidden');
       if (isOpen) closeAll();
       else openOne(key);
-    });
-    b.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      const key = b.dataset.dd;
-      const panel = panels.find(p => p.dataset.ddPanel === key);
-      const isOpen = panel && !panel.hasAttribute('hidden');
-      if (isOpen) closeAll();
-      else openOne(key);
-    }, { passive: false });
-    b.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      const key = b.dataset.dd;
-      const panel = panels.find(p => p.dataset.ddPanel === key);
-      const isOpen = panel && !panel.hasAttribute('hidden');
-      if (isOpen) closeAll();
-      else openOne(key);
+    };
+    const onTouchLike = (e) => {
+      lastTouchLikeAt = Date.now();
+      toggle(e);
+    };
+    const onClick = (e) => {
+      if (Date.now() - lastTouchLikeAt < 700) {
+        e.preventDefault();
+        return;
+      }
+      toggle(e);
+    };
+    if ('PointerEvent' in window) b.addEventListener('pointerdown', onTouchLike, { passive: false });
+    else b.addEventListener('touchstart', onTouchLike, { passive: false });
+    b.addEventListener('click', onClick, { passive: false });
+    b.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') toggle(e);
     }, { passive: false });
   }
 
   document.addEventListener('click', (e) => {
-    if (e.target?.closest?.('.kintai-nav-dd')) return;
+    const t = targetEl(e);
+    if (t?.closest?.('.kintai-nav-dd')) return;
     closeAll();
   });
 };

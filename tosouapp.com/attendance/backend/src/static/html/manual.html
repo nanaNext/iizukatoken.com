@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=0.75,minimum-scale=0.75,maximum-scale=3,user-scalable=yes">
-  <title>操作マニュアル</title>
-  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260408-1">
+  <title>操作マニュアル</title>  <link rel="stylesheet" href="/static/css/base.css?v=navy-20260408-1">
   <link rel="stylesheet" href="/static/css/attendance.css?v=navy-20260424-2">
   <link rel="stylesheet" href="/static/css/attendance-monthly.css?v=navy-20260416-1">
   <link rel="icon" href="data:,">
-  <script src="/static/js/pages/kintai-topbar-links.js?v=navy-20260417-3" defer></script>
+  <script src="/static/js/pages/session-idle.js?v=navy-20260403-1" defer></script>
+  <script src="/static/js/pages/kintai-topbar-links.js?v=navy-20260427-5" defer></script>
 </head>
-<body class="nav-js">
+<body>
   <header class="kintai-top">
     <div class="kintai-top-inner">
       <div class="kintai-brand">
@@ -52,15 +52,327 @@
         </div>
       </div>
     </div>
-  </header>
-  <main class="kintai-main">
-    <section class="kintai-grid" style="max-width:980px;margin:0 auto;">
-      <div class="kintai-card">
+  </header>  <main class="kintai-main">
+    <section class="kintai-grid" style="max-width:1000px;margin:0 auto;padding:20px;">
+      <!-- Title Section -->
+      <div class="kintai-card" style="margin-bottom:20px;">
         <div class="kintai-card-title">操作マニュアル</div>
-        <div style="padding:12px;color:#334155;font-weight:650;">準備中です。</div>
+        <div style="padding:20px;color:#334155;">
+          <p style="margin:0 0 15px 0;font-size:14px;">
+            本ページは、スマートE勤怠システムの使い方をご説明するための資料です。
+            <br>
+            わからないことがあれば、以下の項目から該当する説明を選んでください。
+          </p>
+        </div>
+      </div>
+
+      <!-- Navigation Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;margin-bottom:30px;">
+        <div class="kintai-card" style="cursor:pointer;transition:all 0.3s;" onclick="scrollToSection('login')">
+          <div style="padding:20px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:10px;">🔑</div>
+            <div style="font-weight:bold;color:#1e40af;margin-bottom:5px;">ログイン方法</div>
+            <div style="font-size:12px;color:#666;">ID・パスワードでログインする</div>
+          </div>
+        </div>
+
+        <div class="kintai-card" style="cursor:pointer;transition:all 0.3s;" onclick="scrollToSection('simple')">
+          <div style="padding:20px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:10px;">⏱️</div>
+            <div style="font-weight:bold;color:#1e40af;margin-bottom:5px;">簡易打刻方法</div>
+            <div style="font-size:12px;color:#666;">開始・終了打刻の操作</div>
+          </div>
+        </div>
+
+        <div class="kintai-card" style="cursor:pointer;transition:all 0.3s;" onclick="scrollToSection('monthly')">
+          <div style="padding:20px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:10px;">📋</div>
+            <div style="font-weight:bold;color:#1e40af;margin-bottom:5px;">月次勤怠入力</div>
+            <div style="font-size:12px;color:#666;">勤務区分・現場などの詳細入力</div>
+          </div>
+        </div>
+
+        <div class="kintai-card" style="cursor:pointer;transition:all 0.3s;" onclick="scrollToSection('troubleshoot')">
+          <div style="padding:20px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:10px;">🛠️</div>
+            <div style="font-weight:bold;color:#1e40af;margin-bottom:5px;">トラブル対処</div>
+            <div style="font-size:12px;color:#666;">よくあるエラーと対応方法</div>
+          </div>
+        </div>
+
+        <div class="kintai-card" style="cursor:pointer;transition:all 0.3s;" onclick="scrollToSection('smartphone')">
+          <div style="padding:20px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:10px;">📱</div>
+            <div style="font-weight:bold;color:#1e40af;margin-bottom:5px;">スマートフォン利用</div>
+            <div style="font-size:12px;color:#666;">モバイルでの操作ガイド</div>
+          </div>
+        </div>
+
+        <div class="kintai-card" style="cursor:pointer;transition:all 0.3s;" onclick="scrollToSection('rules')">
+          <div style="padding:20px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:10px;">⚙️</div>
+            <div style="font-weight:bold;color:#1e40af;margin-bottom:5px;">利用ルール</div>
+            <div style="font-size:12px;color:#666;">基本ルールと禁止事項</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Sections -->
+
+      <!-- 1. ログイン方法 -->
+      <div class="kintai-card" id="section-login" style="margin-bottom:30px;">
+        <div class="kintai-card-title" id="login">🔑 ログイン方法</div>
+        <div style="padding:20px;">
+          <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin-bottom:15px;">
+            <div style="font-weight:bold;margin-bottom:10px;color:#1e40af;">推奨ブラウザ</div>
+            <ul style="margin:0;padding-left:20px;color:#334155;">
+              <li>Google Chrome（最新版）</li>
+              <li>Microsoft Edge（最新版）</li>
+              <li>Safari（最新版）</li>
+            </ul>
+          </div>
+
+          <div style="margin-bottom:20px;">
+            <div style="font-weight:bold;margin-bottom:10px;color:#1e40af;">ログイン手順</div>
+            <ol style="margin:0;padding-left:20px;color:#334155;">
+              <li style="margin-bottom:10px;">
+                <strong>ログイン画面を開く</strong>
+                <br><code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;">https://tosouapp.com/ui/login</code>
+              </li>
+              <li style="margin-bottom:10px;">
+                <strong>ログインID を入力</strong>
+                <br><span style="font-size:13px;color:#666;">会社から配布されたID</span>
+              </li>
+              <li style="margin-bottom:10px;">
+                <strong>パスワード を入力</strong>
+                <br><span style="font-size:13px;color:#666;">会社から配布されたパスワード</span>
+              </li>
+              <li style="margin-bottom:10px;">
+                <strong>「ログイン」ボタンを押す</strong>
+              </li>
+              <li>
+                <strong>メニューから必要な画面を選択</strong>
+              </li>
+            </ol>
+          </div>
+
+          <div style="background:#fff3cd;padding:12px;border-radius:6px;border-left:4px solid #ffc107;">
+            <strong>⚠️ 注意:</strong> Edgeでログインできない、表示不具合が出る場合は、Google Chromeをご利用ください。
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. 簡易打刻方法 -->
+      <div class="kintai-card" id="section-simple" style="margin-bottom:30px;">
+        <div class="kintai-card-title" id="simple">⏱️ 簡易打刻方法</div>
+        <div style="padding:20px;">
+          <div style="margin-bottom:20px;">
+            <div style="font-weight:bold;margin-bottom:10px;color:#1e40af;font-size:15px;">毎日の基本運用（推奨）</div>
+            <ol style="margin:0;padding-left:20px;color:#334155;">
+              <li style="margin-bottom:15px;">
+                <strong>出勤時に「開始打刻」を押す</strong>
+                <br><span style="font-size:13px;color:#666;">簡易登録画面で「開始打刻」ボタンをクリック</span>
+              </li>
+              <li style="margin-bottom:15px;">
+                <strong>退勤時に「終了打刻」を押す</strong>
+                <br><span style="font-size:13px;color:#666;">「終了打刻」ボタンをクリック</span>
+              </li>
+              <li style="margin-bottom:15px;">
+                <strong>当日または月内に月次勤怠画面で確認・補足入力する</strong>
+              </li>
+              <li>
+                <strong>必要に応じて現場・作業内容・理由などを入力して保存</strong>
+              </li>
+            </ol>
+          </div>
+
+          <div style="background:#e7f3ff;padding:15px;border-radius:6px;margin-bottom:15px;">
+            <div style="font-weight:bold;margin-bottom:10px;color:#1e40af;">「開始打刻」について</div>
+            <ul style="margin:0;padding-left:20px;color:#334155;font-size:14px;">
+              <li>出勤時に<strong>1回だけ</strong>押してください</li>
+              <li>「開始打刻済み」と表示されたら、再度押さないでください</li>
+              <li>時刻修正が必要な場合は、月次勤怠画面で修正してください</li>
+            </ul>
+          </div>
+
+          <div style="background:#f0f8ff;padding:15px;border-radius:6px;">
+            <div style="font-weight:bold;margin-bottom:10px;color:#1e40af;">「終了打刻」について</div>
+            <ul style="margin:0;padding-left:20px;color:#334155;font-size:14px;">
+              <li>退勤時に押してください</li>
+              <li>同じボタンを連続で何度も押さないでください</li>
+              <li>時刻修正が必要な場合は、月次勤怠画面で修正してください</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 月次勤怠入力 -->
+      <div class="kintai-card" id="section-monthly" style="margin-bottom:30px;">
+        <div class="kintai-card-title" id="monthly">📋 月次勤怠入力</div>
+        <div style="padding:20px;">
+          <div style="margin-bottom:20px;">
+            <div style="font-weight:bold;margin-bottom:10px;color:#1e40af;font-size:15px;">入力できる主な項目</div>
+            <div style="background:#f9f9f9;padding:15px;border-radius:6px;">
+              <ul style="margin:0;padding-left:20px;color:#334155;">
+                <li><strong>勤務区分</strong> - 出勤、休日出勤、半休、休日、有給休暇など</li>
+                <li><strong>現場</strong> - 担当している現場名</li>
+                <li><strong>作業内容</strong> - 実施した業務内容</li>
+                <li><strong>開始時間 / 終了時間</strong> - 勤務時間の修正</li>
+                <li><strong>休憩時間</strong> - 休憩の時間設定</li>
+                <li><strong>理由</strong> - 必要な場合に入力</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="margin-bottom:20px;">
+            <div style="font-weight:bold;margin-bottom:10px;color:#1e40af;font-size:15px;">保存方法</div>
+            <ul style="margin:0;padding-left:20px;color:#334155;">
+              <li style="margin-bottom:10px;">行を変更すると<strong>自動保存される場合があります</strong></li>
+              <li style="margin-bottom:10px;">画面上部/下部の<strong>「保存」ボタン</strong>でも保存できます</li>
+              <li>保存後に画面を<strong>再読込</strong>し、内容が反映されていることを確認してください</li>
+            </ul>
+          </div>
+
+          <div style="background:#fff3cd;padding:12px;border-radius:6px;border-left:4px solid #ffc107;">
+            <strong>重要:</strong> 「出勤」や「休日出勤」を選択した場合、必要に応じて時刻も確認してください。
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. トラブル対処 -->
+      <div class="kintai-card" id="section-troubleshoot" style="margin-bottom:30px;">
+        <div class="kintai-card-title" id="troubleshoot">🛠️ トラブル対処</div>
+        <div style="padding:20px;">
+          <div style="margin-bottom:20px;">
+            <div style="background:#f5f5f5;padding:15px;border-radius:6px;margin-bottom:15px;border-left:4px solid #dc3545;">
+              <div style="font-weight:bold;color:#dc3545;margin-bottom:10px;">❌ 保存したのに戻る / 変わらない</div>
+              <div style="color:#334155;margin-bottom:10px;">対応方法:</div>
+              <ol style="margin:0;padding-left:20px;color:#334155;font-size:14px;">
+                <li><strong>Ctrl + F5</strong> で強制再読込</li>
+                <li>一度ログアウトして再ログイン</li>
+                <li>Google Chromeで再度確認</li>
+              </ol>
+            </div>
+
+            <div style="background:#f5f5f5;padding:15px;border-radius:6px;margin-bottom:15px;border-left:4px solid #dc3545;">
+              <div style="font-weight:bold;color:#dc3545;margin-bottom:10px;">❌ 打刻ボタンが押せない</div>
+              <div style="color:#334155;margin-bottom:10px;">対応方法:</div>
+              <ul style="margin:0;padding-left:20px;color:#334155;font-size:14px;">
+                <li>すでに「開始打刻済み」の可能性があります</li>
+                <li>画面を再読込（Ctrl + F5）してください</li>
+                <li>時刻修正が必要な場合は、月次勤怠画面で行ってください</li>
+              </ul>
+            </div>
+
+            <div style="background:#f5f5f5;padding:15px;border-radius:6px;margin-bottom:15px;border-left:4px solid #dc3545;">
+              <div style="font-weight:bold;color:#dc3545;margin-bottom:10px;">❌ 画面が遅い / 反映が遅い</div>
+              <div style="color:#334155;margin-bottom:10px;">対応方法:</div>
+              <ol style="margin:0;padding-left:20px;color:#334155;font-size:14px;">
+                <li>5～10秒待機してから再確認</li>
+                <li>通信環境（Wi-Fi / 4G）を切り替え</li>
+                <li>不要なブラウザタブを閉じる</li>
+                <li>画面を再読込（Ctrl + F5）</li>
+              </ol>
+            </div>
+          </div>
+
+          <div style="background:#d4edda;padding:15px;border-radius:6px;border-left:4px solid #28a745;">
+            <div style="font-weight:bold;color:#155724;margin-bottom:10px;">💡 解決しない場合は？</div>
+            <div style="color:#155724;font-size:14px;">
+              直属管理者またはシステム担当へ以下の情報を含めて報告してください：
+            </div>
+            <ul style="margin:10px 0 0 0;padding-left:20px;color:#155724;font-size:14px;">
+              <li>エラー画面のスクリーンショット</li>
+              <li>発生日時と操作内容</li>
+              <li>利用端末とブラウザ（Chrome / Edge等）</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. スマートフォン利用 -->
+      <div class="kintai-card" id="section-smartphone" style="margin-bottom:30px;">
+        <div class="kintai-card-title" id="smartphone">📱 スマートフォン利用</div>
+        <div style="padding:20px;">
+          <div style="background:#e7f3ff;padding:15px;border-radius:6px;margin-bottom:15px;">
+            <div style="font-weight:bold;color:#1e40af;margin-bottom:10px;">✅ スマートフォンで利用可能な機能</div>
+            <ul style="margin:0;padding-left:20px;color:#334155;">
+              <li>ログイン</li>
+              <li>簡易打刻（開始・終了）</li>
+              <li>月次勤怠入力の確認・修正</li>
+            </ul>
+          </div>
+
+          <div style="background:#fff3cd;padding:15px;border-radius:6px;">
+            <div style="font-weight:bold;color:#856404;margin-bottom:10px;">⚠️ 注意事項</div>
+            <ul style="margin:0;padding-left:20px;color:#334155;">
+              <li>詳細な設定・管理操作はPC利用を推奨します</li>
+              <li>タテ向き（ポートレート）でのご利用をお勧めします</li>
+              <li>通信環境が不安定な場合は、Wi-Fi接続をお勧めします</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. 利用ルール -->
+      <div class="kintai-card" id="section-rules" style="margin-bottom:30px;">
+        <div class="kintai-card-title" id="rules">⚙️ 利用ルール</div>
+        <div style="padding:20px;">
+          <div style="background:#d4edda;padding:15px;border-radius:6px;margin-bottom:15px;">
+            <div style="font-weight:bold;color:#155724;margin-bottom:10px;">✅ 正しい操作方法</div>
+            <ul style="margin:0;padding-left:20px;color:#155724;">
+              <li>打刻時に十分な間隔をあけてからボタンを押してください</li>
+              <li>同じボタンを連続で何度も押さないでください</li>
+              <li>定期的にパスワードを変更してください</li>
+              <li>異常時は画面を撮影し、すぐに管理者へ報告してください</li>
+            </ul>
+          </div>
+
+          <div style="background:#f8d7da;padding:15px;border-radius:6px;">
+            <div style="font-weight:bold;color:#721c24;margin-bottom:10px;">❌ 禁止事項</div>
+            <ul style="margin:0;padding-left:20px;color:#721c24;">
+              <li><strong>アカウントの共有</strong> - 絶対に他人と共有しないでください</li>
+              <li><strong>他人のID・パスワード利用</strong> - 自分のアカウントのみ使用してください</li>
+              <li><strong>エラー時の連打操作</strong> - エラー時は画面を再読込し、管理者に相談してください</li>
+              <li><strong>不正な打刻</strong> - 実際の勤務と異なる入力は行わないでください</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="kintai-card" style="background:#f0f4f8;">
+        <div style="padding:20px;text-align:center;color:#666;">
+          <div style="margin-bottom:10px;">
+            ご不明な点がございましたら、直属管理者またはシステム担当へお気軽にお問い合わせください。
+          </div>
+          <div style="font-size:12px;color:#999;">
+            最終更新: 2026年4月
+          </div>
+        </div>
       </div>
     </section>
   </main>
+
+  <script>
+    function scrollToSection(sectionId) {
+      const element = document.getElementById('section-' + sectionId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    // Add smooth scroll behavior for navigation links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
 </body>
 </html>
 

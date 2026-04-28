@@ -474,6 +474,14 @@ const calcWorkMinutes = () => {
 const renderWorkMinutes = () => {
   const box = $('#workMinutes');
   if (!box) return;
+  const stEl = $('#startTime');
+  const etEl = $('#endTime');
+  const stAuto = String(stEl?.dataset?.auto || '') === '1';
+  const etAuto = String(etEl?.dataset?.auto || '') === '1';
+  const stTouched = String(stEl?.dataset?.touched || '') === '1';
+  const etTouched = String(etEl?.dataset?.touched || '') === '1';
+  const shouldFade = (stAuto && !stTouched) || (etAuto && !etTouched);
+  box.classList.toggle('is-auto', shouldFade);
   const m = calcWorkMinutes();
   if (m == null) { box.textContent = '—'; return; }
   const hh = Math.floor(m / 60);
@@ -487,10 +495,7 @@ const getSimpleStatusMeta = () => {
   const monthApproved = String(window.state?.currentMonthStatus || '').trim() === 'approved';
   const kubunEl = $('#kubun');
   const isPlanned = !!kubunEl?.classList?.contains('is-planned');
-  const hasActualNow = !!(
-    String($('#startTime')?.value || '').trim() ||
-    String($('#endTime')?.value || '').trim()
-  );
+  const hasActualNow = !!(effectiveHm($('#startTime')) || effectiveHm($('#endTime')));
   if (isPlanned && !hasActualNow) return { text: '未申請', cls: 'warn' };
   if (monthApproved) return { text: '承認済み', cls: 'ok' };
   if (hasActualNow) return { text: isAdminView ? '承認待ち' : '未確認', cls: 'warn' };

@@ -127,6 +127,12 @@
     window.addEventListener('pageshow', () => hideNavLoading());
   };
 
+  const targetEl = (e) => {
+    const t = e && e.target;
+    if (!t) return null;
+    return t.nodeType === 3 ? t.parentElement : t;
+  };
+
   const ensureMobileMenu = () => {
     const brand = document.querySelector('.kintai-brand');
     if (!brand) return;
@@ -261,7 +267,8 @@
     btn.addEventListener('click', handler, { passive: false });
     btn.addEventListener('touchstart', handler, { passive: false });
       document.addEventListener('click', (e) => {
-        const t = e.target;
+        const t = targetEl(e);
+        if (!t) return;
         if (!t.closest('.kintai-top') || t.closest('#mobileMenuBtn')) return;
         closeMenu();
       });
@@ -304,6 +311,8 @@
     try { ensureMobileMenu(); } catch {}
     window.addEventListener('resize', () => { try { ensureMobileMenu(); } catch {} }, { passive: true });
     try {
+      if (document.documentElement?.dataset?.kintaiTopNavDdBound === '1') return;
+      document.documentElement.dataset.kintaiTopNavDdBound = '1';
       const nav = document.querySelector('.kintai-nav');
       if (nav) {
         const dds = Array.from(nav.querySelectorAll('.kintai-nav-dd'));
@@ -336,7 +345,8 @@
           const btn2 = dd2.querySelector('.kintai-nav-btn');
           const panel2 = dd2.querySelector('.kintai-dd');
           if (!btn2 || !panel2) return;
-          const openHandler = (e) => {
+          let lastToggleAt = 0;
+          const toggleDropdown = (e) => {
             try { e.preventDefault(); e.stopPropagation(); } catch {}
             const isOpen = !panel2.hasAttribute('hidden');
             closeAll();
@@ -375,14 +385,35 @@
               btn2.setAttribute('aria-expanded', 'true');
             }
           };
-          btn2.addEventListener('pointerdown', openHandler, { passive: false });
+          const onTouchLike = (e) => {
+            const now = Date.now();
+            if (now - lastToggleAt < 300) {
+              try { e.preventDefault(); e.stopPropagation(); } catch {}
+              return;
+            }
+            lastToggleAt = now;
+            toggleDropdown(e);
+          };
+          const onClick = (e) => {
+            const now = Date.now();
+            if (now - lastToggleAt < 700) {
+              try { e.preventDefault(); e.stopPropagation(); } catch {}
+              return;
+            }
+            lastToggleAt = now;
+            toggleDropdown(e);
+          };
+          btn2.addEventListener('pointerdown', onTouchLike, { passive: false });
+          btn2.addEventListener('touchstart', onTouchLike, { passive: false });
+          btn2.addEventListener('click', onClick, { passive: false });
           btn2.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') openHandler(e);
+            if (e.key === 'Enter' || e.key === ' ') toggleDropdown(e);
           }, { passive: false });
           // Close menus only when clicking outside or pressing Escape; avoid closing on mouseenter to prevent flicker
         });
         document.addEventListener('click', (e) => {
-          const t = e.target;
+          const t = targetEl(e);
+          if (!t) return;
           if (t.closest('.kintai-nav')) return;
           closeAll();
         }, { passive: true });

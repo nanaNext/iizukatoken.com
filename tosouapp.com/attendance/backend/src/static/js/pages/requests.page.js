@@ -11,9 +11,9 @@ const prefillUserName = () => {
     const name = (u && (u.username || u.email)) ? String(u.username || u.email) : '';
     if (name) {
       el.textContent = name;
-      try { window.userName = name; } catch {}
+      try { window.userName = name; } catch { }
     }
-  } catch {}
+  } catch { }
 };
 
 const pinKey = 'se.req.pin';
@@ -23,7 +23,7 @@ function loadPin() {
   try { return localStorage.getItem(pinKey) === '1'; } catch { return false; }
 }
 function savePin(v) {
-  try { localStorage.setItem(pinKey, v ? '1' : '0'); } catch {}
+  try { localStorage.setItem(pinKey, v ? '1' : '0'); } catch { }
 }
 
 function renderRows(rows) {
@@ -52,7 +52,7 @@ function renderRows(rows) {
         <td><a href="javascript:void(0)">${no}</a></td>
         <td>${status}</td>
         <td>${type}</td>
-        <td>${detail ? detail.replace(/</g,'&lt;') : ''}</td>
+        <td>${detail ? detail.replace(/</g, '&lt;') : ''}</td>
         <td>${staff}</td>
         <td>${office}</td>
         <td></td>
@@ -76,7 +76,7 @@ async function load(q = '', options = {}) {
   lastLoadedQuery = query;
   try {
     if (typeof window.__reqRecentHook === 'function') window.__reqRecentHook(rows);
-  } catch {}
+  } catch { }
 }
 
 function bindUI() {
@@ -105,6 +105,7 @@ function bindUI() {
   const toolEdit = $('#toolEdit');
   const toolSettings = $('#toolSettings');
   const toolView = $('#toolView');
+  const toolClock = $('#toolClock');
   const settingsMenu = $('#settingsMenu');
   const settingsTip = $('#settingsTip');
   const setNew = $('#setNew');
@@ -129,7 +130,7 @@ function bindUI() {
         const renderNewList = (filterText = '') => {
           const q = String(filterText || '').toLowerCase();
           const sel = loadSel();
-          const mk = (it) => `<div class="req-list-item" role="option" data-name="${it.name}" aria-selected="${sel===it.name?'true':'false'}"><span class="check">✓</span><span class="label">${it.display}</span></div>`;
+          const mk = (it) => `<div class="req-list-item" role="option" data-name="${it.name}" aria-selected="${sel === it.name ? 'true' : 'false'}"><span class="check">✓</span><span class="label">${it.display}</span></div>`;
           if (newListAll) newListAll.innerHTML = allItems.filter(it => (it.display.toLowerCase().includes(q) || it.label.toLowerCase().includes(q))).map(mk).join('');
         };
         if (newListFilter && !newListFilter.dataset.boundInput) {
@@ -139,11 +140,11 @@ function bindUI() {
           };
         }
         renderNewList(newListFilter?.value || '');
-      } catch {}
+      } catch { }
       newListMenu.hidden = false;
       btnNew.setAttribute('aria-expanded', 'true');
       if (!keepNewListOpen && shouldAutoFocus()) {
-        try { newListFilter?.focus(); } catch {}
+        try { newListFilter?.focus(); } catch { }
       }
     };
 
@@ -272,7 +273,7 @@ function bindUI() {
     }
   };
   const saveRecent = (arr) => {
-    try { localStorage.setItem(recentKey, JSON.stringify((arr || []).slice(0, 8))); } catch {}
+    try { localStorage.setItem(recentKey, JSON.stringify((arr || []).slice(0, 8))); } catch { }
   };
   const mergeRecent = (arr) => {
     const seen = new Set();
@@ -327,15 +328,15 @@ function bindUI() {
         if (appliedItems.length >= 50) break;
       }
       renderList(listFilter?.value || '');
-    } catch {}
+    } catch { }
   };
   recentItems = loadRecent();
-  const saveSel = (v) => { try { localStorage.setItem(keySel, v); } catch {} };
+  const saveSel = (v) => { try { localStorage.setItem(keySel, v); } catch { } };
   const loadSel = () => { try { return localStorage.getItem(keySel) || ''; } catch { return '' } };
   const renderList = (filter = '') => {
     const q = String(filter || '').toLowerCase();
     const sel = loadSel();
-    const mk = (it) => `<div class="req-list-item" role="option" data-name="${it.name}" aria-selected="${sel===it.name?'true':'false'}"><span class="check">✓</span><span class="label">${it.display}</span></div>`;
+    const mk = (it) => `<div class="req-list-item" role="option" data-name="${it.name}" aria-selected="${sel === it.name ? 'true' : 'false'}"><span class="check">✓</span><span class="label">${it.display}</span></div>`;
     if (listRecent) listRecent.innerHTML = recentItems.filter(n => n.toLowerCase().includes(q)).map(n => mk({ name: n, label: n, display: n })).join('');
     if (listAll) {
       listAll.innerHTML = appliedItems
@@ -354,7 +355,7 @@ function bindUI() {
   const openMenu = () => {
     if (!listMenu) return;
     listMenu.hidden = false;
-    listBtn?.setAttribute('aria-expanded','true');
+    listBtn?.setAttribute('aria-expanded', 'true');
     renderList('');
     if (shouldAutoFocus()) {
       listFilter?.focus();
@@ -363,7 +364,7 @@ function bindUI() {
   const closeMenu = () => {
     if (!listMenu) return;
     listMenu.hidden = true;
-    listBtn?.setAttribute('aria-expanded','false');
+    listBtn?.setAttribute('aria-expanded', 'false');
   };
   if (listBtn && listMenu) {
     listBtn.addEventListener('click', (e) => {
@@ -450,6 +451,13 @@ function bindUI() {
       tbl.classList.toggle('compact');
     });
   }
+  if (toolClock) {
+    toolClock.addEventListener('click', async () => {
+      closeNewList();
+      openMenu();
+      await loadRecentAppliedFromServer();
+    });
+  }
 
   if (setNew && btnNew) {
     setNew.addEventListener('click', () => {
@@ -461,8 +469,8 @@ function bindUI() {
   if (setResetWidth) {
     setResetWidth.addEventListener('click', () => {
       document.querySelectorAll('.req-table th').forEach(th => {
-        try { th.style.width = ''; } catch {}
-        try { th.removeAttribute('style'); } catch {}
+        try { th.style.width = ''; } catch { }
+        try { th.removeAttribute('style'); } catch { }
       });
       if (settingsMenu && !settingsMenu.hidden) settingsMenu.hidden = true;
       toolSettings?.setAttribute('aria-expanded', 'false');
@@ -480,7 +488,7 @@ export async function bootRequestsPage() {
   if (page.dataset.booted === '1') return;
   page.dataset.booted = '1';
   prefillUserName();
-  try { window.userName = window.userName || $('#userName')?.textContent || ''; } catch {}
+  try { window.userName = window.userName || $('#userName')?.textContent || ''; } catch { }
   bindUI();
   await load('', { force: true });
 }
