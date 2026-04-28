@@ -175,18 +175,22 @@
       const isAdminView = String(profile?.role || '').toLowerCase() === 'admin' || String(profile?.role || '').toLowerCase() === 'manager';
       const hasAny = !!(finalIn || finalOut);
       const leaveKubunSet = new Set(['休日', '代替休日', '有給休暇', '無給休暇', '欠勤']);
-      const isLeaveApplied = !!kubunInit && leaveKubunSet.has(effectiveKubun) && !hasActual;
+      const isRegularOffRow = !!isOff && !hasActual && (effectiveKubun === '休日' || effectiveKubun === '代替休日');
+      const isLeaveApplied = !!kubunInit && leaveKubunSet.has(effectiveKubun) && !hasActual && !isRegularOffRow;
       let text = '未承認';
       let cls = 'warn';
-      if (isPlanned && !hasActual) {
+      if (approved) {
+        text = '承認済み';
+        cls = 'ok';
+      } else if (isPlanned && !hasActual) {
         text = '未申請';
         cls = 'warn';
       } else if (isLeaveApplied) {
         text = isAdminView ? '承認待ち' : '未確認';
         cls = 'warn';
-      } else if (approved) {
-        text = '承認済み';
-        cls = 'ok';
+      } else if (isRegularOffRow) {
+        text = '—';
+        cls = 'warn';
       } else if (hasActual) {
         text = isAdminView ? '承認待ち' : '未確認';
         cls = 'warn';
@@ -484,13 +488,20 @@
         const roleStr = String(root.State?.profile?.role || '').toLowerCase();
         const isAdminView = roleStr === 'admin' || roleStr === 'manager';
         const monthApproved = String(state.currentMonthStatus || '') === 'approved';
+        const isRegularOffRowNow = !!isOff && !hasActualNow && (effectiveKubun === '休日' || effectiveKubun === '代替休日');
+        const leaveKubunSetNow = new Set(['休日', '代替休日', '有給休暇', '無給休暇', '欠勤']);
+        const isLeaveAppliedNow = !!cls && leaveKubunSetNow.has(cls) && !hasActualNow && !isRegularOffRowNow;
         let stText = '未承認';
         let stCls = 'warn';
-        if (isPlanned && !hasActualNow) {
-          stText = '未申請';
-        } else if (monthApproved) {
+        if (monthApproved) {
           stText = '承認済み';
           stCls = 'ok';
+        } else if (isPlanned && !hasActualNow) {
+          stText = '未申請';
+        } else if (isLeaveAppliedNow) {
+          stText = isAdminView ? '承認待ち' : '未確認';
+        } else if (isRegularOffRowNow) {
+          stText = '—';
         } else if (hasActualNow) {
           stText = isAdminView ? '承認待ち' : '未確認';
         } else {
