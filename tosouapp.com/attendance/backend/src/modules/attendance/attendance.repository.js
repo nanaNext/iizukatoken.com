@@ -9,6 +9,14 @@ const mergeLabels = (...values) => {
   return set.size ? Array.from(set).join(',') : null;
 };
 
+const todayJST = () => {
+  try {
+    return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  } catch {
+    return '';
+  }
+};
+
 // Helper function to calculate daily status
 const calculateDailyStatus = (isWorkDay, hasCheckIn, hasCheckOut, monthStatus) => {
   // monthStatus values: 'draft', 'submitted', 'approved'
@@ -992,10 +1000,10 @@ module.exports = {
       const [openRows] = await conn.query(
         `SELECT id, checkIn, checkOut, work_type, labels
          FROM attendance
-         WHERE userId = ? AND checkIn >= CURDATE() AND checkIn < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+         WHERE userId = ? AND DATE(checkIn) = ?
          ORDER BY checkIn DESC
          LIMIT 1`,
-        [userId]
+        [userId, dateStr]
       );
       if (openRows && openRows.length) {
         const existing = openRows[0];
@@ -1044,9 +1052,10 @@ module.exports = {
       conn.release();
     }
   },
-  async getOpenAttendanceForUser(userId) {
-    const sql = `SELECT * FROM attendance WHERE userId = ? AND checkOut IS NULL AND checkIn >= CURDATE() AND checkIn < DATE_ADD(CURDATE(), INTERVAL 1 DAY) ORDER BY checkIn DESC LIMIT 1`;
-    const [rows] = await db.query(sql, [userId]);
+  async getOpenAttendanceForUser(userId, dateStr) {
+    const d = String(dateStr || todayJST()).slice(0, 10);
+    const sql = `SELECT * FROM attendance WHERE userId = ? AND checkOut IS NULL AND DATE(checkIn) = ? ORDER BY checkIn DESC LIMIT 1`;
+    const [rows] = await db.query(sql, [userId, d]);
     return rows[0];
   },
   async setCheckOut(attendanceId, time, loc, labels) {
