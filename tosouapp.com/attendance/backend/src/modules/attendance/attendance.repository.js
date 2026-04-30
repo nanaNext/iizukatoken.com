@@ -1002,16 +1002,8 @@ module.exports = {
         const hasOut = !!existing?.checkOut;
         const inHm = String(existing?.checkIn || '').slice(11, 16);
         const outHm = String(existing?.checkOut || '').slice(11, 16);
-        const outStr = String(existing?.checkOut || '').slice(0, 19);
-        const nowStr = String(time || '').slice(0, 19);
         const looksPlannedShape = !!(inHm && inHm === assignedShiftStart && (!outHm || outHm === assignedShiftEnd));
-        const canPromotePlanned = !!(
-          looksPlannedShape &&
-          (
-            !hasOut ||
-            (outStr && nowStr && outStr > nowStr)
-          )
-        );
+        const canPromotePlanned = !!looksPlannedShape;
         if (canPromotePlanned) {
           const nextLabels = String(labels || '').trim() || null;
           await conn.query(
