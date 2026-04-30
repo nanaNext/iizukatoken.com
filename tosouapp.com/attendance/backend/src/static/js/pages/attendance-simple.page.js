@@ -1019,7 +1019,16 @@ const tryCheckIn = async () => {
     return { ok: true, already: false };
   } catch (e) {
     const m = String(e?.message || '');
-    if (m.includes('Already checked in') || m.includes('409')) return { ok: true, already: true };
+    const ml = m.toLowerCase();
+    if (
+      ml.includes('already checked in') ||
+      ml.includes('checked in') ||
+      ml.includes('409') ||
+      m.includes('既に') ||
+      m.includes('出勤済み')
+    ) {
+      return { ok: true, already: true };
+    }
     throw e;
   }
 };
