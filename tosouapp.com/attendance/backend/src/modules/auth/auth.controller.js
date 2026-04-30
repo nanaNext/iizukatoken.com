@@ -35,6 +35,15 @@ function normalizeDateLike(input) {
   return m ? `${m[1]}-${m[2]}-${m[3]}` : s;
 }
 
+function normalizeEmployeeCodeLike(input) {
+  const raw = String(input || '').trim().toLowerCase();
+  if (!raw) return '';
+  const stripped = raw.replace(/^emp\s*/i, '');
+  const digits = stripped.replace(/\D/g, '');
+  if (digits) return String(parseInt(digits, 10));
+  return stripped;
+}
+
 function normalizeRole(input) {
   const r = String(input || '').trim().toLowerCase();
   if (r === 'admin' || r === 'manager' || r === 'employee' || r === 'payroll') return r;
@@ -197,8 +206,8 @@ exports.forgotPassword = async (req, res) => {
     }
     const normalizedInputBirthDate = normalizeDateLike(birthDate);
     const normalizedUserBirthDate = normalizeDateLike(user.birth_date || user.birthDate);
-    const normalizedInputEmployeeCode = String(employeeCode || '').trim().toLowerCase();
-    const normalizedUserEmployeeCode = String(user.employee_code || user.employeeCode || '').trim().toLowerCase();
+    const normalizedInputEmployeeCode = normalizeEmployeeCodeLike(employeeCode);
+    const normalizedUserEmployeeCode = normalizeEmployeeCodeLike(user.employee_code || user.employeeCode);
     if (normalizedInputBirthDate !== normalizedUserBirthDate || normalizedInputEmployeeCode !== normalizedUserEmployeeCode) {
       return res.status(202).json({ ok: true });
     }
