@@ -1935,6 +1935,16 @@ tr[data-dirty="1"] .se-status::after {
   font-size: 10px;
 }
 
+/* Approved rows should never be shown as unsaved, even if stale dirty flag remains */
+tr[data-dirty="1"] .se-status.ok {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+  color: #fff !important;
+}
+tr[data-dirty="1"] .se-status.ok::after {
+  content: '' !important;
+}
+
 input.se-time[disabled][data-row-disabled="1"] {
   color: #94a3b8 !important;
   -webkit-text-fill-color: #94a3b8 !important;

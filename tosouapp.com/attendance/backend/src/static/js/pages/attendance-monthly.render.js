@@ -442,6 +442,11 @@
       const excess = rowEl.querySelector('[data-field="excess"]');
       const lateEarly = rowEl.querySelector('[data-field="lateEarly"]');
       const statusWrap = rowEl.querySelector('.se-status-wrap');
+      const monthApproved = String(state.currentMonthStatus || '') === 'approved';
+      if (monthApproved) {
+        // Approved month must never appear as "unsaved" on row badges.
+        try { rowEl.dataset.dirty = ''; } catch {}
+      }
 
       const idVal = String(rowEl.dataset.id || '').trim();
       const confirmed = String(rowEl.dataset.kubunConfirmed || '') === '1';
@@ -487,7 +492,6 @@
       if (statusWrap) {
         const roleStr = String(root.State?.profile?.role || '').toLowerCase();
         const isAdminView = roleStr === 'admin' || roleStr === 'manager';
-        const monthApproved = String(state.currentMonthStatus || '') === 'approved';
         const isRegularOffRowNow = !!offDay && !hasActualNow && (effectiveKubun === '休日' || effectiveKubun === '代替休日');
         const leaveKubunSetNow = new Set(['休日', '代替休日', '有給休暇', '無給休暇', '欠勤']);
         const isLeaveAppliedNow = !!cls && leaveKubunSetNow.has(cls) && !hasActualNow && !isRegularOffRowNow;
