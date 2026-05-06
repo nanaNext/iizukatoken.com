@@ -36,6 +36,7 @@ const fmtTime = (dt) => {
   return s.length >= 16 ? s.slice(11, 16) : s;
 };
 const todayJST = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+const isYukyuKubun = (v) => String(v || '').trim() === '有給休暇';
 
 async function ensureAuthProfile() {
   let token = sessionStorage.getItem('accessToken');
@@ -477,6 +478,19 @@ const renderAttendance = async () => {
         </div>
       </div>
     `;
+    const syncPaidLeaveRequest = async (kubun) => {
+      if (isYukyuKubun(kubun)) {
+        await fetchJSONAuth('/api/leave/paid', {
+          method: 'POST',
+          body: JSON.stringify({ startDate: date, endDate: date, reason: '' })
+        });
+        return;
+      }
+      await fetchJSONAuth('/api/leave/my/cancel-paid', {
+        method: 'POST',
+        body: JSON.stringify({ date })
+      });
+    };
     try {
       const sel = $('#workType');
       if (sel) sel.value = loadWT();
@@ -523,6 +537,7 @@ const renderAttendance = async () => {
         showSpinner();
         try {
           await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/daily`, { method: 'PUT', body: JSON.stringify({ kubun, workType: wt }) });
+          await syncPaidLeaveRequest(kubun);
         } catch (e) {
           showErr(e?.message || '保存に失敗しました');
         } finally {
@@ -537,6 +552,7 @@ const renderAttendance = async () => {
         const kubun = String($('#kubun')?.value || defaultKubun);
         const wt = hideKubunSet.has(kubun) ? null : (String($('#workType')?.value || loadWT()) || null);
         await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/daily`, { method: 'PUT', body: JSON.stringify({ kubun, workType: wt }) });
+        await syncPaidLeaveRequest(kubun);
         await fetchJSONAuth('/api/attendance/checkin', { method: 'POST', body: JSON.stringify({ workType: wt }) });
         await renderAttendance();
       } catch (e) {
@@ -552,6 +568,7 @@ const renderAttendance = async () => {
         const kubun = String($('#kubun')?.value || defaultKubun);
         const wt = hideKubunSet.has(kubun) ? null : (String($('#workType')?.value || loadWT()) || null);
         await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/daily`, { method: 'PUT', body: JSON.stringify({ kubun, workType: wt }) });
+        await syncPaidLeaveRequest(kubun);
         await fetchJSONAuth('/api/attendance/checkout', { method: 'POST', body: JSON.stringify({}) });
         await renderAttendance();
       } catch (e) {
@@ -567,6 +584,7 @@ const renderAttendance = async () => {
         const kubun = String($('#kubun')?.value || defaultKubun);
         const wt = hideKubunSet.has(kubun) ? null : (String($('#workType')?.value || loadWT()) || null);
         await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/daily`, { method: 'PUT', body: JSON.stringify({ kubun, workType: wt }) });
+        await syncPaidLeaveRequest(kubun);
         await fetchJSONAuth(`/api/attendance/date/${encodeURIComponent(date)}/submit`, { method: 'POST', body: JSON.stringify({}) }).catch(() => null);
         await renderAttendance();
       } catch (e) {

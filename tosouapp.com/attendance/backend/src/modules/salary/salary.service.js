@@ -4,6 +4,7 @@ const leaveRepo = require('../leave/leave.repository');
 const env = require('../../config/env');
 const salaryRepo = require('./salary.repository');
 const { calculatePaidLeaveEntitlement } = require('../../utils/leaveRules');
+const { resolveEmploymentStartDate } = require('../../utils/employmentDate');
 
 function roundToStep(value, step, mode) {
   if (!step || step <= 0) return value;
@@ -97,6 +98,22 @@ async function computePaidLeaveDays(userId, fromDate, toDate) {
   }
 }
 
+async function computeUnpaidLeaveDays(userId, fromDate, toDate) {
+  try {
+    const list = await leaveRepo.listByUser(userId);
+    let unpaidDays = 0;
+    for (const r of (list || [])) {
+      if (String(r?.status || '') !== 'approved') continue;
+      const t = String(r?.type || '').toLowerCase();
+      if (!(t.includes('unpaid') || t.includes('nopay') || t.includes('no_pay'))) continue;
+      unpaidDays += overlapDaysUTC(r.startDate, r.endDate, fromDate, toDate);
+    }
+    return unpaidDays;
+  } catch {
+    return 0;
+  }
+}
+
 async function computePayslipForUser(userId, month, options = null) {
   const pad = n => String(n).padStart(2, '0');
   const y = parseInt(String(month).split('-')[0], 10);
@@ -116,6 +133,8 @@ async function computePayslipForUser(userId, month, options = null) {
   const workKubunSet = new Set(['出勤', '半休', '休日出勤', '代替出勤']);
   const workDaysSet = new Set();
   let paidLeaveDaysFromDaily = 0;
+  let absentDaysFromDaily = 0;
+  let unpaidLeaveDaysFromDaily = 0;
 
   for (const r of dailyRows) {
     const date = String(r.date || '').slice(0, 10);
@@ -125,6 +144,12 @@ async function computePayslipForUser(userId, month, options = null) {
     }
     if (kubun === '有給休暇') {
       paidLeaveDaysFromDaily++;
+    }
+    if (kubun === '欠勤') {
+      absentDaysFromDaily++;
+    }
+    if (kubun === '無給休暇') {
+      unpaidLeaveDaysFromDaily++;
     }
   }
   for (const r of attendanceRows) {
@@ -138,8 +163,10 @@ async function computePayslipForUser(userId, month, options = null) {
   // Use either leave requests or manual daily entry for paid leave
   const paidLeaveDaysFromRequests = await computePaidLeaveDays(userId, from, to);
   const paidLeaveDays = Math.max(paidLeaveDaysFromDaily, paidLeaveDaysFromRequests);
+  const unpaidLeaveDaysFromRequests = await computeUnpaidLeaveDays(userId, from, to);
+  const unpaidLeaveDays = Math.max(unpaidLeaveDaysFromDaily, unpaidLeaveDaysFromRequests);
   
-  const paidLeaveEntitlement = calculatePaidLeaveEntitlement(user?.join_date || user?.hire_date);
+  const paidLeaveEntitlement = calculatePaidLeaveEntitlement(resolveEmploymentStartDate(user));
 
   const year = y;
   const conf = await salaryRepo.getConfigByYear(year);
@@ -200,7 +227,8 @@ async function computePayslipForUser(userId, month, options = null) {
   const holidayAllowance = yen(holidayMin * minuteRate * ((conf?.holiday_rate ?? env.salaryHolidayRate) - 1));
 
   const kOverride = opts.kintai && typeof opts.kintai === 'object' ? opts.kintai : {};
-  const kAbsentDays = Object.prototype.hasOwnProperty.call(kOverride, '欠勤日数') ? yen(kOverride['欠勤日数']) : 0;
+  const kAbsentDays = Object.prototype.hasOwnProperty.call(kOverride, '欠勤日数') ? yen(kOverride['欠勤日数']) : absentDaysFromDaily;
+  const kUnpaidLeaveDays = Object.prototype.hasOwnProperty.call(kOverride, '無給休暇') ? yen(kOverride['無給休暇']) : unpaidLeaveDays;
   const kPaidLeaveDays = Object.prototype.hasOwnProperty.call(kOverride, '有給休暇') ? yen(kOverride['有給休暇']) : paidLeaveDays;
   const kScheduledDaysOverride =
     Object.prototype.hasOwnProperty.call(kOverride, '所定労働日数') ? yen(kOverride['所定労働日数'])
@@ -213,7 +241,7 @@ async function computePayslipForUser(userId, month, options = null) {
   // Fallback to default (e.g. 21 days) only if we have absolutely no data to go on.
   // If the user explicitly inputted work days or we inferred them, trust that number even if it's < 15,
   // because some part-time employees might legitimately only work a few days a month.
-  const inferredDays = kWorkDaysOverride + kAbsentDays + kPaidLeaveDays;
+  const inferredDays = kWorkDaysOverride + kAbsentDays + kUnpaidLeaveDays + kPaidLeaveDays;
   if (inferredDays > 0) {
     computedScheduledWorkDays = inferredDays;
   }
@@ -247,12 +275,12 @@ async function computePayslipForUser(userId, month, options = null) {
   }
 
   if (
-    kAbsentDays > 0
+    (kAbsentDays + kUnpaidLeaveDays) > 0
     && scheduledWorkDays > 0
     && !hasAbsentDeductionOverride
   ) {
     const perDay = baseMonthly / scheduledWorkDays;
-    const absentDeduction = yen(perDay * kAbsentDays);
+    const absentDeduction = yen(perDay * (kAbsentDays + kUnpaidLeaveDays));
     if (absentDeduction) {
       支給['欠勤控除'] = -Math.abs(absentDeduction);
     }
@@ -374,6 +402,7 @@ async function computePayslipForUser(userId, month, options = null) {
     休日出勤日数: Object.prototype.hasOwnProperty.call(kOverride, '休日出勤日数') ? yen(kOverride['休日出勤日数']) : 0,
     半日出勤日数: Object.prototype.hasOwnProperty.call(kOverride, '半日出勤日数') ? yen(kOverride['半日出勤日数']) : 0,
     欠勤日数: kAbsentDays,
+    無給休暇: kUnpaidLeaveDays,
     有給休暇: kPaidLeaveDays,
     有給休暇付与: Object.prototype.hasOwnProperty.call(kOverride, '有給休暇付与') ? yen(kOverride['有給休暇付与']) : paidLeaveEntitlement,
     所定労働日数: scheduledWorkDays,

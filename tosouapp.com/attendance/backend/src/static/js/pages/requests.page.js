@@ -1,4 +1,5 @@
 import { listMyRequests, createRequest, listMyRecentAppliedTypes } from '../api/requests.api.js';
+import { applyPaidLeave } from '../api/leave.api.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -17,7 +18,35 @@ const prefillUserName = () => {
 };
 
 const pinKey = 'se.req.pin';
+const LEAVE_REQUEST_TYPE = '19_有給休暇申請';
 const shouldAutoFocus = () => false;
+
+function isISODate(s) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || '').trim());
+}
+
+async function submitPaidLeaveByPrompt(reasonPrefill = '') {
+  const startDate = String(prompt('有給休暇の開始日 (YYYY-MM-DD)', '') || '').trim();
+  if (!startDate) return false;
+  if (!isISODate(startDate)) {
+    alert('開始日の形式が正しくありません（YYYY-MM-DD）');
+    return false;
+  }
+  const endDate = String(prompt('有給休暇の終了日 (YYYY-MM-DD)', startDate) || '').trim();
+  if (!endDate) return false;
+  if (!isISODate(endDate)) {
+    alert('終了日の形式が正しくありません（YYYY-MM-DD）');
+    return false;
+  }
+  if (endDate < startDate) {
+    alert('終了日は開始日以降にしてください');
+    return false;
+  }
+  const reason = String(prompt('理由（任意）', String(reasonPrefill || '')) || '').trim();
+  await applyPaidLeave({ startDate, endDate, reason });
+  alert('有給休暇申請を送信しました');
+  return true;
+}
 
 function loadPin() {
   try { return localStorage.getItem(pinKey) === '1'; } catch { return false; }
@@ -189,6 +218,12 @@ function bindUI() {
       const detail = $('#detail').value.trim();
       const office = $('#office').value.trim();
       try {
+        if (recordType === LEAVE_REQUEST_TYPE) {
+          const ok = await submitPaidLeaveByPrompt(detail);
+          if (!ok) return;
+          if (modal) modal.hidden = true;
+          return;
+        }
         await createRequest({ recordType, detail, office });
         if (modal) modal.hidden = true;
         await load($('#searchInput')?.value || '', { force: true });
@@ -242,7 +277,8 @@ function bindUI() {
     '15_私の着任報告書',
     '16_私の待機計画書',
     '17_私の待機報告書',
-    '18_私の入社時申請'
+    '18_私の入社時申請',
+    LEAVE_REQUEST_TYPE
   ];
   const normalizeLabel = (name) => {
     const p = String(name || '');
@@ -260,6 +296,12 @@ function bindUI() {
   const allItems = uniqueSortedItems(allRaw);
   if (quickType) {
     quickType.innerHTML = allItems
+      .map((it) => `<option value="${it.name}">${it.display}</option>`)
+      .join('');
+  }
+  const modalType = $('#recordType');
+  if (modalType) {
+    modalType.innerHTML = allItems
       .map((it) => `<option value="${it.name}">${it.display}</option>`)
       .join('');
   }
@@ -403,6 +445,12 @@ function bindUI() {
       const detail = (quickDetail?.value || '').trim();
       const office = (quickOffice?.value || '').trim();
       try {
+        if (recordType === LEAVE_REQUEST_TYPE) {
+          const ok = await submitPaidLeaveByPrompt(detail);
+          if (!ok) return;
+          closeNewList();
+          return;
+        }
         await createRequest({ recordType, detail, office });
         closeNewList();
         await load(searchInput?.value || '', { force: true });

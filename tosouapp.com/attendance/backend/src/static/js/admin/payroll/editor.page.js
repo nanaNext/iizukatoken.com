@@ -206,6 +206,10 @@ export async function mount() {
         <span>欠勤日数</span>
         <input id="payrollKAbsent" type="number" step="1" placeholder="自動">
       </label>
+      <label class="pe-field">
+        <span>無給休暇</span>
+        <input id="payrollKUnpaid" type="number" step="1" placeholder="自動">
+      </label>
     </div>
   `;
 
@@ -985,6 +989,7 @@ export async function mount() {
       const kHoliday = Number(src['休日出勤日数'] || 0);
       const kHalf = Number(src['半日出勤日数'] || 0);
       const kAbsent = Number(src['欠勤日数'] || 0);
+      const kUnpaid = Number(src['無給休暇'] || 0);
       const setVal = (id, val) => {
         const el = document.querySelector(id);
         if (el) el.value = String(Math.max(0, Math.round(val || 0)));
@@ -993,6 +998,7 @@ export async function mount() {
       setVal('#payrollKHoliday', kHoliday);
       setVal('#payrollKHalf', kHalf);
       setVal('#payrollKAbsent', kAbsent);
+      setVal('#payrollKUnpaid', kUnpaid);
     } catch {}
   };
 

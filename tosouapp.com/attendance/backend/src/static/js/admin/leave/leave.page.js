@@ -41,13 +41,16 @@ export async function mount() {
       mountApprovalsFn: mountApprovals,
     });
   };
+  const mountLeaveUnified = async (host = content) => {
+    return mod.mountLeaveUnified({
+      content: host,
+      mountApprovalsFn: mountApprovals,
+      mountLeaveGrantFn: mountLeaveGrant,
+      mountLeaveBalanceFn: mountLeaveBalance,
+    });
+  };
 
-  if (p === '/admin/leave/balance') {
-    await mountLeaveBalance(content, {});
-  } else if (p === '/admin/leave/grants') {
-    await mountLeaveGrant(content, {});
-  } else {
-    await mountApprovals(content, {});
-  }
+  void p;
+  await mountLeaveUnified(content);
   return () => { try { content.innerHTML = ''; } catch {} };
 }

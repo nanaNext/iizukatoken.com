@@ -57,6 +57,7 @@ export function createPayloadController({ doc, basicCard, dedCard, otherCard, pa
     basicCard.querySelector('#payrollKHoliday').value = Object.prototype.hasOwnProperty.call(k, '休日出勤日数') ? String(k['休日出勤日数']) : '';
     basicCard.querySelector('#payrollKHalf').value = Object.prototype.hasOwnProperty.call(k, '半日出勤日数') ? String(k['半日出勤日数']) : '';
     basicCard.querySelector('#payrollKAbsent').value = Object.prototype.hasOwnProperty.call(k, '欠勤日数') ? String(k['欠勤日数']) : '';
+    basicCard.querySelector('#payrollKUnpaid').value = Object.prototype.hasOwnProperty.call(k, '無給休暇') ? String(k['無給休暇']) : '';
 
     const otherItems = Array.isArray(p.otherItems) ? p.otherItems : [];
     const getOther = (label) => {
@@ -179,14 +180,17 @@ export function createPayloadController({ doc, basicCard, dedCard, otherCard, pa
     const khEl = basicCard.querySelector('#payrollKHoliday');
     const kkEl = basicCard.querySelector('#payrollKHalf');
     const kaEl = basicCard.querySelector('#payrollKAbsent');
+    const kuEl = basicCard.querySelector('#payrollKUnpaid');
     const kwN = parseNum(kwEl && kwEl.value != null ? kwEl.value : undefined, '出勤日数', { allowEmpty: true });
     const khN = parseNum(khEl && khEl.value != null ? khEl.value : undefined, '休日出勤日数', { allowEmpty: true });
     const kkN = parseNum(kkEl && kkEl.value != null ? kkEl.value : undefined, '半日出勤日数', { allowEmpty: true });
     const kaN = parseNum(kaEl && kaEl.value != null ? kaEl.value : undefined, '欠勤日数', { allowEmpty: true });
+    const kuN = parseNum(kuEl && kuEl.value != null ? kuEl.value : undefined, '無給休暇', { allowEmpty: true });
     if (kwN != null) kintai['出勤日数'] = yen(kwN);
     if (khN != null) kintai['休日出勤日数'] = yen(khN);
     if (kkN != null) kintai['半日出勤日数'] = yen(kkN);
     if (kaN != null) kintai['欠勤日数'] = yen(kaN);
+    if (kuN != null) kintai['無給休暇'] = yen(kuN);
     if (Object.keys(kintai).length) payload.kintai = kintai;
 
     return payload;

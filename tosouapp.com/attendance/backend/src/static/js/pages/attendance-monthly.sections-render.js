@@ -673,6 +673,19 @@
       }
     }
     const paidText = Number.isFinite(paidDays) ? Number(paidDays).toFixed(1) : '0.0';
+    const grantedTotalFromSummary = Number(leave?.grantedDaysTotal || 0);
+    const grantedTotalFromUser = Number(detail?.user?.paidLeaveGrantedTotalDays || 0);
+    const grantedFromSummary = Number(leave?.grantedDays || 0);
+    const grantedFromUser = Number(detail?.user?.paidLeaveGrantedDays || 0);
+    const entitlementText = (Number.isFinite(grantedTotalFromSummary) && grantedTotalFromSummary > 0)
+      ? Number(grantedTotalFromSummary).toFixed(1)
+      : (Number.isFinite(grantedTotalFromUser) && grantedTotalFromUser > 0)
+        ? Number(grantedTotalFromUser).toFixed(1)
+      : (Number.isFinite(grantedFromSummary) && grantedFromSummary > 0)
+      ? Number(grantedFromSummary).toFixed(1)
+      : (Number.isFinite(grantedFromUser) && grantedFromUser > 0)
+        ? Number(grantedFromUser).toFixed(1)
+        : String(detail?.user?.paidLeaveEntitlement || '—');
 
     const table = document.createElement('table');
     const L = {
@@ -715,7 +728,7 @@
           <td>${esc(fmtHm(totals.overtime))}</td>
           <td>${esc(fmtHm(legalOvertimeMin))}</td>
           <td>${esc(paidText)}日</td>
-          <td>${esc(detail?.user?.paidLeaveEntitlement || '—')}日</td>
+          <td>${esc(entitlementText)}日</td>
           <td>${esc(substituteDays)}日</td>
           <td>${esc(unpaidDays)}日</td>
           <td>${esc(absent2)}日</td>

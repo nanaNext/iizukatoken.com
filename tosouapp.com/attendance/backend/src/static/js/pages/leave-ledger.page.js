@@ -8,6 +8,21 @@ function fmtDate(d) {
   return String(d);
 }
 
+function ymd(dt) {
+  return dt.toISOString().slice(0, 10);
+}
+
+function enumerateDates(startDate, endDate) {
+  const out = [];
+  const cur = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  while (cur <= end) {
+    out.push(ymd(cur));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return out;
+}
+
 async function renderEmpInfo() {
   try {
     const token = sessionStorage.getItem('accessToken') || '';
@@ -121,7 +136,8 @@ async function renderLedger() {
       const topValues = [isPre ? '付与前・移行前' : `${y}年度`, fmtDate(grantDate), isPre ? '-' : `${periodStart} 〜 ${periodEndStr}`, currentRemain];
       // second row metrics
       const reqs = isPre ? [] : await listMyRequests();
-      const paidReqs = (reqs || []).filter(r => r.type === 'paid' && r.status === 'approved' && r.endDate >= jan1 && r.startDate <= dec31);
+      const approvedReqs = (reqs || []).filter(r => r.status === 'approved' && r.endDate >= jan1 && r.startDate <= dec31);
+      const paidReqs = approvedReqs.filter(r => r.type === 'paid');
       const usedDays = isPre ? 0 : paidReqs.reduce((s,r)=> s + daysBetween(r.startDate, r.endDate), 0);
       const yearGranted = isPre ? 0 : grants.filter(g => new Date(g.grantDate).getFullYear() === y).reduce((s,g)=>s+Number(g.daysGranted||0),0);
       const carryPrev = isPre ? 0 : grants
@@ -141,6 +157,90 @@ async function renderLedger() {
       tableContainer.appendChild(topTbl);
       const spacer = document.createElement('div'); spacer.style.height = '6px'; tableContainer.appendChild(spacer);
       tableContainer.appendChild(bottomTbl);
+
+      // Daily usage list in the same structure as the sample: 有休 / 欠勤
+      const usedWrap = document.createElement('div');
+      usedWrap.style.marginTop = '10px';
+      usedWrap.style.display = 'grid';
+      usedWrap.style.gap = '10px';
+      usedWrap.style.maxWidth = '520px';
+
+      const dayRows = [];
+      if (!isPre) {
+        for (const r of approvedReqs) {
+          const s = String(r.startDate) < jan1 ? jan1 : String(r.startDate);
+          const e = String(r.endDate) > dec31 ? dec31 : String(r.endDate);
+          for (const d of enumerateDates(s, e)) {
+            dayRows.push({
+              date: d,
+              type: String(r.type || '').toLowerCase(),
+              reason: String(r.reason || '')
+            });
+          }
+        }
+      }
+      dayRows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      const paidRows = dayRows.filter((r) => r.type === 'paid');
+      const absentRows = dayRows.filter((r) => r.type !== 'paid');
+
+      function buildSectionTitle(txt) {
+        const t = document.createElement('div');
+        t.textContent = txt;
+        t.style.fontWeight = '700';
+        t.style.fontSize = '14px';
+        t.style.margin = '0';
+        return t;
+      }
+
+      function buildSimpleTable(headers, rows) {
+        const tbl = document.createElement('table');
+        tbl.style.width = '100%';
+        const thead = document.createElement('thead');
+        const trh = document.createElement('tr');
+        for (const h of headers) {
+          const th = document.createElement('th');
+          th.textContent = h;
+          trh.appendChild(th);
+        }
+        thead.appendChild(trh);
+        tbl.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        for (const cols of rows) {
+          const tr = document.createElement('tr');
+          for (const c of cols) {
+            const td = document.createElement('td');
+            td.textContent = c;
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+        tbl.appendChild(tbody);
+        return tbl;
+      }
+
+      if (paidRows.length > 0) {
+        const paidTitle = buildSectionTitle('● 有休');
+        const paidTable = buildSimpleTable(
+          ['取得年月日', '全休/半休', '区分'],
+          paidRows.map((r) => [r.date, '全休', '有給休暇'])
+        );
+        usedWrap.appendChild(paidTitle);
+        usedWrap.appendChild(paidTable);
+      }
+
+      if (absentRows.length > 0) {
+        const absentTitle = buildSectionTitle('● 欠勤');
+        const absentTable = buildSimpleTable(
+          ['取得年月日', '出勤区分', '事由'],
+          absentRows.map((r) => [r.date, r.type === 'unpaid' ? '無給休暇' : '欠勤', r.reason || ''])
+        );
+        usedWrap.appendChild(absentTitle);
+        usedWrap.appendChild(absentTable);
+      }
+
+      if (paidRows.length > 0 || absentRows.length > 0) {
+        tableContainer.appendChild(usedWrap);
+      }
     }
     await renderYear(currentYear);
     select.addEventListener('change', () => {
@@ -178,10 +278,17 @@ async function renderLedger() {
     const expTableWrap = document.createElement('div');
     expTableWrap.id = 'ledgerExplainTable';
     expTableWrap.className = 'se-summary';
+    expTableWrap.style.maxWidth = '980px';
+    expTableWrap.style.width = '100%';
+    expTableWrap.style.margin = '0';
+    expTableWrap.style.overflowX = 'visible';
     const expTbl = buildTable(
       ['項目名','説明'],
       [] // placeholder; we will append rows manually
     );
+    expTbl.style.width = '100%';
+    expTbl.style.tableLayout = 'auto';
+    expTbl.style.minWidth = '0';
     // Replace tbody contents with key-value rows
     const expItems = [
       ['対象期間','その年度における有休付与日から次回有休付与まで（有休付与がない年度の場合は入社日から次回有休付与まで）'],
@@ -196,12 +303,17 @@ async function renderLedger() {
       ['年度末有休消滅数','年度末までに消滅する有休の見込み数']
     ];
     const expThead = expTbl.querySelector('thead');
+    if (expThead) expThead.style.display = 'none';
     const expTbody = expTbl.querySelector('tbody');
     expTbody.innerHTML = '';
     for (const [k, v] of expItems) {
       const tr = document.createElement('tr');
       const td1 = document.createElement('td'); td1.textContent = k;
       const td2 = document.createElement('td'); td2.textContent = v;
+      td1.style.width = '180px';
+      td1.style.whiteSpace = 'nowrap';
+      td2.style.whiteSpace = 'normal';
+      td2.style.wordBreak = 'break-word';
       tr.appendChild(td1); tr.appendChild(td2);
       expTbody.appendChild(tr);
     }

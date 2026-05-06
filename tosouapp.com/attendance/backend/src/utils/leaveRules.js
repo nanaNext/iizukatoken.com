@@ -1,11 +1,15 @@
 
 function calculatePaidLeaveEntitlement(joinDateStr) {
   if (!joinDateStr) return 0;
-  const joinDate = new Date(joinDateStr + 'T00:00:00Z');
+  const normalized = String(joinDateStr).replace(/\//g, '-').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return 0;
+  const joinDate = new Date(normalized + 'T00:00:00Z');
+  if (!Number.isFinite(joinDate.getTime())) return 0;
   const now = new Date();
+  if (joinDate > now) return 0;
   
   // Calculate months of service
-  const diffTime = Math.abs(now - joinDate);
+  const diffTime = now - joinDate;
   const diffMonths = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 30.44));
   
   if (diffMonths < 6) return 0;

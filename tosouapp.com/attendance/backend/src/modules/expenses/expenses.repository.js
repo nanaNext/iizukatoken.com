@@ -507,6 +507,115 @@ module.exports.listMonthlyClosureHistory = async function({ userId = null, limit
   return rows || [];
 };
 
+function mapExpenseStatus(v) {
+  const s = String(v || '').trim().toLowerCase();
+  if (!s) return '';
+  const m = {
+    '申請中': 'applied',
+    '承認済み': 'approved',
+    '差戻し': 'rejected',
+    '下書き': 'draft',
+    '保留': 'pending'
+  };
+  return m[s] || s;
+}
+
+function buildAdminListWhere(filters = {}) {
+  const where = ['1=1'];
+  const args = [];
+  const month = String(filters.month || '').slice(0, 7);
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    where.push(`DATE_FORMAT(ec.date,'%Y-%m') = ?`);
+    args.push(month);
+  }
+  const departmentId = String(filters.departmentId || '').trim();
+  if (departmentId) {
+    where.push(`u.departmentId = ?`);
+    args.push(departmentId);
+  }
+  const employmentType = String(filters.employmentType || '').trim().toLowerCase();
+  if (employmentType) {
+    where.push(`LOWER(COALESCE(u.employment_type,'')) = ?`);
+    args.push(employmentType);
+  }
+  const userId = String(filters.userId || '').trim();
+  if (userId) {
+    where.push(`ec.userId = ?`);
+    args.push(userId);
+  }
+  const name = String(filters.name || '').trim();
+  if (name) {
+    where.push(`(COALESCE(u.username,'') LIKE ? OR COALESCE(u.email,'') LIKE ? OR COALESCE(u.employee_code,'') LIKE ?)`);
+    const q = `%${name}%`;
+    args.push(q, q, q);
+  }
+  const status = mapExpenseStatus(filters.status);
+  if (status) {
+    where.push(`ec.status = ?`);
+    args.push(status);
+  }
+  const minAmount = Number(filters.minAmount);
+  if (Number.isFinite(minAmount)) {
+    where.push(`ec.amount >= ?`);
+    args.push(minAmount);
+  }
+  const maxAmount = Number(filters.maxAmount);
+  if (Number.isFinite(maxAmount)) {
+    where.push(`ec.amount <= ?`);
+    args.push(maxAmount);
+  }
+  const approverId = String(filters.approverId || '').trim();
+  if (approverId) {
+    where.push(`COALESCE(ec.approver_id, ec.approved_by) = ?`);
+    args.push(approverId);
+  }
+  return { where, args };
+}
+
+module.exports.listAllPaged = async function(filters = {}) {
+  const { where, args } = buildAdminListWhere(filters);
+  const sortByRaw = String(filters.sortBy || '').trim().toLowerCase();
+  const sortDir = String(filters.sortDir || 'desc').trim().toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const sortMap = {
+    date: 'ec.date',
+    amount: 'ec.amount',
+    user: 'u.username',
+    status: 'ec.status',
+    approver: 'approver_name'
+  };
+  const sortCol = sortMap[sortByRaw] || 'ec.date';
+  const page = Math.max(1, parseInt(String(filters.page || '1'), 10) || 1);
+  const limit = Math.max(1, Math.min(1000, parseInt(String(filters.limit || '20'), 10) || 20));
+  const offset = (page - 1) * limit;
+
+  const baseSelect = `
+      SELECT ec.*, u.username AS user_name, u.email AS user_email, u.employee_code, u.departmentId, u.employment_type,
+        (SELECT COALESCE(u2.username, u2.email) FROM users u2 WHERE u2.id = COALESCE(ec.approver_id, ec.approved_by)) AS approver_name,
+        (SELECT ef.file_path FROM expense_files ef WHERE ef.expense_id = ec.id ORDER BY ef.id ASC LIMIT 1) AS first_file_path,
+        (SELECT COUNT(*) FROM expense_files ef WHERE ef.expense_id = ec.id) AS file_count
+      FROM expense_claims ec
+      JOIN users u ON u.id = ec.userId
+      WHERE ${where.join(' AND ')}
+  `;
+  const [rows] = await db.query(
+    `${baseSelect} ORDER BY ${sortCol} ${sortDir}, ec.id DESC LIMIT ? OFFSET ?`,
+    [...args, limit, offset]
+  );
+  const [[countRow]] = await db.query(
+    `SELECT COUNT(*) AS total
+     FROM expense_claims ec
+     JOIN users u ON u.id = ec.userId
+     WHERE ${where.join(' AND ')}`,
+    args
+  );
+  return {
+    rows: rows || [],
+    total: Number(countRow?.total || 0),
+    page,
+    limit
+  };
+};
+
 module.exports.closeMonthlyApprovedTotals = async function({ month, closedBy, forceRecalc, userId = null }) {
   if (!/^\d{4}-\d{2}$/.test(String(month || ''))) throw new Error('Invalid month');
   const rows = await module.exports.getMonthlyApprovedTotals(month, userId);

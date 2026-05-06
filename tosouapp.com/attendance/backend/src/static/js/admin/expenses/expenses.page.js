@@ -31,39 +31,147 @@ const render = async () => {
   let pollTimer = 0;
   const globalStatus = document.getElementById('status');
   if (globalStatus) { globalStatus.textContent = ''; globalStatus.style.display = 'none'; }
-  host.className = 'card';
+  host.className = '';
   host.style.maxWidth = 'none';
   host.style.width = '100%';
   host.style.marginLeft = '0';
   host.style.marginRight = '0';
+  host.style.background = 'transparent';
+  host.style.border = '0';
+  host.style.boxShadow = 'none';
+  host.style.padding = '0';
   host.innerHTML = `
     <div class="exp-admin-page">
       <style>
         .admin .exp-admin-page { max-width: none !important; width: 100% !important; margin: 0 !important; }
         .admin .exp-admin-table-host { width: 100% !important; }
         .admin .exp-admin-table-wrap { width: 100% !important; }
+        .exp-admin-page { display: grid; gap: 10px; background: transparent; padding: 0; border-radius: 0; color:#0f172a; }
+        .exp-admin-page .exp-admin-title { margin: 0; font-size: 20px; letter-spacing: 0; font-weight: 700; }
+        .exp-admin-page .exp-admin-header-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom: 0; }
+        .exp-admin-page .exp-admin-toolbar-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-top: -2px; }
+        .exp-admin-page .exp-admin-filters { margin-bottom: 2px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; flex:1 1 auto; }
+        .exp-admin-page .exp-admin-label { font-size: 14px; font-weight: 700; color:#334155; }
+        .exp-admin-page .exp-admin-input,
+        .exp-admin-page .exp-admin-select { min-height: 36px; font-size: 14px; border:1px solid #cbd5e1; border-radius:8px; padding: 0 10px; }
+        .exp-admin-page .btn { min-height: 34px; font-size: 13px; font-weight: 700; }
+        .exp-admin-page .exp-inline-kpi { flex:0 0 auto; margin-left:auto; }
+        .exp-admin-page .exp-admin-section {
+          background: transparent;
+          border: 0;
+          border-radius: 0;
+          padding: 0;
+          box-shadow: none;
+        }
+        .exp-admin-page .exp-admin-section-title { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #475569; letter-spacing: 0; text-transform: none; }
+        .exp-admin-page .exp-kpi-row-right { display: flex; justify-content: flex-end; width: 100%; }
+        .exp-admin-page .exp-kpi-grid { display: grid; grid-template-columns: repeat(3, minmax(170px, 210px)); gap: 8px; }
+        .exp-admin-page .exp-kpi-card {
+          border-radius: 0;
+          border: 0;
+          border-left: 2px solid #d1d5db;
+          padding: 2px 6px;
+          display: grid;
+          gap: 1px;
+          box-shadow: none;
+          background: transparent;
+        }
+        .exp-admin-page .exp-kpi-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color:#475569; }
+        .exp-admin-page .exp-kpi-icon {
+          width: 18px; height: 18px; border-radius: 999px;
+          display: inline-flex; align-items: center; justify-content: center;
+          font-size: 10px; font-weight: 800; background:#ffffffcc; color:#475569;
+        }
+        .exp-admin-page .exp-kpi-value { font-size: 15px; font-weight: 700; color: #0f172a; line-height: 1.2; }
+        .exp-admin-page .exp-kpi-sub { font-size: 12px; color: #64748b; line-height: 1.25; }
+        .exp-admin-page #expMonthlySummaryHost .exp-admin-table-wrap {
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+          padding: 0;
+        }
+        .exp-admin-page .exp-admin-table-wrap {
+          border: 1px solid #dbe3ee !important;
+          border-radius: 0 !important;
+          background: #ffffff !important;
+          padding: 0 !important;
+          box-shadow: none !important;
+          overflow: hidden;
+        }
+        .exp-admin-page .exp-admin-table {
+          width: 100%;
+          border-collapse: collapse;
+          border-spacing: 0;
+        }
+        .exp-admin-page .exp-admin-table th,
+        .exp-admin-page .exp-admin-table td {
+          border: 1px solid #e5eaf2;
+        }
+        .exp-admin-page #expMonthlySummaryHost .exp-admin-table th {
+          font-size: 12px;
+          color: #64748b;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+        }
+        .exp-admin-page #expMonthlySummaryHost .exp-admin-table td {
+          font-size: 13px;
+          padding-top: 12px;
+          padding-bottom: 12px;
+        }
+        .exp-admin-page .exp-kpi-applied { border-left-color: #f59e0b; background: transparent; }
+        .exp-admin-page .exp-kpi-approved { border-left-color: #10b981; background: transparent; }
+        .exp-admin-page .exp-kpi-rejected { border-left-color: #ef4444; background: transparent; }
         .exp-admin-page .exp-admin-table.clean-view th,
-        .exp-admin-page .exp-admin-table.clean-view td { padding: 10px 12px; font-size: 13px; vertical-align: top; }
+        .exp-admin-page .exp-admin-table.clean-view td { padding: 12px 12px; font-size: 14px; vertical-align: top; }
+        .exp-admin-page .exp-admin-table.clean-view thead th { background: #f8fafc; border-bottom: 1px solid #dbe3ee; color: #334155; font-size: 13px; font-weight: 700; }
+        .exp-admin-page .exp-admin-table.clean-view tbody tr:nth-child(even) { background: transparent; }
         .exp-admin-page .exp-admin-table.clean-view tbody tr:hover { background: #f8fafc; }
         .exp-admin-page .route-col { max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .exp-admin-page .status-sub { color: #64748b; font-size: 12px; margin-top: 4px; }
+        .exp-admin-page .status-main { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
+        .exp-admin-page .status-main .s-ico { font-size: 12px; }
+        .exp-admin-page .status-main.approved { color: #166534; }
+        .exp-admin-page .status-main.applied { color: #9a3412; }
+        .exp-admin-page .status-main.rejected { color: #991b1b; }
       </style>
-      <h3 class="exp-admin-title">交通費計算管理</h3>
-      <div class="exp-admin-filters">
-        <label for="expMonth" class="exp-admin-label">対象月</label>
-        <input id="expMonth" type="month" class="exp-admin-input">
-        <select id="expUserFilter" class="exp-admin-input exp-admin-select" aria-label="社員">
-          <option value="">全員</option>
-        </select>
-        <button id="expReload" class="btn exp-admin-reload" type="button">再読込</button>
-        <button id="expToggleHistory" class="btn" type="button" style="height:30px;padding:0 10px;">履歴</button>
-        <button id="expToggleDetails" class="btn" type="button">明細表示</button>
-        <button id="expMonthlyClose" class="btn" type="button">月次締め</button>
-        <button id="expMonthlyRecalc" class="btn" type="button">再計算</button>
+      <div class="exp-admin-header-row">
+        <h3 class="exp-admin-title">交通費計算管理</h3>
+        <div id="expMonthlyKpiHost" class="exp-inline-kpi"></div>
+      </div>
+      <div class="exp-admin-toolbar-row">
+        <div class="exp-admin-filters">
+          <label for="expMonth" class="exp-admin-label">対象月</label>
+          <input id="expMonth" type="month" class="exp-admin-input">
+          <label for="expAggregateMode" class="exp-admin-label">集計対象</label>
+          <select id="expAggregateMode" class="exp-admin-input exp-admin-select" aria-label="集計対象">
+            <option value="approved">承認済み</option>
+            <option value="applied_approved">申請中+承認済み</option>
+            <option value="all">全て</option>
+          </select>
+          <select id="expUserFilter" class="exp-admin-input exp-admin-select" aria-label="社員">
+            <option value="">全員</option>
+          </select>
+          <button id="expReload" class="btn exp-admin-reload" type="button">再読込</button>
+          <button id="expExportCsv" class="btn" type="button">CSV出力</button>
+          <button id="expToggleHistory" class="btn" type="button" style="height:30px;padding:0 10px;">履歴</button>
+          <button id="expToggleDetails" class="btn" type="button">明細表示</button>
+          <button id="expMonthlyClose" class="btn" type="button">月次締め</button>
+          <button id="expMonthlyRecalc" class="btn" type="button">再計算</button>
+        </div>
       </div>
       <div id="expMonthlyStatus" class="exp-admin-status"></div>
-      <div id="expMonthlySummaryHost" class="exp-admin-table-host"></div>
-      <div id="expMonthlyHistoryHost" class="exp-admin-table-host"></div>
+      <section class="exp-admin-section">
+        <h4 class="exp-admin-section-title">社員別集計</h4>
+        <div id="expMonthlySummaryHost" class="exp-admin-table-host"></div>
+      </section>
+      <section class="exp-admin-section">
+        <h4 class="exp-admin-section-title">月次履歴</h4>
+        <div id="expMonthlyHistoryHost" class="exp-admin-table-host"></div>
+      </section>
+      <section class="exp-admin-section">
+        <h4 class="exp-admin-section-title">申請通知（月別・社員別）</h4>
+        <div id="expEmployeeMonthHost" class="exp-admin-table-host"></div>
+      </section>
       <div id="chatNotice" class="exp-admin-chat">
         <div class="exp-admin-chat-title">チャット通知</div>
         <div id="chatList" class="exp-admin-chat-list"></div>
@@ -72,24 +180,69 @@ const render = async () => {
       <div id="expTableHost" class="exp-admin-table-host"></div>
     </div>
   `;
+  const params = new URLSearchParams(window.location.search || '');
+  const initialMonth = params.get('month') || '';
+  const initialUserId = params.get('userId') || '';
+  const initialOpenDetails = ['1', 'true', 'yes'].includes(String(params.get('openDetails') || '').toLowerCase());
+  let initialUserApplied = false;
   const m = $('#expMonth');
-  if (m) m.value = todayMonth();
-  const viewState = { page: 1, pageSize: 10, showDetails: false, showHistory: false };
-  const renderMonthlySummary = (summary) => {
+  if (m) m.value = initialMonth || todayMonth();
+  const viewState = { page: 1, pageSize: 20, showDetails: !!initialOpenDetails, showHistory: false };
+  const includeByMode = (status, mode) => {
+    const st = String(status || '').toLowerCase();
+    if (mode === 'approved') return st === 'approved';
+    if (mode === 'applied_approved') return st === 'approved' || st === 'applied';
+    return ['approved', 'applied', 'rejected', 'pending', 'draft'].includes(st);
+  };
+  const modeLabel = (mode) => {
+    if (mode === 'approved') return '承認';
+    if (mode === 'applied_approved') return '申請+承認';
+    return '全状態';
+  };
+  const renderMonthlyKpi = (rows) => {
+    const host2 = $('#expMonthlyKpiHost');
+    if (!host2) return;
+    const arr = Array.isArray(rows) ? rows : [];
+    const stats = {
+      approved: { count: 0, amount: 0 },
+      applied: { count: 0, amount: 0 },
+      rejected: { count: 0, amount: 0 }
+    };
+    for (const r of arr) {
+      const st = String(r.status || '').toLowerCase();
+      if (!stats[st]) continue;
+      stats[st].count += 1;
+      stats[st].amount += Number(r.amount || 0);
+    }
+    const card = (title, x, cls, icon) => `
+      <div class="exp-kpi-card ${cls}">
+        <div class="exp-kpi-head"><span class="exp-kpi-icon">${icon}</span><span>${title}</span></div>
+        <div class="exp-kpi-value">${Number(x.count || 0).toLocaleString('ja-JP')} 件</div>
+        <div class="exp-kpi-sub">¥ ${Number(x.amount || 0).toLocaleString('ja-JP')}</div>
+      </div>`;
+    host2.innerHTML = `
+      <div class="exp-kpi-grid">
+        ${card('申請中', stats.applied, 'exp-kpi-applied', '⏳')}
+        ${card('承認済み', stats.approved, 'exp-kpi-approved', '✔')}
+        ${card('差戻し', stats.rejected, 'exp-kpi-rejected', '↩')}
+      </div>
+    `;
+  };
+  const renderMonthlySummary = (summary, mode) => {
     const host2 = $('#expMonthlySummaryHost');
     if (!host2) return;
     const totals = Array.isArray(summary?.totals) ? summary.totals : [];
     const closures = Array.isArray(summary?.closures) ? summary.closures : [];
     const closureMap = new Map(closures.map((c) => [String(c.user_id), c]));
     if (!totals.length) {
-      host2.innerHTML = '<div class="empty-state"><div style="font-size:22px;">📊</div><div>承認済みデータがありません</div></div>';
+      host2.innerHTML = `<div class="empty-state"><div style="font-size:22px;">📊</div><div>${modeLabel(mode)}データがありません</div></div>`;
       return;
     }
     const rowsHtml = totals.map((r) => {
       const key = String(r.user_id || '');
       const c = closureMap.get(key) || null;
       const total = Number(r.total_amount || 0).toLocaleString('ja-JP');
-      const count = Number(r.approved_count || 0);
+      const count = Number(r.item_count || r.approved_count || 0);
       const closedAt = c?.closed_at ? fmtDT(c.closed_at) : '';
       const closedBy = c?.closed_by_name || '';
       return `<tr>
@@ -101,8 +254,8 @@ const render = async () => {
     }).join('');
     host2.innerHTML = `
       <div class="exp-admin-table-wrap">
-        <table class="exp-admin-table">
-          <thead><tr><th>社員</th><th>承認件数</th><th>月次合計(円)</th><th>締め情報</th></tr></thead>
+        <table class="exp-admin-table clean-view">
+          <thead><tr><th>社員</th><th>${modeLabel(mode)}件数</th><th>${modeLabel(mode)}金額(円)</th><th>締め情報（承認基準）</th></tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
       </div>
@@ -118,8 +271,8 @@ const render = async () => {
     const historyRows = Array.isArray(rows) ? rows : [];
     if (!historyRows.length) {
       host2.innerHTML = `
-        <div style="margin-top:10px;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;background:#fff;">
-          <div style="font-weight:700;color:#0f172a;margin-bottom:6px;">月次履歴（直近）</div>
+        <div style="margin-top:6px;padding:4px 2px;">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:4px;">月次履歴（直近）</div>
           <div style="color:#64748b;font-size:13px;">履歴データはありません</div>
         </div>
       `;
@@ -140,7 +293,7 @@ const render = async () => {
       </tr>`;
     }).join('');
     host2.innerHTML = `
-      <div style="margin-top:10px;">
+      <div style="margin-top:4px;">
         <div style="font-weight:700;color:#0f172a;margin:0 0 6px 2px;">月次履歴（直近12ヶ月）</div>
         <div class="exp-admin-table-wrap">
           <table class="exp-admin-table">
@@ -189,24 +342,155 @@ const render = async () => {
       rowEl.querySelector('button[data-action="chat"]')?.click();
     }, { once: true });
   };
-  const reload = async () => {
+  const renderEmployeeMonthlyBoard = (rows, users) => {
+    const host2 = $('#expEmployeeMonthHost');
+    if (!host2) return;
+    const items = Array.isArray(rows) ? rows : [];
+    const userMap = new Map((Array.isArray(users) ? users : []).map((u) => [String(u.id), u]));
+    const keyMap = new Map();
+    for (const r of items) {
+      const d = String(r.date || '').slice(0, 10);
+      const ym = d.slice(0, 7);
+      if (!ym) continue;
+      const uid = String(r.userId || '');
+      if (!uid) continue;
+      const k = `${uid}__${ym}`;
+      const prev = keyMap.get(k) || {
+        userId: uid,
+        ym,
+        count: 0,
+        amount: 0,
+        statuses: new Set(),
+        approver: '',
+        updatedAt: ''
+      };
+      prev.count += 1;
+      prev.amount += Number(r.amount || 0);
+      prev.statuses.add(String(r.status || '').toLowerCase());
+      if (!prev.approver && r.approver_name) prev.approver = String(r.approver_name);
+      const upd = String(r.updated_at || r.applied_at || r.approved_at || r.date || '');
+      if (!prev.updatedAt || upd > prev.updatedAt) prev.updatedAt = upd;
+      keyMap.set(k, prev);
+    }
+    const rows2 = Array.from(keyMap.values()).sort((a, b) => {
+      const aApplied = a.statuses.has('applied') ? 1 : 0;
+      const bApplied = b.statuses.has('applied') ? 1 : 0;
+      if (aApplied !== bApplied) return bApplied - aApplied;
+      const ta = `${a.ym} ${a.updatedAt || ''}`;
+      const tb = `${b.ym} ${b.updatedAt || ''}`;
+      return tb.localeCompare(ta);
+    }).slice(0, 200);
+    const statusLabel = (set) => {
+      const s = set || new Set();
+      if (s.has('applied')) return '上長確認中';
+      if (s.has('approved') && s.size === 1) return '承認';
+      if (s.has('rejected') && s.size === 1) return '差戻し';
+      if (s.has('draft') || s.has('pending')) return '未申請（下書き）';
+      if (s.has('approved')) return '承認';
+      return '申請中';
+    };
+    if (!rows2.length) {
+      host2.innerHTML = '<div class="empty-state"><div style="font-size:22px;">🧾</div><div>表示対象の月次申請データがありません</div></div>';
+      return;
+    }
+    const html = rows2.map((r) => {
+      const mm = String(r.ym || '').slice(5, 7);
+      const u = userMap.get(String(r.userId)) || null;
+      const uname = u?.username || u?.email || String(r.userId);
+      const total = Number(r.amount || 0).toLocaleString('ja-JP');
+      return `<tr>
+        <td>${uname}</td>
+        <td>${r.ym}</td>
+        <td style="text-align:right;">${Number(r.count || 0).toLocaleString('ja-JP')}</td>
+        <td style="text-align:right;">${total}</td>
+        <td>${statusLabel(r.statuses)}</td>
+        <td>${r.approver || '-'}</td>
+        <td><button class="btn exp-open-month" type="button" data-uid="${String(r.userId)}" data-month="${String(r.ym)}" style="height:28px;">開く</button></td>
+      </tr>`;
+    }).join('');
+    host2.innerHTML = `
+      <div class="exp-admin-table-wrap">
+        <table class="exp-admin-table clean-view">
+          <thead><tr><th>申請者</th><th>対象月</th><th>申請日数</th><th>合計金額</th><th>処理状況</th><th>作業者</th><th>表示</th></tr></thead>
+          <tbody>${html}</tbody>
+        </table>
+      </div>
+    `;
+    if (!host2.dataset.boundOpen) {
+      host2.dataset.boundOpen = '1';
+      host2.addEventListener('click', (e) => {
+        const btn = e.target.closest('.exp-open-month');
+        if (!btn) return;
+        const uid = String(btn.getAttribute('data-uid') || '');
+        const month = String(btn.getAttribute('data-month') || '');
+        const q = new URLSearchParams();
+        if (month) q.set('month', month);
+        if (uid) q.set('userId', uid);
+        const target = `/admin/expenses/monthly-detail?${q.toString()}`;
+        try { window.location.assign(target); } catch { window.location.href = target; }
+      });
+    }
+  };
+  const buildListQuery = () => {
     const month = $('#expMonth') ? $('#expMonth').value : todayMonth();
     const currentUserFilter = $('#expUserFilter') ? ($('#expUserFilter').value || '') : '';
+    const deptFilter = $('#expDeptFilter') ? ($('#expDeptFilter').value || '') : '';
+    const empTypeFilter = $('#expEmploymentFilter') ? ($('#expEmploymentFilter').value || '') : '';
+    const nameFilter = $('#expNameFilter') ? ($('#expNameFilter').value || '').trim() : '';
+    const statusFilter = $('#expStatusFilter') ? ($('#expStatusFilter').value || '') : '';
+    const minAmount = $('#expMinAmount') ? ($('#expMinAmount').value || '') : '';
+    const maxAmount = $('#expMaxAmount') ? ($('#expMaxAmount').value || '') : '';
+    const approverFilter = $('#expApproverFilter') ? ($('#expApproverFilter').value || '') : '';
+    const sortKey = $('#expSortKey') ? ($('#expSortKey').value || 'date_desc') : 'date_desc';
+    const [sortBy, sortDirRaw] = String(sortKey).split('_');
+    const sortDir = String(sortDirRaw || 'desc').toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const q = new URLSearchParams();
+    q.set('month', month);
+    q.set('page', String(viewState.page || 1));
+    q.set('limit', String(viewState.pageSize || 20));
+    q.set('sortBy', String(sortBy || 'date'));
+    q.set('sortDir', sortDir);
+    if (currentUserFilter) q.set('userId', currentUserFilter);
+    if (deptFilter) q.set('departmentId', deptFilter);
+    if (empTypeFilter) q.set('employmentType', empTypeFilter);
+    if (nameFilter) q.set('name', nameFilter);
+    if (statusFilter) q.set('status', statusFilter);
+    if (minAmount !== '') q.set('minAmount', minAmount);
+    if (maxAmount !== '') q.set('maxAmount', maxAmount);
+    if (approverFilter) q.set('approverId', approverFilter);
+    return { month, currentUserFilter, q };
+  };
+  const reload = async () => {
+    const { month, currentUserFilter, q } = buildListQuery();
     const status = $('#expStatus');
     const tableHost = $('#expTableHost');
     if (tableHost) tableHost.innerHTML = '';
     if (status) status.textContent = '読み込み中…';
     showSpinner();
     try {
-      const [rowsRes, usersRes, chatsRes, monthlyRes, historyRes] = await Promise.allSettled([
-        fetchJSONAuth(`/api/expenses/admin/list?month=${encodeURIComponent(month)}`),
+      const qBoard = new URLSearchParams(q);
+      qBoard.delete('month');
+      qBoard.set('page', '1');
+      qBoard.set('limit', '1000');
+      const [rowsRes, usersRes, chatsRes, monthlyRes, historyRes, deptRes, boardRes] = await Promise.allSettled([
+        fetchJSONAuth(`/api/expenses/admin/list?${q.toString()}`),
         fetchJSONAuth('/api/admin/users'),
         fetchJSONAuth(`/api/expenses/admin/messages?month=${encodeURIComponent(month)}`),
         fetchJSONAuth(`/api/expenses/admin/monthly-summary?month=${encodeURIComponent(month)}${currentUserFilter ? `&userId=${encodeURIComponent(currentUserFilter)}` : ''}`),
-        fetchJSONAuth(`/api/expenses/admin/monthly-history?limit=12${currentUserFilter ? `&userId=${encodeURIComponent(currentUserFilter)}` : ''}`)
+        fetchJSONAuth(`/api/expenses/admin/monthly-history?limit=12${currentUserFilter ? `&userId=${encodeURIComponent(currentUserFilter)}` : ''}`),
+        fetchJSONAuth('/api/admin/departments'),
+        fetchJSONAuth(`/api/expenses/admin/list?${qBoard.toString()}`)
       ]);
-      const rows = rowsRes.status === 'fulfilled' && Array.isArray(rowsRes.value) ? rowsRes.value : [];
+      const rowsPayload = rowsRes.status === 'fulfilled' ? rowsRes.value : { rows: [], total: 0, page: 1, limit: viewState.pageSize };
+      const rows = Array.isArray(rowsPayload) ? rowsPayload : (Array.isArray(rowsPayload?.rows) ? rowsPayload.rows : []);
+      const totalRows = Array.isArray(rowsPayload) ? rows.length : Number(rowsPayload?.total || rows.length);
+      viewState.page = Math.max(1, Number(rowsPayload?.page || viewState.page || 1));
+      viewState.pageSize = Math.max(1, Number(rowsPayload?.limit || viewState.pageSize || 20));
+
       const users = usersRes.status === 'fulfilled' && Array.isArray(usersRes.value) ? usersRes.value : [];
+      const boardPayload = boardRes.status === 'fulfilled' ? boardRes.value : { rows: [] };
+      const boardRows = Array.isArray(boardPayload) ? boardPayload : (Array.isArray(boardPayload?.rows) ? boardPayload.rows : []);
+      const departments = deptRes.status === 'fulfilled' && Array.isArray(deptRes.value) ? deptRes.value : [];
       const chats = chatsRes.status === 'fulfilled' && Array.isArray(chatsRes.value) ? chatsRes.value : [];
       const monthlyRaw = monthlyRes.status === 'fulfilled' ? monthlyRes.value : { totals: [], closures: [] };
       const monthly = (() => {
@@ -223,25 +507,49 @@ const render = async () => {
       if (uf && !uf.dataset.bound) {
         uf.dataset.bound = '1';
         uf.innerHTML = '<option value="">全員</option>' + users.map(u => `<option value="${String(u.id)}">${u.username || u.email || String(u.id)}</option>`).join('');
+        if (initialUserId && !initialUserApplied) {
+          uf.value = initialUserId;
+          initialUserApplied = true;
+          if (!currentUserFilter) {
+            viewState.page = 1;
+            await reload();
+            return;
+          }
+        }
         uf.addEventListener('change', async () => {
           viewState.page = 1;
           await reload();
         });
       }
-      const selUser = uf ? (uf.value || '') : '';
-      const filteredRows = selUser ? rows.filter(r => String(r.userId) === String(selUser)) : rows;
-      const approvedRows = filteredRows.filter((r) => String(r.status || '').toLowerCase() === 'approved');
+      const df = $('#expDeptFilter');
+      if (df && !df.dataset.bound) {
+        df.dataset.bound = '1';
+        df.innerHTML = '<option value="">全て</option>' + departments.map(d => `<option value="${String(d.id)}">${d.name || d.code || ('#'+String(d.id))}</option>`).join('');
+        df.addEventListener('change', async () => { viewState.page = 1; await reload(); });
+      }
+      const af = $('#expApproverFilter');
+      if (af && !af.dataset.bound) {
+        af.dataset.bound = '1';
+        const approvers = users.filter((u) => ['admin', 'manager'].includes(String(u.role || '').toLowerCase()));
+        af.innerHTML = '<option value="">承認者: 全て</option>' + approvers.map(u => `<option value="${String(u.id)}">${u.username || u.email || String(u.id)}</option>`).join('');
+        af.addEventListener('change', async () => { viewState.page = 1; await reload(); });
+      }
+      const filteredRows = rows;
+      const aggregateMode = $('#expAggregateMode') ? ($('#expAggregateMode').value || 'approved') : 'approved';
+      renderMonthlyKpi(filteredRows);
+      renderEmployeeMonthlyBoard(boardRows, users);
+      const aggregateRows = filteredRows.filter((r) => includeByMode(r.status, aggregateMode));
       const totalsMap = new Map();
-      approvedRows.forEach((r) => {
+      aggregateRows.forEach((r) => {
         const uid = String(r.userId || '');
         if (!uid) return;
-        const prev = totalsMap.get(uid) || { user_id: uid, user_name: nameMap.get(uid) || uid, month, approved_count: 0, total_amount: 0 };
-        prev.approved_count += 1;
+        const prev = totalsMap.get(uid) || { user_id: uid, user_name: nameMap.get(uid) || uid, month, item_count: 0, total_amount: 0 };
+        prev.item_count += 1;
         prev.total_amount += Number(r.amount || 0);
         totalsMap.set(uid, prev);
       });
       const computedTotals = Array.from(totalsMap.values()).sort((a, b) => String(a.user_name || '').localeCompare(String(b.user_name || '')));
-      renderMonthlySummary({ month, totals: computedTotals, closures: monthly.closures });
+      renderMonthlySummary({ month, totals: computedTotals, closures: monthly.closures }, aggregateMode);
       renderMonthlyHistory(history);
       const toggleDetailsBtn = $('#expToggleDetails');
       if (toggleDetailsBtn) {
@@ -259,17 +567,18 @@ const render = async () => {
           hideSpinner();
           return;
         }
-        const totalRows = filteredRows.length;
         const totalPages = Math.max(1, Math.ceil(totalRows / viewState.pageSize));
         viewState.page = Math.min(Math.max(1, viewState.page), totalPages);
         const startIdx = (viewState.page - 1) * viewState.pageSize;
-        const pageRows = filteredRows.slice(startIdx, startIdx + viewState.pageSize);
+        const pageRows = filteredRows;
         const thead = '<thead><tr><th>ユーザー</th><th>日付</th><th>経路</th><th>金額</th><th>状態</th><th>操作</th></tr></thead>';
         const rowsHtml = pageRows.map(r => {
           const d = String(r.date || '').slice(0, 10);
           const a = Number(r.amount || 0).toLocaleString('ja-JP');
           const user = nameMap.get(String(r.userId)) || String(r.userId || '');
           const st = String(r.status || 'pending');
+          const stLower = st.toLowerCase();
+          const stLabel = stLower === 'approved' ? '承認済み' : stLower === 'applied' ? '申請中' : stLower === 'rejected' ? '差戻し' : st;
           const id = String(r.id || '');
           const applied = r.applied_at ? fmtDT(r.applied_at) : '';
           const approved = r.approved_at ? fmtDT(r.approved_at) : '';
@@ -292,7 +601,13 @@ const render = async () => {
               <td>${d}</td>
               <td class="route-col">${routeText || '-'}</td>
               <td style="text-align:right;">${a}</td>
-              <td><span class="dash-pill">${st}</span>${statusMeta ? `<div class="status-sub">${statusMeta}</div>` : ''}</td>
+              <td>
+                <span class="status-main ${stLower}">
+                  <span class="s-ico">${stLower === 'approved' ? '✔' : stLower === 'applied' ? '⏳' : stLower === 'rejected' ? '↩' : '•'}</span>
+                  <span>${stLabel}</span>
+                </span>
+                ${statusMeta ? `<div class="status-sub">${statusMeta}</div>` : ''}
+              </td>
               <td>
                 <details style="position:relative;">
                   <summary class="btn" style="height:28px;list-style:none;cursor:pointer;">⋯</summary>
@@ -314,9 +629,9 @@ const render = async () => {
             <div style="display:flex;align-items:center;gap:8px;">
               <label style="font-size:12px;color:#334155;">表示件数
                 <select id="expPageSize" style="margin-left:4px;height:28px;">
-                  <option value="10" ${viewState.pageSize === 10 ? 'selected' : ''}>10</option>
                   <option value="20" ${viewState.pageSize === 20 ? 'selected' : ''}>20</option>
                   <option value="50" ${viewState.pageSize === 50 ? 'selected' : ''}>50</option>
+                  <option value="100" ${viewState.pageSize === 100 ? 'selected' : ''}>100</option>
                 </select>
               </label>
               <button class="btn exp-page-btn" data-page="${Math.max(1, viewState.page - 1)}" ${viewState.page <= 1 ? 'disabled' : ''} style="height:28px;">前</button>
@@ -631,6 +946,40 @@ const render = async () => {
   monthInput?.addEventListener('change', async () => {
     viewState.page = 1;
     await reload();
+  });
+  const aggregateMode = $('#expAggregateMode');
+  aggregateMode?.addEventListener('change', async () => {
+    viewState.page = 1;
+    await reload();
+  });
+  ['#expDeptFilter','#expEmploymentFilter','#expStatusFilter','#expApproverFilter','#expSortKey'].forEach((sel) => {
+    const el = $(sel);
+    el?.addEventListener('change', async () => { viewState.page = 1; await reload(); });
+  });
+  ['#expNameFilter','#expMinAmount','#expMaxAmount'].forEach((sel) => {
+    const el = $(sel);
+    el?.addEventListener('keydown', async (ev) => {
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      viewState.page = 1;
+      await reload();
+    });
+  });
+  const exportBtn = $('#expExportCsv');
+  exportBtn?.addEventListener('click', async () => {
+    try {
+      const { q } = buildListQuery();
+      q.set('page', '1');
+      q.set('limit', '1000');
+      const url = `/api/expenses/admin/export.csv?${q.toString()}`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {}
   });
   const toggleDetailsBtn = $('#expToggleDetails');
   toggleDetailsBtn?.addEventListener('click', async () => {

@@ -204,8 +204,68 @@ router.get('/admin/list',
   async (req, res) => {
     try {
       const month = String(req.query.month || '').slice(0, 7);
-      const rows = await repo.listAll(month && /^\d{4}-\d{2}$/.test(month) ? month : null);
-      res.status(200).json(rows || []);
+      const result = await repo.listAllPaged({
+        month: (month && /^\d{4}-\d{2}$/.test(month)) ? month : null,
+        page: req.query.page,
+        limit: req.query.limit,
+        departmentId: req.query.departmentId,
+        userId: req.query.userId,
+        employmentType: req.query.employmentType,
+        name: req.query.name,
+        status: req.query.status,
+        minAmount: req.query.minAmount,
+        maxAmount: req.query.maxAmount,
+        approverId: req.query.approverId,
+        sortBy: req.query.sortBy,
+        sortDir: req.query.sortDir
+      });
+      res.status(200).json(result);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+);
+router.get('/admin/export.csv',
+  rateLimitNamed('expenses_admin_export_csv', { windowMs: 60_000, max: 12 }),
+  authorize('manager','admin'),
+  async (req, res) => {
+    try {
+      const month = String(req.query.month || '').slice(0, 7);
+      const result = await repo.listAllPaged({
+        month: (month && /^\d{4}-\d{2}$/.test(month)) ? month : null,
+        page: 1,
+        limit: 1000,
+        departmentId: req.query.departmentId,
+        userId: req.query.userId,
+        employmentType: req.query.employmentType,
+        name: req.query.name,
+        status: req.query.status,
+        minAmount: req.query.minAmount,
+        maxAmount: req.query.maxAmount,
+        approverId: req.query.approverId,
+        sortBy: req.query.sortBy,
+        sortDir: req.query.sortDir
+      });
+      const rows = Array.isArray(result?.rows) ? result.rows : [];
+      const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const csvHead = ['date','user','employee_code','department_id','employment_type','route','amount','status','approver'].join(',');
+      const csvBody = rows.map((r) => {
+        const route = [r.origin || '', r.via || '', r.destination || ''].filter(Boolean).join('→');
+        return [
+          esc(String(r.date || '').slice(0,10)),
+          esc(r.user_name || r.user_email || ''),
+          esc(r.employee_code || ''),
+          esc(r.departmentId || ''),
+          esc(r.employment_type || ''),
+          esc(route),
+          esc(Number(r.amount || 0)),
+          esc(r.status || ''),
+          esc(r.approver_name || '')
+        ].join(',');
+      }).join('\n');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="expenses_admin_${month || 'all'}.csv"`);
+      res.status(200).send('\uFEFF' + csvHead + '\n' + csvBody);
     } catch (err) {
       res.status(500).json({ message: err.message });
     }

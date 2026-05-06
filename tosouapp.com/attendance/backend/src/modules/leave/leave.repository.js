@@ -19,6 +19,19 @@ async function ensureSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
   try {
+    const [cols] = await db.query(`
+      SELECT COLUMN_NAME AS name, DATA_TYPE AS dtype, COLUMN_TYPE AS ctype
+      FROM information_schema.columns
+      WHERE table_schema = DATABASE() AND table_name = 'leave_requests'
+    `);
+    const colMap = new Map((cols || []).map(c => [String(c.name), c]));
+    const typeCol = colMap.get('type');
+    if (typeCol && String(typeCol.dtype || '').toLowerCase() !== 'varchar') {
+      try {
+        await db.query(`ALTER TABLE leave_requests MODIFY COLUMN type VARCHAR(32) NOT NULL`);
+      } catch {}
+    }
+
     const [idx] = await db.query(`
       SELECT index_name
       FROM information_schema.statistics
@@ -129,6 +142,25 @@ module.exports = {
     const [rows] = await db.query(sql, [userId]);
     return rows;
   },
+  async findExactRequest({ userId, startDate, endDate, type = 'paid', statuses = ['pending', 'approved'] }) {
+    const list = Array.isArray(statuses) && statuses.length
+      ? statuses.filter(s => ['pending', 'approved', 'rejected'].includes(String(s || '').toLowerCase()))
+      : ['pending', 'approved'];
+    const marks = list.map(() => '?').join(',');
+    const sql = `
+      SELECT id, userId, startDate, endDate, type, status
+      FROM leave_requests
+      WHERE userId = ?
+        AND startDate = ?
+        AND endDate = ?
+        AND type = ?
+        AND status IN (${marks})
+      ORDER BY id DESC
+      LIMIT 1
+    `;
+    const [rows] = await db.query(sql, [userId, startDate, endDate, type, ...list]);
+    return rows && rows[0] ? rows[0] : null;
+  },
   async listByUser(userId) {
     const sql = `
       SELECT * FROM leave_requests
@@ -160,6 +192,103 @@ module.exports = {
     const [rows] = await db.query(sql);
     return rows;
   },
+  async listAllRequests({ status = null, limit = 1000 } = {}) {
+    const lim = Math.max(1, Math.min(5000, Number(limit || 1000)));
+    const hasStatus = ['pending', 'approved', 'rejected'].includes(String(status || '').toLowerCase());
+    const params = [];
+    const conditions = [];
+    if (hasStatus) {
+      conditions.push('lr.status = ?');
+      params.push(String(status).toLowerCase());
+    }
+    conditions.push(`
+      NOT (
+        lr.type = 'paid'
+        AND lr.status = 'approved'
+        AND lr.startDate = lr.endDate
+        AND (
+          COALESCE(aw.hasWork, 0) = 1
+          OR (
+            ad.userId IS NOT NULL
+            AND REPLACE(TRIM(COALESCE(ad.kubun, '')), '　', '') <> '有給休暇'
+          )
+        )
+      )
+    `);
+    conditions.push(`
+      NOT (
+        lr.type = 'paid'
+        AND lr.status = 'rejected'
+        AND (
+          COALESCE(lr.reason, '') LIKE '%[AUTO_CANCEL]%'
+          OR COALESCE(lr.reason, '') LIKE '%[AUTO_RECONCILE]%'
+        )
+      )
+    `);
+    params.push(lim);
+    const sql = `
+      SELECT
+        lr.*,
+        u.username,
+        u.employee_code
+      FROM leave_requests lr
+      LEFT JOIN users u ON u.id = lr.userId
+      LEFT JOIN attendance_daily ad
+        ON ad.userId = lr.userId
+       AND ad.date = lr.startDate
+      LEFT JOIN (
+        SELECT userId, DATE(checkIn) AS d,
+               MAX(CASE WHEN checkIn IS NOT NULL OR checkOut IS NOT NULL THEN 1 ELSE 0 END) AS hasWork
+        FROM attendance
+        GROUP BY userId, DATE(checkIn)
+      ) aw
+        ON aw.userId = lr.userId
+       AND aw.d = lr.startDate
+      WHERE ${conditions.join('\n      AND ')}
+      ORDER BY lr.created_at DESC, lr.id DESC
+      LIMIT ?
+    `;
+    try {
+      const [rows] = await db.query(sql, params);
+      return rows;
+    } catch {
+      // Hard fallback: never break admin screen on filter "all".
+      const where = hasStatus ? 'WHERE lr.status = ?' : '';
+      const fallbackParams = hasStatus ? [String(status).toLowerCase(), lim] : [lim];
+      const fallbackSql = `
+        SELECT
+          lr.*,
+          u.username,
+          u.employee_code
+        FROM leave_requests lr
+        LEFT JOIN users u ON u.id = lr.userId
+        ${where}
+        ORDER BY lr.created_at DESC, lr.id DESC
+        LIMIT ?
+      `;
+      const [rows] = await db.query(fallbackSql, fallbackParams);
+      return rows;
+    }
+  },
+  async listAllRequestsSimple({ status = null, limit = 1000 } = {}) {
+    const lim = Math.max(1, Math.min(5000, Number(limit || 1000)));
+    const hasStatus = ['pending', 'approved', 'rejected'].includes(String(status || '').toLowerCase());
+    const where = hasStatus ? 'WHERE lr.status = ?' : '';
+    const params = hasStatus ? [String(status).toLowerCase(), lim] : [lim];
+    const sql = `
+      SELECT
+        lr.*,
+        u.username,
+        u.employee_code
+      FROM leave_requests lr
+      LEFT JOIN users u ON u.id = lr.userId
+      ${where}
+      ORDER BY lr.created_at DESC, lr.id DESC
+      LIMIT ?
+    `;
+    const [rows] = await db.query(sql, params);
+    return rows;
+  },
   async updateStatus(id, status) {
     const sql = `
       UPDATE leave_requests
@@ -167,6 +296,75 @@ module.exports = {
       WHERE id = ?
     `;
     await db.query(sql, [status, id]);
+  },
+  async cancelOwnPaidByDate(userId, date) {
+    const sql = `
+      UPDATE leave_requests
+      SET
+        status = 'rejected',
+        reason = CASE
+          WHEN COALESCE(reason, '') = '' THEN '[AUTO_CANCEL] kubun changed from 有給休暇'
+          ELSE CONCAT(reason, ' / [AUTO_CANCEL] kubun changed from 有給休暇')
+        END
+      WHERE userId = ?
+        AND type = 'paid'
+        AND status IN ('pending', 'approved')
+        AND startDate <= ?
+        AND endDate >= ?
+    `;
+    const [res] = await db.query(sql, [userId, date, date]);
+    return Number(res?.affectedRows || 0);
+  },
+  async reconcileApprovedPaidWithAttendance() {
+    // Safety scope: reconcile only one-day paid requests to avoid changing multi-day requests unexpectedly.
+    try {
+      const sql = `
+        UPDATE leave_requests lr
+        LEFT JOIN attendance_daily ad
+          ON ad.userId = lr.userId
+         AND ad.date = lr.startDate
+        LEFT JOIN attendance a
+          ON a.userId = lr.userId
+         AND DATE(a.checkIn) = lr.startDate
+        SET
+          lr.status = 'rejected',
+          lr.reason = CASE
+            WHEN COALESCE(lr.reason, '') = '' THEN '[AUTO_RECONCILE] attendance kubun is not 有給休暇'
+            WHEN lr.reason LIKE '%[AUTO_RECONCILE]%' THEN lr.reason
+            ELSE CONCAT(lr.reason, ' / [AUTO_RECONCILE] attendance kubun is not 有給休暇')
+          END
+        WHERE lr.type = 'paid'
+          AND lr.status = 'approved'
+          AND lr.startDate = lr.endDate
+          AND (
+            (ad.userId IS NOT NULL AND REPLACE(TRIM(COALESCE(ad.kubun, '')), '　', '') <> '有給休暇')
+            OR (a.id IS NOT NULL AND (a.checkIn IS NOT NULL OR a.checkOut IS NOT NULL))
+          )
+      `;
+      const [res] = await db.query(sql);
+      return Number(res?.affectedRows || 0);
+    } catch {
+      // Fallback for environments where attendance table/join may fail.
+      const sql2 = `
+        UPDATE leave_requests lr
+        INNER JOIN attendance_daily ad
+          ON ad.userId = lr.userId
+         AND ad.date = lr.startDate
+        SET
+          lr.status = 'rejected',
+          lr.reason = CASE
+            WHEN COALESCE(lr.reason, '') = '' THEN '[AUTO_RECONCILE] attendance kubun is not 有給休暇'
+            WHEN lr.reason LIKE '%[AUTO_RECONCILE]%' THEN lr.reason
+            ELSE CONCAT(lr.reason, ' / [AUTO_RECONCILE] attendance kubun is not 有給休暇')
+          END
+        WHERE lr.type = 'paid'
+          AND lr.status = 'approved'
+          AND lr.startDate = lr.endDate
+          AND REPLACE(TRIM(COALESCE(ad.kubun, '')), '　', '') <> '有給休暇'
+      `;
+      const [res2] = await db.query(sql2);
+      return Number(res2?.affectedRows || 0);
+    }
   },
   async upsertGrant({ userId, type = 'paid', grantDate, daysGranted, expiryDate }) {
     const [[row]] = await db.query(`
@@ -201,15 +399,68 @@ module.exports = {
     return rows;
   },
   async listApprovedPaidLeaves(userId, fromDate, toDate) {
+    try {
+      const [rows] = await db.query(`
+        SELECT lr.id, lr.userId, lr.startDate, lr.endDate, lr.type, lr.status
+        FROM leave_requests lr
+        LEFT JOIN attendance_daily ad
+          ON ad.userId = lr.userId
+         AND ad.date = lr.startDate
+        LEFT JOIN (
+          SELECT userId, DATE(checkIn) AS d,
+                 MAX(CASE WHEN checkIn IS NOT NULL OR checkOut IS NOT NULL THEN 1 ELSE 0 END) AS hasWork
+          FROM attendance
+          GROUP BY userId, DATE(checkIn)
+        ) aw
+          ON aw.userId = lr.userId
+         AND aw.d = lr.startDate
+        WHERE lr.userId = ? 
+          AND lr.type = 'paid' 
+          AND lr.status = 'approved'
+          AND lr.endDate >= ? AND lr.startDate <= ?
+          AND NOT (
+            lr.startDate = lr.endDate
+            AND (
+              COALESCE(aw.hasWork, 0) = 1
+              OR (
+                ad.userId IS NOT NULL
+                AND REPLACE(TRIM(COALESCE(ad.kubun, '')), '　', '') <> '有給休暇'
+              )
+            )
+          )
+        ORDER BY startDate ASC
+      `, [userId, fromDate, toDate]);
+      return rows;
+    } catch {
+      // Hard fallback: preserve page availability when advanced join fails.
+      const [rows] = await db.query(`
+        SELECT id, userId, startDate, endDate, type, status
+        FROM leave_requests
+        WHERE userId = ? 
+          AND type = 'paid' 
+          AND status = 'approved'
+          AND endDate >= ? AND startDate <= ?
+        ORDER BY startDate ASC
+      `, [userId, fromDate, toDate]);
+      return rows;
+    }
+  },
+  async getAttendanceStats(userId, fromDate, toDate) {
+    // Workdays: rows that are not explicit holidays.
+    // Present days: workdays excluding explicit absence types.
     const [rows] = await db.query(`
-      SELECT id, userId, startDate, endDate, type, status
-      FROM leave_requests
-      WHERE userId = ? 
-        AND type = 'paid' 
-        AND status = 'approved'
-        AND endDate >= ? AND startDate <= ?
-      ORDER BY startDate ASC
+      SELECT
+        COALESCE(SUM(CASE WHEN COALESCE(kubun, '') NOT IN ('', '休日', '代替休日') THEN 1 ELSE 0 END), 0) AS workDays,
+        COALESCE(SUM(CASE WHEN COALESCE(kubun, '') NOT IN ('', '休日', '代替休日', '欠勤', '無給休暇') THEN 1 ELSE 0 END), 0) AS presentDays
+      FROM attendance_daily
+      WHERE userId = ?
+        AND date >= ?
+        AND date <= ?
     `, [userId, fromDate, toDate]);
-    return rows;
+    const r = (rows && rows[0]) || {};
+    return {
+      workDays: Number(r.workDays || 0),
+      presentDays: Number(r.presentDays || 0)
+    };
   }
 };

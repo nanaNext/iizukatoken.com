@@ -7,7 +7,38 @@ const userRepo = require('../users/user.repository');
 const workReportRepo = require('../workReports/workReports.repository');
 const salaryInputRepo = require('../salary/salaryInput.repository');
 const { calculatePaidLeaveEntitlement } = require('../../utils/leaveRules');
+const { resolveEmploymentStartDate } = require('../../utils/employmentDate');
+const leaveRepo = require('../leave/leave.repository');
 // Controller xử lý request/response cho module chấm công
+
+async function ensurePaidLeaveRequestForDate(userId, date, reason = 'from_attendance') {
+  try {
+    const ds = String(date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
+    const existed = await leaveRepo.findExactRequest({
+      userId,
+      startDate: ds,
+      endDate: ds,
+      type: 'paid',
+      statuses: ['pending', 'approved']
+    });
+    if (existed) return;
+    await leaveRepo.create({ userId, startDate: ds, endDate: ds, type: 'paid', reason });
+  } catch {}
+}
+
+async function syncPaidLeaveByKubun(userId, date, kubun, reason = 'from_attendance') {
+  try {
+    const ds = String(date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
+    const k = String(kubun || '').trim();
+    if (k === '有給休暇') {
+      await ensurePaidLeaveRequestForDate(userId, ds, reason);
+      return;
+    }
+    await leaveRepo.cancelOwnPaidByDate(userId, ds);
+  } catch {}
+}
 
 exports.checkIn = async (req, res) => {
   try {
@@ -950,6 +981,10 @@ exports.putDaily = async (req, res) => {
     }
     await repo.upsertDaily(userId, date, req.body || {});
     const daily = await repo.getDaily(userId, date);
+    try {
+      const kubun = String(daily?.kubun || req.body?.kubun || '').trim();
+      await syncPaidLeaveByKubun(userId, date, kubun);
+    } catch {}
   try {
     const y = parseInt(date.slice(0, 4), 10);
     const m = parseInt(date.slice(5, 7), 10);
@@ -1296,10 +1331,13 @@ exports.getMonthDetail = async (req, res) => {
       try {
         const leaveRepo = require('../leave/leave.repository');
         const all = await leaveRepo.listApprovedByUserOverlap(userId, from, to).catch(() => []);
+        const grants = await leaveRepo.listGrants(userId, 'paid').catch(() => []);
         let paidDays = 0;
         let substituteDays = 0;
         let unpaidDays = 0;
         let standbyDays = 0;
+        let grantedDaysTotal = 0;
+        let grantedDays = 0;
         for (const r of (all || [])) {
           const s = String(r?.startDate || '').slice(0, 10);
           const e = String(r?.endDate || '').slice(0, 10);
@@ -1312,9 +1350,17 @@ exports.getMonthDetail = async (req, res) => {
           else if (t.includes('unpaid') || t.includes('nopay') || t.includes('no_pay')) unpaidDays += ov;
           else if (t.includes('standby') || t.includes('wait') || t.includes('taiki')) standbyDays += ov;
         }
-        return { paidDays, substituteDays, unpaidDays, standbyDays };
+        for (const g of (grants || [])) {
+          grantedDaysTotal += Number(g?.daysGranted || 0);
+          const gd = String(g?.grantDate || '').slice(0, 10);
+          const ge = String(g?.expiryDate || '').slice(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(gd) || !/^\d{4}-\d{2}-\d{2}$/.test(ge)) continue;
+          if (ge < from || gd > to) continue;
+          grantedDays += Number(g?.daysGranted || 0);
+        }
+        return { paidDays, substituteDays, unpaidDays, standbyDays, grantedDays, grantedDaysTotal };
       } catch {
-        return { paidDays: 0, substituteDays: 0, unpaidDays: 0, standbyDays: 0 };
+        return { paidDays: 0, substituteDays: 0, unpaidDays: 0, standbyDays: 0, grantedDays: 0, grantedDaysTotal: 0 };
       }
     })();
     for (let day = 1; day <= lastDay; day++) {
@@ -1335,7 +1381,7 @@ exports.getMonthDetail = async (req, res) => {
       });
     }
     const u = await userRepo.getUserById(userId).catch(() => null);
-    const paidLeaveEntitlement = calculatePaidLeaveEntitlement(u?.join_date || u?.hire_date);
+    const paidLeaveEntitlement = calculatePaidLeaveEntitlement(resolveEmploymentStartDate(u));
     const user = u ? {
       id: u.id,
       employee_code: u.employee_code || null,
@@ -1346,7 +1392,9 @@ exports.getMonthDetail = async (req, res) => {
       departmentName: u.departmentName || null,
       office_code: u.office_code || null,
       officeCode: u.office_code || null,
-      paidLeaveEntitlement: paidLeaveEntitlement
+      paidLeaveEntitlement: paidLeaveEntitlement,
+      paidLeaveGrantedDays: Number(leaveSummary?.grantedDays || 0),
+      paidLeaveGrantedTotalDays: Number(leaveSummary?.grantedDaysTotal || 0)
     } : null;
     res.status(200).json({
       year: y,
@@ -1720,6 +1768,21 @@ exports.putMonthBulk = async (req, res) => {
       });
     } catch {}
 
+    // Safety net: sync leave request by latest daily kubun for each touched date
+    try {
+      const dailyList = Array.isArray(normalizedDailyUpdates) ? normalizedDailyUpdates : [];
+      const latestByDate = new Map();
+      for (const d of dailyList) {
+        const ds = String(d?.date || '').slice(0, 10);
+        const kubun = String(d?.kubun || '').trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) continue;
+        latestByDate.set(ds, kubun);
+      }
+      for (const [ds, kubun] of latestByDate.entries()) {
+        await syncPaidLeaveByKubun(userId, ds, kubun);
+      }
+    } catch {}
+
     res.status(200).json(result);
   } catch (err) {
     res.status(Number(err?.status || 500)).json({ message: err.message });
@@ -1768,8 +1831,7 @@ exports.syncSalary = async (req, res) => {
 
     // 2. Get user info for paid leave entitlement
     const user = await userRepo.getUserById(userId);
-    const joinDate = user?.join_date || user?.hire_date || null;
-    const paidLeaveEntitlement = calculatePaidLeaveEntitlement(joinDate);
+    const paidLeaveEntitlement = calculatePaidLeaveEntitlement(resolveEmploymentStartDate(user));
 
     // 3. Update salary_inputs
     const existingInput = await salaryInputRepo.getByUserMonth(userId, ym);

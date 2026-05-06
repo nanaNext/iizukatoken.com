@@ -146,11 +146,71 @@ const wireDrawer = () => {
 };
 const renderList = async () => {
   const host = $('#exListHost'); if (!host) return; host.innerHTML = '<div style="color:#475569;font-weight:650;">読み込み中…</div>';
+  const boardHost = $('#exMonthlyBoardHost');
+  const renderMonthlyBoard = (rows) => {
+    if (!boardHost) return;
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) {
+      boardHost.innerHTML = '';
+      return;
+    }
+    const g = new Map();
+    for (const r of list) {
+      const ym = String(r.date || '').slice(0, 7);
+      if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+      const prev = g.get(ym) || { ym, amount: 0, statuses: new Set(), count: 0 };
+      prev.amount += Number(r.amount || 0);
+      prev.count += 1;
+      prev.statuses.add(String(r.status || '').toLowerCase());
+      g.set(ym, prev);
+    }
+    const rows2 = Array.from(g.values()).sort((a,b) => String(b.ym).localeCompare(String(a.ym)));
+    const statusText = (set) => {
+      if (set.has('applied')) return '上長確認中';
+      if (set.has('approved') && set.size === 1) return '承認';
+      if (set.has('rejected') && set.size === 1) return '差戻し';
+      if (set.has('draft') || set.has('pending')) return '未申請（下書き）';
+      if (set.has('approved')) return '承認';
+      return '申請中';
+    };
+    boardHost.innerHTML = `
+      <div class="adj-table-card" style="margin-bottom:10px;">
+        <table class="adj-table">
+          <thead><tr><th>対象月</th><th>タイトル</th><th>合計金額</th><th>処理状況</th><th>操作</th></tr></thead>
+          <tbody>${rows2.map((x) => {
+            const mm = String(x.ym).slice(5,7);
+            return `<tr>
+              <td>${String(x.ym).slice(0,4)}年${mm}月</td>
+              <td>【${mm}月】交通費申請</td>
+              <td style="text-align:right;">${Number(x.amount||0).toLocaleString('ja-JP')}</td>
+              <td>${statusText(x.statuses)}</td>
+              <td><button class="btn" type="button" data-action="open-month" data-month="${x.ym}" style="height:28px;">表示</button></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>`;
+    const tbody = boardHost.querySelector('tbody');
+    if (tbody && !tbody.dataset.boundOpenMonth) {
+      tbody.dataset.boundOpenMonth = '1';
+      tbody.addEventListener('click', async (e) => {
+        const b = e.target.closest('button[data-action="open-month"]');
+        if (!b) return;
+        const m = b.getAttribute('data-month') || '';
+        const mf = document.getElementById('exFilterMonth');
+        if (mf && /^\d{4}-\d{2}$/.test(m)) mf.value = m;
+        await renderList();
+      });
+    }
+  };
   try {
     const month = document.getElementById('exFilterMonth')?.value || new Date().toISOString().slice(0,7);
     const status = document.getElementById('exFilterStatus')?.value || '';
     const q = `/api/expenses/my?month=${encodeURIComponent(month)}&status=${encodeURIComponent(status)}`;
-    const rows = await fetchJSONAuth(q);
+    const [rows, monthlyRows] = await Promise.all([
+      fetchJSONAuth(q),
+      fetchJSONAuth('/api/expenses/my')
+    ]);
+    renderMonthlyBoard(monthlyRows);
     try { await renderSummary(); } catch {}
     if (!Array.isArray(rows) || rows.length===0) { host.innerHTML = '<div class="empty-state"><div style="font-size:28px;">🗂️</div><div>当月の交通費提出履歴はありません</div></div>'; return; }
     const tr = rows.map(r => {

@@ -2,7 +2,7 @@ import { me, refresh, logout } from '../api/auth.api.js';
 
 const $ = (sel) => document.querySelector(sel);
 const markTopbarReady = () => {
-  try { document.documentElement.classList.add('topbar-ready'); } catch {}
+  try { document.documentElement.classList.add('topbar-ready'); } catch { }
 };
 
 const prefillUserName = () => {
@@ -13,7 +13,7 @@ const prefillUserName = () => {
     const u = raw ? JSON.parse(raw) : null;
     const name = (u && (u.username || u.email)) ? String(u.username || u.email) : '';
     if (name) el.textContent = name;
-  } catch {}
+  } catch { }
 };
 
 const setUserNameStable = (nextName, { force = false } = {}) => {
@@ -26,12 +26,12 @@ const setUserNameStable = (nextName, { force = false } = {}) => {
     if (!force && current) return;
     if (current === next) return;
     el.textContent = next;
-  } catch {}
+  } catch { }
 };
 
 // Run as early as possible (module executes before DOMContentLoaded on these pages)
 // to reduce visible flicker in the user area while auth/profile is still resolving.
-try { prefillUserName(); } catch {}
+try { prefillUserName(); } catch { }
 markTopbarReady();
 
 function getCookie(name) {
@@ -59,21 +59,21 @@ const wireExpandingSearch = () => {
         const editable = (t && (t.isContentEditable || tag === 'input' || tag === 'textarea' || tag === 'select'));
         if (editable) return;
         e.preventDefault();
-        try { input && input.focus({ preventScroll: true }); input && input.select(); } catch {}
+        try { input && input.focus({ preventScroll: true }); input && input.select(); } catch { }
       }
     });
-  } catch {}
+  } catch { }
 };
 
 async function ensureAuthProfile() {
   let token = sessionStorage.getItem('accessToken');
   let profile = null;
-  
+
   // Add timeout to prevent hanging
-  const timeoutPromise = new Promise((_, reject) => 
+  const timeoutPromise = new Promise((_, reject) =>
     setTimeout(() => reject(new Error('Auth timeout')), 5000)
   );
-  
+
   try {
     if (token) {
       try { profile = await Promise.race([me(token), timeoutPromise]); } catch (e) {
@@ -99,7 +99,7 @@ async function ensureAuthProfile() {
           try {
             const r2 = await Promise.race([refresh(), timeoutPromise]);
             sessionStorage.setItem('accessToken', r2.accessToken);
-          } catch {}
+          } catch { }
         }
       } catch (e) {
         console.warn('⚠️ Fallback profile failed:', e.message);
@@ -108,7 +108,7 @@ async function ensureAuthProfile() {
   } catch (e) {
     console.error('❌ ensureAuthProfile error:', e);
   }
-  
+
   if (!profile) { return null; }
   return profile;
 }
@@ -144,33 +144,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }, true);
     }
-  } catch {}
+  } catch { }
   const pageSpinner = document.querySelector('#pageSpinner');
   try {
     const navEntry = (typeof performance !== 'undefined' && performance.getEntriesByType) ? performance.getEntriesByType('navigation')[0] : null;
     const navType = navEntry?.type || (performance && performance.navigation && performance.navigation.type === 2 ? 'back_forward' : '');
     if (navType === 'back_forward') {
       if (pageSpinner) { pageSpinner.setAttribute('hidden', ''); }
-      try { sessionStorage.removeItem('navSpinner'); } catch {}
+      try { sessionStorage.removeItem('navSpinner'); } catch { }
     }
     window.addEventListener('pageshow', () => {
-      try { sessionStorage.removeItem('navSpinner'); } catch {}
+      try { sessionStorage.removeItem('navSpinner'); } catch { }
       if (pageSpinner) { pageSpinner.setAttribute('hidden', ''); }
     });
-  } catch {}
+  } catch { }
   try {
     /* giữ spinner đến khi xác thực xong, không auto-hide theo thời gian */
-  } catch {}
+  } catch { }
   try {
     const f = sessionStorage.getItem('navSpinner');
     if (f === '1' && pageSpinner) {
       pageSpinner.removeAttribute('hidden');
     }
     sessionStorage.removeItem('navSpinner');
-  } catch {}
-  const waitMinDelay = async () => {};
+  } catch { }
+  const waitMinDelay = async () => { };
   // Keep header height stable to avoid first-paint layout jump between pages.
-  const setTopbarHeightVar = () => {};
+  const setTopbarHeightVar = () => { };
   const status = $('#status');
   if (status) status.textContent = '認証を確認しています…';
   const tilesRoot = document.querySelector('.tiles');
@@ -186,22 +186,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!profile) { if (pageSpinner) { pageSpinner.setAttribute('hidden', ''); } window.location.replace('/ui/login'); return; }
   markTopbarReady();
   const goLogin = async () => {
-    try { await logout(); } catch {}
+    try { await logout(); } catch { }
     try {
       sessionStorage.removeItem('accessToken');
       sessionStorage.removeItem('refreshToken');
       sessionStorage.removeItem('user');
-    } catch {}
+    } catch { }
     try {
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
-    } catch {}
+    } catch { }
     try { window.location.replace('/ui/login'); } catch { window.location.href = '/ui/login'; }
   };
   try {
     const userStr = sessionStorage.getItem('user') || '';
     if (userStr) { localStorage.setItem('user', userStr); }
-  } catch {}
+  } catch { }
   const role = String(profile.role || '').toLowerCase();
   setUserNameStable(profile.username || profile.email || 'ユーザー');
   if (role === 'admin' || role === 'manager') {
@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (u.pathname === pathName) a.setAttribute('aria-current', 'page');
           else a.removeAttribute('aria-current');
         });
-      } catch {}
+      } catch { }
     };
     const loadViaPjax = async (url, push = true) => {
       try {
@@ -254,10 +254,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (mod && typeof mod.bootRequestsPage === 'function') {
               await mod.bootRequestsPage();
             }
-          } catch {}
+          } catch { }
         }
         if (url.pathname === HOME_PATH) {
-          try { renderHomeTiles(role); } catch {}
+          try { renderHomeTiles(role); } catch { }
           try {
             const tiles = document.querySelector('.tiles');
             if (tiles && tiles.dataset.navBound !== '1') {
@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
               });
             }
-          } catch {}
+          } catch { }
         }
         return true;
       } catch {
@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (document.querySelector('.req-page')) {
             window.location.reload();
           }
-        } catch {}
+        } catch { }
       });
     }
   };
@@ -336,14 +336,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const p = String(window.location.pathname || '');
     if ((p === '/ui/portal' || p === '/ui/dashboard') && document.body.dataset.backLoginBound !== '1') {
       document.body.dataset.backLoginBound = '1';
-      try { history.pushState({ back_to_login_guard: true }, '', window.location.href); } catch {}
+      try { history.pushState({ back_to_login_guard: true }, '', window.location.href); } catch { }
       window.addEventListener('popstate', async () => {
         await goLogin();
       });
     }
-  } catch {}
+  } catch { }
   try {
-  } catch {}
+  } catch { }
   if (role === 'employee' || role === 'manager') {
     const tiles = document.querySelector('.tiles');
     if (tiles) {
@@ -442,35 +442,35 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     const cfg = [
-      { key:'attendance_manage', title:'勤怠管理', icon:'', href: (r) => (r==='admin'||r==='manager') ? '/admin/attendance' : '/ui/attendance', desc:(r)=> (r==='admin'||r==='manager')?'Team attendance (missing/late)':'Attendance overview', prio:10 },
-      { key:'users', title:'ユーザー管理', icon:'👥', href:'/ui/admin?tab=users', desc:'User management', adminOnly:true, prio:12 },
-      { key:'departments', title:'部門管理', icon:'🏢', href:'/admin/departments', desc:'Departments', adminOnly:true, prio:14 },
-      { key:'admin', title:'社員管理', icon:'🛠', href:'/admin/employees', desc:'Admin portal', adminOnly:true, prio:16 },
-      { key:'attendance_in', title:'勤怠入力', icon:'', href:'/ui/attendance/simple', desc:'Daily time input', prio:20, hideForAdmin:true },
-      { key:'paid_leave', title:'有給休暇', icon:'🏝', href:'/ui/requests', desc:'Paid leave', prio:25 },
-      { key:'paid_leave_manage', title:'有給休暇管理', icon:'🏝', href:'/admin/leave/balance', desc:'Paid leave admin', adminOnly:true, prio:22 },
-      { key:'leave', title:'申請', icon:'📝', href:'/ui/requests', desc:'Leave & requests', prio:30, hideForAdmin:true },
-      { key:'overtime', title:'残業申請', icon:'⏲', href:'/ui/adjust?type=overtime', desc:'Overtime / time correction request', prio:32, hideForAdmin:true },
-      { key:'overtime_manage', title:'残業管理', icon:'⏲', href:'/admin/leave/requests', desc:'Overtime management', adminOnly:true, prio:18 },
-      { key:'requests_manage', title:'申請管理', icon:'🗂', href:'/admin/leave/requests', desc:'Requests management', adminOnly:true, prio:19 },
-      { key:'expenses', title:'経費精算', icon:'💳', href:'/ui/expenses', desc:'Expense claims', prio:34 },
-      { key:'salary', title:(r)=> (r==='admin'||r==='manager')?'給与管理':'給与明細', icon:'💴', href:(r)=> (r==='admin'||r==='manager')?'/admin/payroll/salary':'/ui/salary', desc:(r)=> (r==='admin'||r==='manager')?'Salary management':'Payslips', prio:36 },
-      { key:'salary_calc', title:'給与計算', icon:'🧮', href:'/ui/admin?tab=salary_calc', desc:'Payroll calculation', adminOnly:true, prio:37 },
-      { key:'salary_send', title:'給与明細送信', icon:'📧', href:'/admin/payroll/payslips', desc:'Send payslips', adminOnly:true, prio:38 },
-      { key:'calendar', title:'カレンダー', icon:'📆', href:'/admin/attendance/holidays', desc:'Work calendar', adminOnly:true, prio:40 },
-      { key:'shifts', title:'シフト', icon:'🗓', href:'/admin/attendance/shifts', desc:'Shift planning', adminOnly:true, prio:42 },
-      { key:'reports', title:'レポート', icon:'📊', href:'/ui/admin?tab=reports', desc:'Reports', adminOnly:true, prio:50 },
-      { key:'settings', title:'システム設定', icon:'⚙️', href:'/admin/system/settings', desc:'System settings', adminOnly:true, prio:60 },
-      { key:'audit', title:'監査ログ', icon:'🧾', href:'/admin/system/audit-logs', desc:'Audit logs', adminOnly:true, prio:62 },
-      { key:'tokens', title:'トークン管理', icon:'🔑', href:'/ui/admin?tab=refresh', desc:'Token control', adminOnly:true, prio:64 },
-      { key:'api', title:'API一覧', icon:'🔗', href:'/ui/admin?tab=routes', desc:'API list', adminOnly:true, prio:66 },
-      { key:'contacts', title:'お問い合わせ先', icon:'☎', href:'/ui/contact', desc:'Contacts', prio:80 },
-      { key:'help', title:'サポート', icon:'💬', href:'/ui/chatbot', desc:'Help center', prio:82 },
-      { key:'profile', title:'プロフィール', icon:'👤', href:'/ui/dashboard', desc:'Profile overview', prio:90 }
+      { key: 'attendance_manage', title: '勤怠管理', icon: '', href: (r) => (r === 'admin' || r === 'manager') ? '/admin/attendance' : '/ui/attendance', desc: (r) => (r === 'admin' || r === 'manager') ? 'Team attendance (missing/late)' : 'Attendance overview', prio: 10 },
+      { key: 'users', title: 'ユーザー管理', icon: '👥', href: '/ui/admin?tab=users', desc: 'User management', adminOnly: true, prio: 12 },
+      { key: 'departments', title: '部門管理', icon: '🏢', href: '/admin/departments', desc: 'Departments', adminOnly: true, prio: 14 },
+      { key: 'admin', title: '社員管理', icon: '🛠', href: '/admin/employees', desc: 'Admin portal', adminOnly: true, prio: 16 },
+      { key: 'attendance_in', title: '勤怠入力', icon: '', href: '/ui/attendance/simple', desc: 'Daily time input', prio: 20, hideForAdmin: true },
+      { key: 'paid_leave', title: '有給休暇', icon: '🏝', href: '/ui/requests', desc: 'Paid leave', prio: 25 },
+      { key: 'paid_leave_manage', title: '有給休暇管理', icon: '🏝', href: '/admin/leave/balance', desc: 'Paid leave admin', adminOnly: true, prio: 22 },
+      { key: 'leave', title: '申請', icon: '📝', href: '/ui/requests', desc: 'Leave & requests', prio: 30, hideForAdmin: true },
+      { key: 'overtime', title: '残業申請', icon: '⏲', href: '/ui/adjust?type=overtime', desc: 'Overtime / time correction request', prio: 32, hideForAdmin: true },
+      { key: 'overtime_manage', title: '残業管理', icon: '⏲', href: '/admin/leave/requests', desc: 'Overtime management', adminOnly: true, prio: 18 },
+      { key: 'requests_manage', title: '申請管理', icon: '🗂', href: '/admin/leave/requests', desc: 'Requests management', adminOnly: true, prio: 19 },
+      { key: 'expenses', title: '経費精算', icon: '💳', href: '/ui/expenses', desc: 'Expense claims', prio: 34 },
+      { key: 'salary', title: (r) => (r === 'admin' || r === 'manager') ? '給与管理' : '給与明細', icon: '💴', href: (r) => (r === 'admin' || r === 'manager') ? '/admin/payroll/salary' : '/ui/salary', desc: (r) => (r === 'admin' || r === 'manager') ? 'Salary management' : 'Payslips', prio: 36 },
+      { key: 'salary_calc', title: '給与計算', icon: '🧮', href: '/ui/admin?tab=salary_calc', desc: 'Payroll calculation', adminOnly: true, prio: 37 },
+      { key: 'salary_send', title: '給与明細送信', icon: '📧', href: '/admin/payroll/payslips', desc: 'Send payslips', adminOnly: true, prio: 38 },
+      { key: 'calendar', title: 'カレンダー', icon: '📆', href: '/admin/attendance/holidays', desc: 'Work calendar', adminOnly: true, prio: 40 },
+      { key: 'shifts', title: 'シフト', icon: '🗓', href: '/admin/attendance/shifts', desc: 'Shift planning', adminOnly: true, prio: 42 },
+      { key: 'reports', title: 'レポート', icon: '📊', href: '/ui/admin?tab=reports', desc: 'Reports', adminOnly: true, prio: 50 },
+      { key: 'settings', title: 'システム設定', icon: '⚙️', href: '/admin/system/settings', desc: 'System settings', adminOnly: true, prio: 60 },
+      { key: 'audit', title: '監査ログ', icon: '🧾', href: '/admin/system/audit-logs', desc: 'Audit logs', adminOnly: true, prio: 62 },
+      { key: 'tokens', title: 'トークン管理', icon: '🔑', href: '/ui/admin?tab=refresh', desc: 'Token control', adminOnly: true, prio: 64 },
+      { key: 'api', title: 'API一覧', icon: '🔗', href: '/ui/admin?tab=routes', desc: 'API list', adminOnly: true, prio: 66 },
+      { key: 'contacts', title: 'お問い合わせ先', icon: '☎', href: '/ui/contact', desc: 'Contacts', prio: 80 },
+      { key: 'help', title: 'サポート', icon: '💬', href: '/ui/chatbot', desc: 'Help center', prio: 82 },
+      { key: 'profile', title: 'プロフィール', icon: '👤', href: '/ui/dashboard', desc: 'Profile overview', prio: 90 }
     ];
     const items = cfg
       .filter(c => (isAdmin || !c.adminOnly) && !(isAdmin && c.hideForAdmin))
-      .sort((a,b) => ((a.prio == null ? 100 : a.prio) - (b.prio == null ? 100 : b.prio)));
+      .sort((a, b) => ((a.prio == null ? 100 : a.prio) - (b.prio == null ? 100 : b.prio)));
     tiles.innerHTML = items.map(c => {
       const link = typeof c.href === 'function' ? c.href(role) : c.href;
       const title = typeof c.title === 'function' ? c.title(role) : c.title;
@@ -494,7 +494,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = '/ui/portal';
       });
     }
-  } catch {}
+  } catch { }
   /* dùng biến pageSpinner đã khai báo ở đầu scope */
   function navigateWithSpinner(href) {
     const goSoft = window.__employeeSoftNavigate;
@@ -521,11 +521,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     drawerEl.addEventListener('click', async (e) => {
       const btn = e.target?.closest?.('#drawerLogout');
       if (btn) {
-        try { await logout(); } catch {}
+        try { await logout(); } catch { }
         sessionStorage.removeItem('accessToken');
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('refreshToken');
-        try { localStorage.removeItem('refreshToken'); localStorage.removeItem('user'); } catch {}
+        try { localStorage.removeItem('refreshToken'); localStorage.removeItem('user'); } catch { }
         window.location.replace('/ui/login');
       }
     });
@@ -577,7 +577,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         userBtn.setAttribute('aria-expanded', 'true');
         const firstItem = dropdown.querySelector('.item, a, button');
         if (firstItem && typeof firstItem.focus === 'function') {
-          try { firstItem.focus(); } catch {}
+          try { firstItem.focus(); } catch { }
         }
       } else {
         dropdown.setAttribute('hidden', '');
@@ -593,11 +593,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnLogout = document.querySelector('#btnLogout');
     if (btnLogout) {
       btnLogout.addEventListener('click', async () => {
-        try { await logout(); } catch {}
+        try { await logout(); } catch { }
         sessionStorage.removeItem('accessToken');
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('refreshToken');
-        try { localStorage.removeItem('refreshToken'); localStorage.removeItem('user'); } catch {}
+        try { localStorage.removeItem('refreshToken'); localStorage.removeItem('user'); } catch { }
         window.location.replace('/ui/login');
       });
     }
@@ -628,7 +628,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.style.right = '0';
         document.body.style.width = '100%';
         document.body.style.overflow = 'hidden';
-      } catch {}
+      } catch { }
     };
     const unlockViewport = () => {
       try {
@@ -640,7 +640,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.style.width = '';
         document.body.style.overflow = '';
         window.scrollTo(0, Math.max(0, Number(drawerScrollY) || 0));
-      } catch {}
+      } catch { }
     };
     const swallowWhenDrawerOpen = (e) => {
       try {
@@ -648,7 +648,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const inDrawer = e.target && e.target.closest && e.target.closest('#mobileDrawer');
         if (inDrawer) return;
         e.preventDefault();
-      } catch {}
+      } catch { }
     };
     document.addEventListener('touchmove', swallowWhenDrawerOpen, { passive: false });
     document.addEventListener('wheel', swallowWhenDrawerOpen, { passive: false });
@@ -660,7 +660,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           document.body.classList.remove('drawer-open');
           unlockViewport();
           if (mobileBackdrop) mobileBackdrop.setAttribute('hidden', '');
-        } catch {}
+        } catch { }
         return;
       }
       const isHidden = mobileDrawer.hasAttribute('hidden');
@@ -673,7 +673,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           document.documentElement.style.setProperty('--drawer-offset', `${w}px`);
           document.body.classList.add('drawer-open');
           lockViewport();
-        } catch {}
+        } catch { }
         if (mobileBackdrop) { mobileBackdrop.removeAttribute('hidden'); }
       } else {
         mobileDrawer.setAttribute('hidden', '');
@@ -708,5 +708,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!isMobileViewport()) toggleDrawer(false);
     /* backdrop không đóng, chỉ nút X mới đóng */
   }
-  try { wireExpandingSearch(); } catch {}
+  try { wireExpandingSearch(); } catch { }
 });

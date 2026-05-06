@@ -695,6 +695,12 @@ const route = async () => {
       await mountModule(mod);
       return;
     }
+    if (p2 === '/admin/expenses/monthly-detail') {
+      const mod = await loadModule('./expenses/monthly-detail.page.js');
+      if (seq !== routeSeq) return;
+      await mountModule(mod);
+      return;
+    }
     if (p2 === '/admin/expenses') {
       const mod = await loadModule('./expenses/expenses.page.js');
       if (seq !== routeSeq) return;

@@ -368,6 +368,36 @@
     if (!tableHost) return;
     if (tableHost.dataset.boundMonthlyHost === '1') return;
     tableHost.dataset.boundMonthlyHost = '1';
+    const role = String(controller?.ctx?.profile?.role || '').toLowerCase();
+
+    const ensurePaidLeaveRequest = async (row, dateStr) => {
+      if (!row || !dateStr) return;
+      if (role !== 'employee') return;
+      if (row.dataset.paidLeaveRequested === '1') return;
+      try {
+        await core.fetchJSONAuth('/api/leave/paid', {
+          method: 'POST',
+          body: JSON.stringify({ startDate: dateStr, endDate: dateStr, reason: '' })
+        });
+        row.dataset.paidLeaveRequested = '1';
+        try { root.Core?.showToast?.('有給申請を送信しました', 'success'); } catch {}
+      } catch (err) {
+        throw new Error(String(err?.message || '有給申請に失敗しました'));
+      }
+    };
+    const cancelPaidLeaveRequest = async (row, dateStr) => {
+      if (!row || !dateStr) return;
+      if (role !== 'employee') return;
+      try {
+        await core.fetchJSONAuth('/api/leave/my/cancel-paid', {
+          method: 'POST',
+          body: JSON.stringify({ date: dateStr })
+        });
+        row.dataset.paidLeaveRequested = '';
+      } catch (err) {
+        throw new Error(String(err?.message || '有給申請の取消に失敗しました'));
+      }
+    };
 
     const applyHolidayLock = (row) => {
       if (!row) return;
@@ -461,6 +491,25 @@
             const v = String(kubunSel.value || '').trim();
             row.dataset.kubunConfirmed = v ? '1' : '';
             applyHolidayLock(row);
+            if (v === '有給休暇') {
+              const dateStr = String(row.dataset.date || '').slice(0, 10);
+              if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                try {
+                  await ensurePaidLeaveRequest(row, dateStr);
+                } catch (err) {
+                  alert(String(err?.message || '有給申請に失敗しました'));
+                }
+              }
+            } else {
+              const dateStr = String(row.dataset.date || '').slice(0, 10);
+              if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                try {
+                  await cancelPaidLeaveRequest(row, dateStr);
+                } catch (err) {
+                  alert(String(err?.message || '有給申請の取消に失敗しました'));
+                }
+              }
+            }
           }
           
           // QUAN TRỌNG: Lưu ngay lập tức khi người dùng thay đổi bất kỳ giá trị nào (Kubun, Giờ, Ghi chú...)
@@ -514,6 +563,37 @@
       if (!el) return;
     });
     tableHost.addEventListener('click', async (e) => {
+      const dateCell = e.target?.closest?.('td.sticky-col-1');
+      if (dateCell) {
+        const tr = dateCell.closest?.('[data-row="1"][data-date]');
+        if (!tr) return;
+        if (role !== 'employee') return;
+        if (!state.editableMonth) {
+          alert('この月は入力できません。');
+          return;
+        }
+        const dateStr = String(tr.dataset.date || '').slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
+        const clsSel = tr.querySelector('select[data-field="classification"]');
+        if (!clsSel) return;
+        const offDay = String(tr.dataset.baseOff || '') === '1';
+        if (offDay) {
+          alert('休日には有給申請できません。');
+          return;
+        }
+        if (!confirm(`${dateStr} を有給休暇として申請しますか？`)) return;
+        try {
+          await ensurePaidLeaveRequest(tr, dateStr);
+          clsSel.value = '有給休暇';
+          try { tr.dataset.kubunConfirmed = '1'; } catch {}
+          try { applyHolidayLock(tr); } catch {}
+          try { render.recomputeRow(tr); } catch {}
+          try { await controller.saveRowTimesNow(tr); } catch {}
+        } catch (err) {
+          alert(String(err?.message || '有給申請に失敗しました'));
+        }
+        return;
+      }
       const ck = e.target?.closest?.('input.se-check[data-field]');
       if (ck) {
         if (!state.editableMonth) { e.preventDefault(); alert('この月は入力できません。'); return; }

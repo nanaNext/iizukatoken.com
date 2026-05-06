@@ -15,6 +15,10 @@
       <button type="button" class="icon-btn" id="btnAdminNew">+ New</button>
       <button type="button" class="icon-btn" id="btnAdminUpgrade">Upgrade</button>
       <button type="button" class="icon-btn" id="btnAdminHelp">?</button>
+      <button type="button" class="icon-btn notify-btn" id="btnAdminNotify" aria-label="通知" aria-haspopup="true" aria-expanded="false">
+        <span class="notify-bell" aria-hidden="true">🔔</span>
+        <span class="notify-badge" id="adminNotifyBadge" hidden>0</span>
+      </button>
     </div>
     <!--#include file="admin-user-menu.html" -->
   </div>
@@ -22,6 +26,15 @@
 </header>
 <script>
 document.addEventListener('DOMContentLoaded',function(){
+  try{
+    if(!document.getElementById('adminNotifyStyle')){
+      var st=document.createElement('style');
+      st.id='adminNotifyStyle';
+      st.textContent = '.notify-btn{position:relative;min-width:44px;padding:0 10px}.notify-bell{font-size:16px;line-height:1}.notify-badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#dc2626;color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border:2px solid #fff}.admin-notify-panel{position:fixed;top:56px;right:92px;width:340px;max-height:420px;overflow:auto;background:#fff;border:1px solid #dbe3f0;border-radius:10px;box-shadow:0 12px 36px rgba(15,23,42,.18);z-index:9999}.admin-notify-panel[hidden]{display:none}.admin-notify-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #eef2f7;font-weight:700;color:#0f172a}.admin-notify-list{padding:6px}.admin-notify-item{display:block;padding:8px 10px;border-radius:8px;border:1px solid transparent;text-decoration:none;color:#0f172a}.admin-notify-item:hover{background:#f8fbff;border-color:#e5edf8}.admin-notify-meta{font-size:11px;color:#64748b}.admin-notify-title{font-size:13px;font-weight:700;color:#0f172a;margin:2px 0}.admin-notify-empty{padding:14px;color:#64748b;font-size:12px}';
+      document.head.appendChild(st);
+    }
+  }catch{}
+
   try{
     var btn=document.getElementById('userBtnInitial');
     var dd=document.getElementById('userInitial');
@@ -53,6 +66,127 @@ document.addEventListener('DOMContentLoaded',function(){
           if(dd && !dd.getAttribute('data-initial')){ dd.textContent=''; dd.setAttribute('data-initial',c2); }
         }catch{}
       },400);
+    }
+  }catch{}
+
+  try{
+    var notifyBtn=document.getElementById('btnAdminNotify');
+    var notifyBadge=document.getElementById('adminNotifyBadge');
+    if(notifyBtn){
+      var panel=document.createElement('div');
+      panel.id='adminNotifyPanel';
+      panel.className='admin-notify-panel';
+      panel.setAttribute('hidden','');
+      panel.innerHTML='<div class="admin-notify-head"><span>通知</span><span id="adminNotifyCountText">0件</span></div><div class="admin-notify-list" id="adminNotifyList"><div class="admin-notify-empty">読み込み中...</div></div>';
+      document.body.appendChild(panel);
+
+      var countText=panel.querySelector('#adminNotifyCountText');
+      var listEl=panel.querySelector('#adminNotifyList');
+      var pollTimer=null;
+
+      var fmtTime=function(v){
+        try{
+          var d=new Date(v);
+          if(!isFinite(d.getTime())) return '';
+          var mm=String(d.getMonth()+1).padStart(2,'0');
+          var dd=String(d.getDate()).padStart(2,'0');
+          var hh=String(d.getHours()).padStart(2,'0');
+          var mi=String(d.getMinutes()).padStart(2,'0');
+          return mm+'/'+dd+' '+hh+':'+mi;
+        }catch{return '';}
+      };
+      var esc=function(s){
+        return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
+      };
+      var toItemHtml=function(it){
+        var type=String(it&&it.type||'');
+        var link='/admin/dashboard';
+        var title='';
+        if(type==='leave'){
+          link='/admin/leave/requests';
+          title='有休申請: '+(it.username||'')+' '+(it.startDate||'')+(it.endDate&&it.endDate!==it.startDate?(' ~ '+it.endDate):'');
+        }else if(type==='adjust'){
+          link='/admin-attendance-adjust-requests.html';
+          title='時間修正: '+(it.username||'');
+        }else if(type==='expense'){
+          link='/admin/expenses';
+          title='交通費申請: '+(it.username||'')+' ¥'+Number(it.amount||0).toLocaleString();
+        }else if(type==='activity'){
+          var action=String(it&&it.action||'').toLowerCase();
+          var actionLabel='社員操作';
+          if(action==='checkin') actionLabel='出勤打刻';
+          else if(action==='checkout') actionLabel='退勤打刻';
+          else if(action==='attendance_month_bulk') actionLabel='月次勤怠更新';
+          else if(action.indexOf('leave')>=0) actionLabel='有休関連操作';
+          else if(action.indexOf('expense')>=0) actionLabel='交通費関連操作';
+          else if(action.indexOf('adjust')>=0) actionLabel='時間修正関連操作';
+          if(action.indexOf('expense')>=0){ link='/admin/expenses'; }
+          else if(action.indexOf('leave')>=0){ link='/admin/leave/requests'; }
+          else if(action.indexOf('adjust')>=0){ link='/admin-attendance-adjust-requests.html'; }
+          else if(action==='checkin' || action==='checkout' || action==='attendance_month_bulk'){ link='/admin/attendance'; }
+          title=actionLabel+': '+(it.username||'');
+        }else{
+          title='通知';
+        }
+        return '<a class="admin-notify-item" href="'+esc(link)+'"><div class="admin-notify-meta">'+esc(fmtTime(it&&it.createdAt))+'</div><div class="admin-notify-title">'+esc(title)+'</div></a>';
+      };
+
+      var render=function(data){
+        var total=Number(data&&data.total||0);
+        if(notifyBadge){
+          if(total>0){
+            notifyBadge.hidden=false;
+            notifyBadge.textContent=String(total>99?'99+':total);
+          }else{
+            notifyBadge.hidden=true;
+            notifyBadge.textContent='0';
+          }
+        }
+        if(countText) countText.textContent=String(total)+'件';
+        var items=Array.isArray(data&&data.items)?data.items:[];
+        if(!listEl) return;
+        if(!items.length){
+          listEl.innerHTML='<div class="admin-notify-empty">新しい通知はありません</div>';
+          return;
+        }
+        listEl.innerHTML=items.map(toItemHtml).join('');
+      };
+
+      var load=function(){
+        fetch('/api/admin/notifications/summary',{credentials:'include',cache:'no-store'})
+          .then(function(r){ if(!r.ok) throw new Error('http '+r.status); return r.json(); })
+          .then(function(d){ render(d||{}); })
+          .catch(function(){
+            if(listEl && !listEl.children.length){ listEl.innerHTML='<div class="admin-notify-empty">通知の取得に失敗しました</div>'; }
+          });
+      };
+
+      var closePanel=function(){
+        panel.setAttribute('hidden','');
+        notifyBtn.setAttribute('aria-expanded','false');
+      };
+      notifyBtn.addEventListener('click',function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        var isHidden=panel.hasAttribute('hidden');
+        if(isHidden){
+          panel.removeAttribute('hidden');
+          notifyBtn.setAttribute('aria-expanded','true');
+          load();
+        }else{
+          closePanel();
+        }
+      });
+      document.addEventListener('click',function(e){
+        var t=e&&e.target;
+        if(t&&t.closest&&(t.closest('#adminNotifyPanel')||t.closest('#btnAdminNotify'))) return;
+        closePanel();
+      });
+      document.addEventListener('keydown',function(e){ if(e.key==='Escape') closePanel(); });
+      document.addEventListener('visibilitychange',function(){ if(!document.hidden) load(); });
+      load();
+      pollTimer=setInterval(load,30000);
+      window.addEventListener('beforeunload',function(){ try{clearInterval(pollTimer);}catch{}; });
     }
   }catch{}
 

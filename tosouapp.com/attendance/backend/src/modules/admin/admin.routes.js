@@ -750,6 +750,108 @@ router.get('/home/stats', authorize('admin'), async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+// Topbar notification summary for manager/admin
+router.get('/notifications/summary', authorize('admin','manager'), async (req, res) => {
+  try {
+    const role = String(req.user?.role || '').toLowerCase();
+    const managerOnlyEmployee = role === 'manager';
+    try { await auditRepo.ensureTable(); } catch {}
+
+    const whereRole = managerOnlyEmployee ? ` AND u.role = 'employee'` : ``;
+
+    const [[leaveRow]] = await db.query(`
+      SELECT COUNT(*) AS c
+      FROM leave_requests lr
+      INNER JOIN users u ON u.id = lr.userId
+      WHERE lr.status = 'pending' ${whereRole}
+    `);
+
+    const [[adjustRow]] = await db.query(`
+      SELECT COUNT(*) AS c
+      FROM time_adjust_requests ar
+      INNER JOIN users u ON u.id = ar.userId
+      WHERE ar.status = 'pending' ${whereRole}
+    `);
+
+    const [[expenseRow]] = await db.query(`
+      SELECT COUNT(*) AS c
+      FROM expense_claims ec
+      INNER JOIN users u ON u.id = ec.userId
+      WHERE ec.status = 'applied' ${whereRole}
+    `);
+    const [[activityRow]] = await db.query(`
+      SELECT COUNT(*) AS c
+      FROM audit_logs al
+      INNER JOIN users u ON u.id = al.userId
+      WHERE u.role = 'employee'
+        AND al.created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
+    `);
+
+    const [leaveItems] = await db.query(`
+      SELECT 'leave' AS type, lr.id AS id, lr.created_at AS createdAt,
+             COALESCE(u.username, u.email, CONCAT('user#', lr.userId)) AS username,
+             lr.startDate AS startDate, lr.endDate AS endDate
+      FROM leave_requests lr
+      INNER JOIN users u ON u.id = lr.userId
+      WHERE lr.status = 'pending' ${whereRole}
+      ORDER BY lr.created_at DESC
+      LIMIT 5
+    `);
+
+    const [adjustItems] = await db.query(`
+      SELECT 'adjust' AS type, ar.id AS id, ar.created_at AS createdAt,
+             COALESCE(u.username, u.email, CONCAT('user#', ar.userId)) AS username,
+             ar.requestedCheckIn AS requestedCheckIn, ar.requestedCheckOut AS requestedCheckOut
+      FROM time_adjust_requests ar
+      INNER JOIN users u ON u.id = ar.userId
+      WHERE ar.status = 'pending' ${whereRole}
+      ORDER BY ar.created_at DESC
+      LIMIT 5
+    `);
+
+    const [expenseItems] = await db.query(`
+      SELECT 'expense' AS type, ec.id AS id, COALESCE(ec.applied_at, ec.updated_at, ec.created_at) AS createdAt,
+             COALESCE(u.username, u.email, CONCAT('user#', ec.userId)) AS username,
+             ec.amount AS amount, ec.date AS expenseDate
+      FROM expense_claims ec
+      INNER JOIN users u ON u.id = ec.userId
+      WHERE ec.status = 'applied' ${whereRole}
+      ORDER BY COALESCE(ec.applied_at, ec.updated_at, ec.created_at) DESC
+      LIMIT 5
+    `);
+    const [activityItems] = await db.query(`
+      SELECT 'activity' AS type, al.id AS id, al.created_at AS createdAt,
+             COALESCE(u.username, u.email, CONCAT('user#', al.userId)) AS username,
+             al.action AS action, al.path AS path, al.method AS method
+      FROM audit_logs al
+      INNER JOIN users u ON u.id = al.userId
+      WHERE u.role = 'employee'
+        AND al.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+      ORDER BY al.created_at DESC
+      LIMIT 15
+    `);
+
+    const items = [...(leaveItems || []), ...(adjustItems || []), ...(expenseItems || []), ...(activityItems || [])]
+      .sort((a, b) => {
+        const ta = new Date(a?.createdAt || 0).getTime();
+        const tb = new Date(b?.createdAt || 0).getTime();
+        return tb - ta;
+      })
+      .slice(0, 20);
+
+    const counts = {
+      leavePending: Number(leaveRow?.c || 0),
+      adjustPending: Number(adjustRow?.c || 0),
+      expenseApplied: Number(expenseRow?.c || 0),
+      employeeActions24h: Number(activityRow?.c || 0)
+    };
+    const total = counts.leavePending + counts.adjustPending + counts.expenseApplied + counts.employeeActions24h;
+
+    res.status(200).json({ total, counts, items });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 // Attendance admin: view timesheet and edit records
 router.get('/attendance/timesheet', permit('attendance','view'), async (req, res) => {
   try {

@@ -40,6 +40,7 @@ module.exports = {
   maintenanceMode: String(process.env.MAINTENANCE_MODE || '').toLowerCase() === 'true'
   ,
   payslipEncKey: process.env.PAYSLIP_ENC_KEY || '',
-  payslipKeyVersion: process.env.PAYSLIP_KEY_VERSION || 'v1'
+  payslipKeyVersion: process.env.PAYSLIP_KEY_VERSION || 'v1',
+  leaveGrantMode: String(process.env.LEAVE_GRANT_MODE || 'HYBRID').toUpperCase()
 };
 
